@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Microscopy Figure Composer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ======================= TOP TOOLBAR ======================= -->
+<header id="topbar">
+  <div class="brand">Microscopy Figure Composer</div>
+
+  <div class="tool-group">
+    <button id="tool-select" class="tool-btn active" data-tool="select" title="Select / Move (V)">&#9992; Select</button>
+    <button id="tool-crop" class="tool-btn" data-tool="crop" title="Crop tool (C)">&#9984; Crop</button>
+    <button id="tool-text" class="tool-btn" data-tool="text" title="Text tool (T)">A Text</button>
+    <button id="tool-scalebar" class="tool-btn" data-tool="scalebar" title="Scale bar tool (S)">&#8213; Scale bar</button>
+    <button id="btn-grid" title="Arrange selected (or all) images into a grid with header labels">&#9638; Grid</button>
+  </div>
+
+  <div class="tool-group">
+    <button id="zoom-out" title="Zoom out">&#8722;</button>
+    <span id="zoom-display" class="hint" style="min-width:42px;text-align:center;">100%</span>
+    <button id="zoom-in" title="Zoom in">&#43;</button>
+    <button id="zoom-reset" title="Reset zoom to 100%">1:1</button>
+  </div>
+
+  <div class="tool-group">
+    <button id="btn-undo" title="Undo (Ctrl+Z)">&#8630; Undo</button>
+    <button id="btn-redo" title="Redo (Ctrl+Y)">&#8631; Redo</button>
+  </div>
+
+  <div class="tool-group">
+    <button id="btn-import" title="Import TIFF(s)">&#8593; Import TIFF</button>
+    <input type="file" id="file-input" accept=".tif,.tiff" multiple hidden>
+  </div>
+
+  <div class="tool-group">
+    <button id="btn-docprops" title="Document Properties">&#9881; Document</button>
+    <button id="btn-save-project" title="Save Project (.mfcproj.json)">Save Project</button>
+    <button id="btn-load-project" title="Load Project">Load Project</button>
+    <input type="file" id="project-input" accept=".json,.mfcproj.json" hidden>
+  </div>
+
+  <div class="tool-group dropdown-group">
+    <button id="btn-export" title="Export">&#8681; Export</button>
+    <div id="export-menu" class="dropdown hidden">
+      <button data-export="tiff">Export TIFF (flattened RGB)</button>
+      <button data-export="svg">Export SVG</button>
+      <button data-export="pdf">Export PDF</button>
+    </div>
+  </div>
+</header>
+
+<!-- ======================= ALIGNMENT BAR (shown when 2+ selected) ======================= -->
+<div id="align-bar" class="hidden">
+  <span class="align-label">Align:</span>
+  <button data-align="left" title="Align left">&#8676;</button>
+  <button data-align="hcenter" title="Center horizontally">&#8596;</button>
+  <button data-align="right" title="Align right">&#8677;</button>
+  <button data-align="top" title="Align top">&#8607;</button>
+  <button data-align="vcenter" title="Center vertically">&#8597;</button>
+  <button data-align="bottom" title="Align bottom">&#8609;</button>
+  <span class="align-label">Distribute:</span>
+  <button data-align="distH" title="Distribute horizontally">&#8644; H</button>
+  <button data-align="distV" title="Distribute vertically">&#8645; V</button>
+</div>
+
+<!-- ======================= MAIN LAYOUT ======================= -->
+<div id="main">
+
+  <!-- Canvas area -->
+  <div id="canvas-wrap">
+    <div id="canvas-scroll">
+      <canvas id="mfc-canvas"></canvas>
+    </div>
+    <div id="drop-hint" class="hidden">Drop TIFF file(s) here</div>
+  </div>
+
+  <!-- Right side panel -->
+  <aside id="side-panel">
+
+    <section id="panel-docprops" class="panel">
+      <h3>Document Properties</h3>
+      <label>Width <input type="number" id="doc-width" step="any"></label>
+      <label>Height <input type="number" id="doc-height" step="any"></label>
+      <label>Unit
+        <select id="doc-unit">
+          <option value="px">pixels</option>
+          <option value="cm">cm</option>
+          <option value="in">inches</option>
+        </select>
+      </label>
+      <label>DPI <input type="number" id="doc-dpi" step="1" min="30" max="1200"></label>
+      <button id="doc-apply">Apply</button>
+      <p class="hint" id="doc-pixel-preview"></p>
+    </section>
+
+    <section id="panel-object" class="panel hidden">
+      <h3>Selected Object Size <span class="hint">(on-screen, px)</span></h3>
+      <label>Width <input type="number" id="obj-width"></label>
+      <label>Height <input type="number" id="obj-height"></label>
+      <label><input type="checkbox" id="obj-lock-aspect" checked> Lock aspect ratio</label>
+      <label>Angle (°) <input type="number" id="obj-angle" value="0" step="1"></label>
+      <div class="btn-row">
+        <button id="obj-rotate-ccw" style="width:auto;padding:6px 10px;" title="Rotate -90°">&#8634; -90&deg;</button>
+        <button id="obj-rotate-cw" style="width:auto;padding:6px 10px;" title="Rotate +90°">&#8635; +90&deg;</button>
+      </div>
+      <p class="hint">Handy for matching sizes across images — set one image's size here, then type the same values for the others.</p>
+    </section>
+
+    <section id="panel-channels" class="panel">
+      <h3>Channels <span id="channel-image-name" class="hint"></span></h3>
+      <div id="channel-list"><p class="hint">Select an image to edit its channels.</p></div>
+    </section>
+
+    <section id="panel-crop" class="panel hidden">
+      <h3>Crop</h3>
+      <div class="btn-row">
+        <button id="crop-mode-rect" class="toggle-btn active" style="width:auto;padding:6px 10px;">Rectangle</button>
+        <button id="crop-mode-square" class="toggle-btn" style="width:auto;padding:6px 10px;">Square</button>
+      </div>
+      <label>Width (px) <input type="number" id="crop-width"></label>
+      <label>Height (px) <input type="number" id="crop-height"></label>
+      <button id="crop-apply">Apply Crop</button>
+      <button id="crop-cancel">Cancel</button>
+      <p class="hint">Drag the blue handles on the canvas, or type exact values above — both stay in sync.</p>
+    </section>
+
+    <section id="panel-grid" class="panel hidden">
+      <h3>Grid Layout</h3>
+      <label>Rows <input type="number" id="grid-rows" value="2" min="1" step="1"></label>
+      <label>Columns <input type="number" id="grid-cols" value="3" min="1" step="1"></label>
+      <label>Cell width (px) <input type="number" id="grid-cellw" value="300" step="1"></label>
+      <label>Cell height (px) <input type="number" id="grid-cellh" value="300" step="1"></label>
+      <label>Gap (px) <input type="number" id="grid-gap" value="16" step="1"></label>
+      <label><input type="checkbox" id="grid-header-row" checked> Column headers (above)</label>
+      <label><input type="checkbox" id="grid-header-col" checked> Row labels (left side)</label>
+      <button id="grid-arrange">Arrange</button>
+      <button id="grid-cancel">Close</button>
+      <p class="hint">Select 2+ images first to arrange just those; otherwise every image on the canvas is used.</p>
+    </section>
+
+    <section id="panel-scalebar" class="panel hidden">
+      <h3>Scale Bar</h3>
+      <label>Reference image
+        <select id="sb-ref-image"></select>
+      </label>
+      <label>Length (µm) <input type="number" id="sb-length" value="50" step="any"></label>
+      <label>Thickness (px) <input type="number" id="sb-thickness" value="6" step="1"></label>
+      <label>Color
+        <select id="sb-color">
+          <option value="#ffffff">White</option>
+          <option value="#000000">Black</option>
+          <option value="#ffff00">Yellow</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="sb-showlabel" checked> Show label</label>
+      <button id="sb-place">Place freely (click canvas)</button>
+      <hr style="border-color:var(--border);margin:10px 0;">
+      <label>Attach to corner
+        <select id="sb-corner">
+          <option value="bottom-right">Bottom right</option>
+          <option value="bottom-left">Bottom left</option>
+          <option value="top-right">Top right</option>
+          <option value="top-left">Top left</option>
+        </select>
+      </label>
+      <label>Margin (% of image) <input type="number" id="sb-margin" value="5" step="1" min="0" max="40"></label>
+      <button id="sb-place-corner">Attach to corner</button>
+      <p class="hint">Attached bars automatically follow that image if you move or resize it.</p>
+    </section>
+
+    <section id="panel-text" class="panel hidden">
+      <h3>Text</h3>
+      <label>Font
+        <select id="text-font">
+          <option>Arial</option>
+          <option>Helvetica</option>
+          <option>Times New Roman</option>
+          <option>Courier New</option>
+          <option>Georgia</option>
+          <option>Verdana</option>
+        </select>
+      </label>
+      <label>Size <input type="number" id="text-size" value="24" step="1"></label>
+      <label>Color <input type="color" id="text-color" value="#ffffff"></label>
+      <div class="btn-row">
+        <button id="text-bold" class="toggle-btn" title="Bold"><b>B</b></button>
+        <button id="text-italic" class="toggle-btn" title="Italic"><i>I</i></button>
+        <button id="text-underline" class="toggle-btn" title="Underline"><u>U</u></button>
+      </div>
+      <div class="btn-row">
+        <button id="text-align-left" class="toggle-btn active" title="Align left" style="width:auto;padding:6px 10px;">&#8676;</button>
+        <button id="text-align-center" class="toggle-btn" title="Center" style="width:auto;padding:6px 10px;">&#8596;</button>
+        <button id="text-align-right" class="toggle-btn" title="Align right" style="width:auto;padding:6px 10px;">&#8677;</button>
+      </div>
+      <label>Box width (px) <input type="number" id="text-width"></label>
+      <label>Box height (px) <input type="number" id="text-height"></label>
+      <p class="hint">To color/style just some words: double-click into the text, drag to highlight a range, then use the controls above — the highlight is remembered even if you click a color swatch.</p>
+    </section>
+
+  </aside>
+</div>
+
+<div id="toast" class="hidden"></div>
+
+<!-- ======================= LIBRARIES ======================= -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<!-- ======================= APP ======================= -->
+<script src="js/tiff.js"></script>
+<script src="js/canvas-app.js"></script>
+<script src="js/export.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
