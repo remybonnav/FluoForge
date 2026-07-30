@@ -195,6 +195,13 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('text-bg-color').addEventListener('input', (e) => {
     if (document.getElementById('text-bg-enabled').checked) MFC.applyTextStyle('backgroundColor', e.target.value);
   });
+  document.getElementById('text-border-enabled').addEventListener('change', (e) => {
+    MFC.applyTextBorder('mfcBorderWidth', e.target.checked ? (parseFloat(document.getElementById('text-border-width').value) || 2) : 0);
+  });
+  document.getElementById('text-border-width').addEventListener('input', (e) => {
+    if (document.getElementById('text-border-enabled').checked) MFC.applyTextBorder('mfcBorderWidth', parseFloat(e.target.value) || 0);
+  });
+  document.getElementById('text-border-color').addEventListener('input', (e) => MFC.applyTextBorder('mfcBorderColor', e.target.value));
   document.getElementById('text-bold').addEventListener('click', (e) => {
     e.target.classList.toggle('active');
     MFC.applyTextStyle('fontWeight', e.target.classList.contains('active') ? 'bold' : 'normal');
@@ -261,4 +268,37 @@ window.addEventListener('DOMContentLoaded', () => {
       if (active.length) { active.forEach(o => MFC.getCanvas().remove(o)); MFC.getCanvas().discardActiveObject(); MFC.getCanvas().requestRenderAll(); MFC.pushHistory(); }
     }
   });
+
+  // ---- color palette swatches (quick-pick row under every color input) ----
+  attachColorPalettesToAllInputs();
 });
+
+function attachColorPalettesToAllInputs() {
+  const NORMAL = ['#e6194b', '#f58231', '#ffe119', '#3cb44b', '#46f0f0', '#4363d8', '#911eb4', '#f032e6', '#000000', '#ffffff'];
+  const PASTEL = ['#ffb3ba', '#ffdfba', '#ffffba', '#baffc9', '#bae1ff', '#d5baff', '#e8d5c4', '#d0d0d0'];
+  const PALETTE = [...NORMAL, ...PASTEL];
+
+  ['text-color', 'text-bg-color', 'text-border-color', 'shape-stroke-color', 'shape-fill-color', 'sb-color'].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) attachColorPalette(input, PALETTE);
+  });
+}
+
+function attachColorPalette(input, colors) {
+  const row = document.createElement('div');
+  row.className = 'color-palette';
+  colors.forEach(c => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.style.background = c;
+    b.title = c;
+    b.addEventListener('click', () => {
+      input.value = c;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    row.appendChild(b);
+  });
+  const anchor = input.closest('label') || input;
+  anchor.insertAdjacentElement('afterend', row);
+}

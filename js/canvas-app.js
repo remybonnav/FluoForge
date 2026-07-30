@@ -57,6 +57,7 @@ const MFC = (function () {
       base.styles = JSON.parse(JSON.stringify(o.styles || {}));
       base.fontFamily = o.fontFamily; base.fontSize = o.fontSize; base.fill = o.fill;
       base.backgroundColor = o.backgroundColor; base.textAlign = o.textAlign;
+      base.mfcBorderWidth = o.mfcBorderWidth || 0; base.mfcBorderColor = o.mfcBorderColor || '#000000';
     }
     if (o.type === 'rect' && o.mfcType === 'shape') {
       base.stroke = o.stroke; base.strokeWidth = o.strokeWidth;
@@ -88,6 +89,7 @@ const MFC = (function () {
       if (o.type === 'textbox') {
         o.set({ text: s.text, styles: s.styles, fontFamily: s.fontFamily, fontSize: s.fontSize, fill: s.fill,
                 backgroundColor: s.backgroundColor, textAlign: s.textAlign || 'left' });
+        o.mfcBorderWidth = s.mfcBorderWidth || 0; o.mfcBorderColor = s.mfcBorderColor || '#000000';
         o.initDimensions && o.initDimensions();
       }
       if (o.type === 'rect' && o.mfcType === 'shape') {
@@ -452,6 +454,9 @@ const MFC = (function () {
     const hasBg = active.backgroundColor && /^#/.test(active.backgroundColor);
     document.getElementById('text-bg-enabled').checked = !!hasBg;
     document.getElementById('text-bg-color').value = hasBg ? active.backgroundColor : '#000000';
+    document.getElementById('text-border-enabled').checked = !!(active.mfcBorderWidth > 0);
+    document.getElementById('text-border-width').value = active.mfcBorderWidth || 2;
+    document.getElementById('text-border-color').value = active.mfcBorderColor || '#000000';
     document.getElementById('text-bold').classList.toggle('active', active.fontWeight === 'bold');
     document.getElementById('text-italic').classList.toggle('active', active.fontStyle === 'italic');
     document.getElementById('text-underline').classList.toggle('active', !!active.underline);
@@ -584,6 +589,38 @@ const MFC = (function () {
     });
     t.on('editing:exited', () => { refreshTextPanel(); });
     t.on('editing:entered', () => { refreshTextPanel(); });
+    installTextBorderRenderer(t);
+  }
+
+  /**
+   * Fabric's native stroke/strokeWidth on a Textbox outlines each glyph, not the box —
+   * so a true "box border" (line width + color around the whole text box) needs a small
+   * custom renderer layered on top of the normal text render.
+   */
+  function installTextBorderRenderer(t) {
+    if (t.__mfcBorderInstalled) return;
+    t.__mfcBorderInstalled = true;
+    if (t.mfcBorderWidth === undefined) t.mfcBorderWidth = 0;
+    if (t.mfcBorderColor === undefined) t.mfcBorderColor = '#000000';
+    const originalRender = t._render.bind(t);
+    t._render = function (ctx) {
+      originalRender(ctx);
+      if (this.mfcBorderWidth > 0) {
+        ctx.save();
+        ctx.strokeStyle = this.mfcBorderColor || '#000000';
+        ctx.lineWidth = this.mfcBorderWidth;
+        ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
+        ctx.restore();
+      }
+    };
+  }
+
+  function applyTextBorder(prop, value) {
+    const active = canvas.getActiveObject();
+    if (!active || active.type !== 'textbox') return;
+    active.set(prop, value);
+    canvas.requestRenderAll();
+    canvas.fire('object:modified', { target: active });
   }
 
   function onCanvasMouseDown(opt) {
@@ -1070,7 +1107,7 @@ const MFC = (function () {
     undo, redo, pushHistory,
     setTool, align, copySelection, pasteSelection,
     applyCrop, cancelCrop, setCropAspectMode, applyCropFieldsToRect,
-    applyTextStyle, applyTextAlign, applyTextBoxSize, refreshTextPanel, attachTextListeners,
+    applyTextStyle, applyTextAlign, applyTextBoxSize, applyTextBorder, refreshTextPanel, attachTextListeners,
     refreshObjectSizePanel, applyObjectSizeFromFields, rotateSelected, setObjectAngle,
     armScaleBar, refreshScaleBarRefList, placeScaleBarAtCorner,
     arrangeGrid,

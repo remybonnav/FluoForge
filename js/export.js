@@ -130,7 +130,8 @@ const MFC_EXPORT = (function () {
       if (o.type === 'textbox') {
         return Object.assign(common, {
           text: o.text, styles: o.styles, fontFamily: o.fontFamily, fontSize: o.fontSize, fill: o.fill,
-          backgroundColor: o.backgroundColor, textAlign: o.textAlign
+          backgroundColor: o.backgroundColor, textAlign: o.textAlign,
+          mfcBorderWidth: o.mfcBorderWidth || 0, mfcBorderColor: o.mfcBorderColor || '#000000'
         });
       }
       if (o.mfcType === 'scalebar') {
@@ -209,6 +210,8 @@ const MFC_EXPORT = (function () {
           backgroundColor: objDef.backgroundColor || '', textAlign: objDef.textAlign || 'left'
         });
         t.mfcId = objDef.mfcId; t.mfcType = 'text';
+        t.mfcBorderWidth = objDef.mfcBorderWidth || 0;
+        t.mfcBorderColor = objDef.mfcBorderColor || '#000000';
         MFC.attachTextListeners(t);
         canvas.add(t);
       } else if (objDef.fabricJSON) {

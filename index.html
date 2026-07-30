@@ -152,13 +152,7 @@
       </label>
       <label>Length (µm) <input type="number" id="sb-length" value="50" step="any"></label>
       <label>Thickness (px) <input type="number" id="sb-thickness" value="6" step="1"></label>
-      <label>Color
-        <select id="sb-color">
-          <option value="#ffffff">White</option>
-          <option value="#000000">Black</option>
-          <option value="#ffff00">Yellow</option>
-        </select>
-      </label>
+      <label>Color <input type="color" id="sb-color" value="#ffffff"></label>
       <label><input type="checkbox" id="sb-showlabel" checked> Show label</label>
       <button id="sb-place">Place freely (click canvas)</button>
       <hr style="border-color:var(--border);margin:10px 0;">
@@ -221,6 +215,13 @@
           <input type="color" id="text-bg-color" value="#000000">
         </span>
       </label>
+      <label>Box border
+        <span style="display:flex;gap:6px;align-items:center;">
+          <input type="checkbox" id="text-border-enabled">
+          <input type="color" id="text-border-color" value="#000000">
+        </span>
+      </label>
+      <label>Border width (px) <input type="number" id="text-border-width" value="2" min="1" step="1"></label>
       <div class="btn-row">
         <button id="text-bold" class="toggle-btn" title="Bold"><b>B</b></button>
         <button id="text-italic" class="toggle-btn" title="Italic"><i>I</i></button>
