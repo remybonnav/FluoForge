@@ -5,9 +5,24 @@
  * embeds raster layers as base64 PNG and renders text/shapes as true
  * vector elements), and PDF (via jsPDF) export.
  *
- * Also: Project save/load as JSON. Original TIFF bytes are embedded as
- * base64 so a reloaded project remains fully re-editable at full bit depth
- * (channel toggles / colors / contrast are not baked in).
+ * Also: Project save/load. Projects are saved as a .mfcproj.zip archive
+ * (via JSZip) containing:
+ *   - manifest.json   (lightweight metadata: doc props, object positions,
+ *                       styles, channel settings, etc. — NO large binary data)
+ *   - images/*.tiff    (original TIFF bytes, stored raw/binary, so a
+ *                       reloaded project remains fully re-editable at full
+ *                       bit depth — channel toggles / colors / contrast are
+ *                       not baked in)
+ *
+ * NOTE: We intentionally never JSON.stringify the raw image bytes together
+ * in one big object/string. Large multi-channel TIFFs, once base64-encoded
+ * and concatenated into a single JS string via JSON.stringify, can exceed
+ * the JS engine's maximum string length (RangeError: Invalid string length).
+ * Storing each image as its own binary entry in the zip avoids this entirely
+ * and also avoids the ~33% size bloat of base64.
+ *
+ * Legacy support: old *.mfcproj.json / *.mfcproj.json.gz project files
+ * (single embedded-base64-JSON format) are still detected and loaded fine.
  * -----------------------------------------------------------------------
  */
 
@@ -112,6 +127,10 @@ const MFC_EXPORT = (function () {
     const registry = MFC.getRegistry();
     const docProps = MFC.getDocProps();
 
+    const zip = new JSZip();
+    const imagesFolder = zip.folder('images');
+    let imgCounter = 0;
+
     const objects = canvas.getObjects().map(o => {
       const common = {
         mfcId: o.mfcId, mfcType: o.mfcType || o.type,
@@ -121,9 +140,16 @@ const MFC_EXPORT = (function () {
       };
       if (o.mfcType === 'mfcImage') {
         const entry = registry[o.mfcId];
+        const archiveName = `img_${imgCounter++}.tiff`;
+        // entry.fileBase64 is a data URL ("data:...;base64,XXXX"); strip the
+        // prefix and store the raw bytes directly in the zip (not JSON) so
+        // we never build one giant string via JSON.stringify.
+        const commaIdx = entry.fileBase64.indexOf(',');
+        const base64Data = commaIdx >= 0 ? entry.fileBase64.slice(commaIdx + 1) : entry.fileBase64;
+        imagesFolder.file(archiveName, base64Data, { base64: true });
         return Object.assign(common, {
           fileName: o.mfcFileName,
-          fileBase64: entry.fileBase64,
+          imageArchivePath: `images/${archiveName}`,
           channels: entry.rawImage.channels.map(c => ({ enabled: c.enabled, color: c.color, min: c.min, max: c.max, name: c.name }))
         });
       }
@@ -142,20 +168,18 @@ const MFC_EXPORT = (function () {
       return Object.assign(common, { fabricJSON: o.toObject(['mfcId', 'mfcType']) });
     });
 
-    // The project file is fully self-contained: original TIFF bytes are embedded above
-    // as base64 (fileBase64), not referenced by filesystem path — so moving/archiving
-    // this .json(.gz) file anywhere, independent of where the source images live, is safe.
-    const project = { version: 1, projectName: docProps.name || 'Untitled Figure', docProps, nextId: MFC.getNextIdCounter(), objects };
-    const rawBlob = new Blob([JSON.stringify(project)], { type: 'application/json' });
+    // manifest.json holds only lightweight metadata now — no embedded binary
+    // data — so JSON.stringify here is always safe regardless of project size.
+    const project = { version: 2, projectName: docProps.name || 'Untitled Figure', docProps, nextId: MFC.getNextIdCounter(), objects };
+    zip.file('manifest.json', JSON.stringify(project));
 
-    let outBlob = rawBlob, filename = sanitizeFilename(docProps.name) + '.mfcproj.json';
-    try {
-      outBlob = await gzipBlob(rawBlob);
-      filename = sanitizeFilename(docProps.name) + '.mfcproj.json.gz';
-    } catch (err) {
-      console.warn('Compression unavailable, saving uncompressed project.', err);
-    }
+    const outBlob = await zip.generateAsync({
+      type: 'blob',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 }
+    });
 
+    const filename = sanitizeFilename(docProps.name) + '.mfcproj.zip';
     download(outBlob, filename);
     const sizeMB = (outBlob.size / (1024 * 1024)).toFixed(1);
     MFC_UI.toast(`Saved "${filename}" (${sizeMB} MB)`);
@@ -163,16 +187,29 @@ const MFC_EXPORT = (function () {
 
   async function loadProject(file) {
     const buf = await file.arrayBuffer();
-    const magic = new Uint8Array(buf.slice(0, 2));
-    const isGzip = magic[0] === 0x1f && magic[1] === 0x8b; // detected by content, not filename/extension
-    let text;
-    if (isGzip) {
-      const decompressed = await gunzipBlob(new Blob([buf]));
-      text = await decompressed.text();
+    const magic = new Uint8Array(buf.slice(0, 4));
+    const isZip = magic[0] === 0x50 && magic[1] === 0x4b; // 'PK' — zip signature (current format)
+    const isGzip = magic[0] === 0x1f && magic[1] === 0x8b; // legacy gzip-wrapped JSON format
+
+    let project, zip = null;
+
+    if (isZip) {
+      zip = await JSZip.loadAsync(buf);
+      const manifestText = await zip.file('manifest.json').async('string');
+      project = JSON.parse(manifestText);
     } else {
-      text = new TextDecoder().decode(buf);
+      // Legacy support: old single-JSON project files (*.mfcproj.json / *.mfcproj.json.gz)
+      // that embedded images as base64 strings directly in the JSON.
+      let text;
+      if (isGzip) {
+        const decompressed = await gunzipBlob(new Blob([buf]));
+        text = await decompressed.text();
+      } else {
+        text = new TextDecoder().decode(buf);
+      }
+      project = JSON.parse(text);
     }
-    const project = JSON.parse(text);
+
     const canvas = MFC.getCanvas();
     canvas.clear();
 
@@ -186,7 +223,13 @@ const MFC_EXPORT = (function () {
 
     for (const objDef of project.objects) {
       if (objDef.mfcType === 'mfcImage') {
-        const blob = await (await fetch(objDef.fileBase64)).blob();
+        let blob;
+        if (zip && objDef.imageArchivePath) {
+          blob = await zip.file(objDef.imageArchivePath).async('blob');
+        } else if (objDef.fileBase64) {
+          // legacy fallback
+          blob = await (await fetch(objDef.fileBase64)).blob();
+        }
         const file2 = new File([blob], objDef.fileName, { type: 'image/tiff' });
         const rawImage = await MFC_TIFF.decodeFile(file2);
         rawImage.channels.forEach((c, i) => Object.assign(c, objDef.channels[i]));
