@@ -602,6 +602,12 @@ const MFC = (function () {
     t.__mfcBorderInstalled = true;
     if (t.mfcBorderWidth === undefined) t.mfcBorderWidth = 0;
     if (t.mfcBorderColor === undefined) t.mfcBorderColor = '#000000';
+    // Fabric only re-renders an object's cached bitmap when it recognizes the changed
+    // property as "cache-affecting." Our custom mfcBorderWidth/mfcBorderColor aren't in
+    // that list, so edits to them (and sometimes backgroundColor) could silently redraw
+    // a stale cached bitmap. Disabling caching for text boxes sidesteps the whole bug
+    // class — cheap for the handful of small text objects a figure typically has.
+    t.objectCaching = false;
     const originalRender = t._render.bind(t);
     t._render = function (ctx) {
       originalRender(ctx);
@@ -619,6 +625,7 @@ const MFC = (function () {
     const active = canvas.getActiveObject();
     if (!active || active.type !== 'textbox') return;
     active.set(prop, value);
+    active.dirty = true;
     canvas.requestRenderAll();
     canvas.fire('object:modified', { target: active });
   }
@@ -769,10 +776,10 @@ const MFC = (function () {
 
     if (sel) {
       active.setSelectionStyles({ [prop]: value }, sel.start, sel.end);
-      active.dirty = true;
     } else {
       active.set(prop, value);
     }
+    active.dirty = true;
     canvas.requestRenderAll();
     canvas.fire('object:modified', { target: active });
   }
