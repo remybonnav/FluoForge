@@ -19,8 +19,16 @@
 
 const MFC = (function () {
 
+  const DASH_PRESETS = {
+    solid: null,
+    dashed: [12, 8],
+    dotted: [2, 5],
+    dashdot: [12, 5, 2, 5],
+    longdash: [22, 10]
+  };
+
   let canvas;                       // fabric.Canvas
-  let docProps = { width: 1748, height: 1240, unit: 'px', dpi: 300 }; // A4-ish default @300dpi
+  let docProps = { name: 'Untitled Figure', width: 1748, height: 1240, unit: 'px', dpi: 300 }; // A4-ish default @300dpi
   let currentTool = 'select';
   let nextId = 1;
   const registry = {};              // id -> { rawImage (from tiff.js), fileBase64 }
@@ -48,6 +56,11 @@ const MFC = (function () {
       base.text = o.text;
       base.styles = JSON.parse(JSON.stringify(o.styles || {}));
       base.fontFamily = o.fontFamily; base.fontSize = o.fontSize; base.fill = o.fill;
+      base.backgroundColor = o.backgroundColor; base.textAlign = o.textAlign;
+    }
+    if (o.type === 'rect' && o.mfcType === 'shape') {
+      base.stroke = o.stroke; base.strokeWidth = o.strokeWidth;
+      base.fill = o.fill; base.strokeDashArray = o.strokeDashArray ? o.strokeDashArray.slice() : null;
     }
     return base;
   }
@@ -73,12 +86,17 @@ const MFC = (function () {
         recomposite(o);
       }
       if (o.type === 'textbox') {
-        o.set({ text: s.text, styles: s.styles, fontFamily: s.fontFamily, fontSize: s.fontSize, fill: s.fill });
+        o.set({ text: s.text, styles: s.styles, fontFamily: s.fontFamily, fontSize: s.fontSize, fill: s.fill,
+                backgroundColor: s.backgroundColor, textAlign: s.textAlign || 'left' });
         o.initDimensions && o.initDimensions();
+      }
+      if (o.type === 'rect' && o.mfcType === 'shape') {
+        o.set({ stroke: s.stroke, strokeWidth: s.strokeWidth, fill: s.fill, strokeDashArray: s.strokeDashArray });
       }
       o.setCoords();
     });
     canvas.requestRenderAll();
+    refreshShapePanel();
     refreshChannelPanel();
   }
 
@@ -101,12 +119,29 @@ const MFC = (function () {
     });
     applyDocProps(docProps);
 
-    canvas.on('object:modified', () => pushHistory());
+    canvas.on('object:modified', (e) => {
+      const obj = e.target;
+      // Textbox handles: corner/top/bottom drags change scaleX/scaleY (which stretch the
+      // glyphs without touching the numeric fontSize property — that's the bug where the
+      // Size field in the panel goes stale). Convert any leftover scale into a real
+      // fontSize + width change and reset scale to 1, so what's on screen always matches
+      // the number in the panel.
+      if (obj && obj.type === 'textbox' && (obj.scaleX !== 1 || obj.scaleY !== 1)) {
+        const newFontSize = Math.max(4, Math.round(obj.fontSize * obj.scaleY));
+        const newWidth = Math.max(20, obj.width * obj.scaleX);
+        obj.set({ fontSize: newFontSize, width: newWidth, scaleX: 1, scaleY: 1 });
+        obj.setCoords();
+        refreshTextPanel();
+      }
+      pushHistory();
+    });
     canvas.on('selection:created', onSelectionChanged);
     canvas.on('selection:updated', onSelectionChanged);
     canvas.on('selection:cleared', onSelectionChanged);
     canvas.on('text:changed', () => { /* debounced via object:modified on blur */ });
     canvas.on('mouse:down', onCanvasMouseDown);
+    canvas.on('mouse:move', onCanvasMouseMove);
+    canvas.on('mouse:up', onCanvasMouseUp);
 
     canvas.on('object:moving', (e) => {
       if (e.target && e.target.mfcType === 'mfcImage') repositionAttachedScaleBars(e.target);
@@ -338,6 +373,7 @@ const MFC = (function () {
     refreshObjectSizePanel();
     refreshTextPanel();
     refreshScaleBarRefList();
+    refreshShapePanel();
     const objs = canvas.getActiveObjects ? canvas.getActiveObjects() : [];
     document.getElementById('align-bar').classList.toggle('hidden', objs.length < 2);
   }
@@ -413,6 +449,9 @@ const MFC = (function () {
     document.getElementById('text-font').value = active.fontFamily || 'Arial';
     document.getElementById('text-size').value = Math.round(active.fontSize || 24);
     document.getElementById('text-color').value = /^#/.test(active.fill) ? active.fill : '#ffffff';
+    const hasBg = active.backgroundColor && /^#/.test(active.backgroundColor);
+    document.getElementById('text-bg-enabled').checked = !!hasBg;
+    document.getElementById('text-bg-color').value = hasBg ? active.backgroundColor : '#000000';
     document.getElementById('text-bold').classList.toggle('active', active.fontWeight === 'bold');
     document.getElementById('text-italic').classList.toggle('active', active.fontStyle === 'italic');
     document.getElementById('text-underline').classList.toggle('active', !!active.underline);
@@ -439,6 +478,7 @@ const MFC = (function () {
 
   // ---- crop tool ----
   let cropRect = null, cropTargetImg = null, cropAspectMode = 'rect'; // 'rect' | 'square'
+  let shapeAspectMode = 'rect'; // 'rect' | 'square' — used by the shape tool
 
   function startCrop() {
     const active = canvas.getActiveObject();
@@ -567,7 +607,116 @@ const MFC = (function () {
       setTool('select');
     } else if (currentTool === 'scalebar' && !opt.target && scaleBarArmed) {
       placeScaleBarAt(canvas.getPointer(opt.e));
+    } else if (currentTool === 'shape' && !opt.target) {
+      startShapeDrag(canvas.getPointer(opt.e), opt.e);
     }
+  }
+
+  // ---- shape tool (rectangle/square, drag-to-draw) ----
+  let shapeDrag = null; // { rect, startX, startY }
+
+  function readShapeFormValues() {
+    const dashKey = document.getElementById('shape-dash').value;
+    const fillEnabled = document.getElementById('shape-fill-enabled').checked;
+    return {
+      stroke: document.getElementById('shape-stroke-color').value,
+      strokeWidth: parseFloat(document.getElementById('shape-stroke-width').value) || 0,
+      strokeDashArray: DASH_PRESETS[dashKey] || null,
+      fill: fillEnabled ? document.getElementById('shape-fill-color').value : 'transparent'
+    };
+  }
+
+  function startShapeDrag(pointer, evt) {
+    const style = readShapeFormValues();
+    const rect = new fabric.Rect({
+      left: pointer.x, top: pointer.y, width: 1, height: 1,
+      stroke: style.stroke, strokeWidth: style.strokeWidth, strokeDashArray: style.strokeDashArray,
+      fill: style.fill, strokeUniform: true,
+      cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff'
+    });
+    rect.mfcId = 'shp' + (nextId++);
+    rect.mfcType = 'shape';
+    canvas.add(rect);
+    shapeDrag = { rect, startX: pointer.x, startY: pointer.y };
+  }
+
+  function onCanvasMouseMove(opt) {
+    if (!shapeDrag) return;
+    const p = canvas.getPointer(opt.e);
+    let w = p.x - shapeDrag.startX;
+    let h = p.y - shapeDrag.startY;
+    const square = shapeAspectMode === 'square' || opt.e.shiftKey;
+    if (square) {
+      const s = Math.max(Math.abs(w), Math.abs(h));
+      w = (w < 0 ? -1 : 1) * s;
+      h = (h < 0 ? -1 : 1) * s;
+    }
+    shapeDrag.rect.set({
+      left: w < 0 ? shapeDrag.startX + w : shapeDrag.startX,
+      top: h < 0 ? shapeDrag.startY + h : shapeDrag.startY,
+      width: Math.abs(w), height: Math.abs(h)
+    });
+    shapeDrag.rect.setCoords();
+    canvas.requestRenderAll();
+  }
+
+  function onCanvasMouseUp() {
+    if (!shapeDrag) return;
+    const rect = shapeDrag.rect;
+    // treat a near-zero drag (a simple click) as "place a default-sized shape here"
+    if (rect.width < 5 && rect.height < 5) {
+      rect.set({ width: 150, height: shapeAspectMode === 'square' ? 150 : 100 });
+      rect.setCoords();
+      canvas.requestRenderAll();
+    }
+    shapeDrag = null;
+    canvas.setActiveObject(rect);
+    canvas.requestRenderAll();
+    pushHistory();
+    refreshShapePanel();
+    setTool('select');
+  }
+
+  function setShapeAspectMode(mode) {
+    shapeAspectMode = mode;
+    document.getElementById('shape-mode-rect').classList.toggle('active', mode === 'rect');
+    document.getElementById('shape-mode-square').classList.toggle('active', mode === 'square');
+  }
+
+  /** Live-apply the panel's current stroke/fill/dash settings to the selected shape. */
+  function applyShapeStyle() {
+    const active = canvas.getActiveObject();
+    if (!active || active.mfcType !== 'shape') return;
+    const style = readShapeFormValues();
+    active.set(style);
+    canvas.requestRenderAll();
+    canvas.fire('object:modified', { target: active });
+  }
+
+  function refreshShapePanel() {
+    const active = canvas.getActiveObject();
+    const isShape = active && active.mfcType === 'shape';
+    document.getElementById('panel-shape').classList.toggle('hidden', !(isShape || currentTool === 'shape'));
+    if (!isShape) return;
+    document.getElementById('shape-stroke-color').value = toHexColor(active.stroke) || '#ffffff';
+    document.getElementById('shape-stroke-width').value = active.strokeWidth || 0;
+    const hasFill = active.fill && active.fill !== 'transparent';
+    document.getElementById('shape-fill-enabled').checked = !!hasFill;
+    document.getElementById('shape-fill-color').value = hasFill ? toHexColor(active.fill) : '#ffffff';
+    const dash = active.strokeDashArray;
+    let dashKey = 'solid';
+    for (const [k, v] of Object.entries(DASH_PRESETS)) {
+      if (v && dash && v.length === dash.length && v.every((n, i) => n === dash[i])) { dashKey = k; break; }
+    }
+    document.getElementById('shape-dash').value = dashKey;
+  }
+
+  function toHexColor(c) {
+    if (!c) return null;
+    if (/^#/.test(c)) return c;
+    const m = String(c).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (!m) return null;
+    return '#' + [1, 2, 3].map(i => parseInt(m[i], 10).toString(16).padStart(2, '0')).join('');
   }
 
   /** Apply a style prop either to a highlighted text range (per-word/char formatting) or the whole box. */
@@ -802,6 +951,7 @@ const MFC = (function () {
       const p = clipboardObj.props;
       const fabricImg = new fabric.Image(compositeCanvas, {
         left: p.left + 24, top: p.top + 24, scaleX: p.scaleX, scaleY: p.scaleY, angle: p.angle,
+        cropX: p.cropX || 0, cropY: p.cropY || 0, width: p.width, height: p.height,
         cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff'
       });
       fabricImg.mfcId = id;
@@ -809,6 +959,7 @@ const MFC = (function () {
       fabricImg.mfcRawWidth = clonedRaw.width;
       fabricImg.mfcRawHeight = clonedRaw.height;
       fabricImg.mfcFileName = clonedRaw.fileName + ' copy';
+      fabricImg.setCoords();
 
       canvas.add(fabricImg);
       canvas.setActiveObject(fabricImg);
@@ -903,8 +1054,10 @@ const MFC = (function () {
     else cancelCrop();
     if (tool === 'scalebar') { refreshScaleBarRefList(); armScaleBar(); }
     else scaleBarArmed = false;
+    if (tool !== 'shape' && shapeDrag) { canvas.remove(shapeDrag.rect); shapeDrag = null; }
     refreshTextPanel();
     refreshObjectSizePanel();
+    refreshShapePanel();
   }
 
   function getRegistry() { return registry; }
@@ -917,10 +1070,11 @@ const MFC = (function () {
     undo, redo, pushHistory,
     setTool, align, copySelection, pasteSelection,
     applyCrop, cancelCrop, setCropAspectMode, applyCropFieldsToRect,
-    applyTextStyle, applyTextAlign, applyTextBoxSize, refreshTextPanel,
+    applyTextStyle, applyTextAlign, applyTextBoxSize, refreshTextPanel, attachTextListeners,
     refreshObjectSizePanel, applyObjectSizeFromFields, rotateSelected, setObjectAngle,
     armScaleBar, refreshScaleBarRefList, placeScaleBarAtCorner,
     arrangeGrid,
+    applyShapeStyle, setShapeAspectMode, refreshShapePanel,
     zoomIn, zoomOut, zoomReset, updateZoomDisplay, setZoom, getZoomLevel,
     getRegistry, getNextIdCounter, setNextIdCounter,
     get currentTool() { return currentTool; }

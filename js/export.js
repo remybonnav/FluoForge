@@ -94,7 +94,20 @@ const MFC_EXPORT = (function () {
 
   // ---------------- Project save/load ----------------
 
-  function saveProject() {
+  function sanitizeFilename(name) {
+    return (name || 'figure_project').trim().replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ') || 'figure_project';
+  }
+
+  async function gzipBlob(blob) {
+    const stream = blob.stream().pipeThrough(new CompressionStream('gzip'));
+    return await new Response(stream).blob();
+  }
+  async function gunzipBlob(blob) {
+    const stream = blob.stream().pipeThrough(new DecompressionStream('gzip'));
+    return await new Response(stream).blob();
+  }
+
+  async function saveProject() {
     const canvas = MFC.getCanvas();
     const registry = MFC.getRegistry();
     const docProps = MFC.getDocProps();
@@ -116,7 +129,8 @@ const MFC_EXPORT = (function () {
       }
       if (o.type === 'textbox') {
         return Object.assign(common, {
-          text: o.text, styles: o.styles, fontFamily: o.fontFamily, fontSize: o.fontSize, fill: o.fill
+          text: o.text, styles: o.styles, fontFamily: o.fontFamily, fontSize: o.fontSize, fill: o.fill,
+          backgroundColor: o.backgroundColor, textAlign: o.textAlign
         });
       }
       if (o.mfcType === 'scalebar') {
@@ -127,20 +141,43 @@ const MFC_EXPORT = (function () {
       return Object.assign(common, { fabricJSON: o.toObject(['mfcId', 'mfcType']) });
     });
 
-    const project = { version: 1, docProps, nextId: MFC.getNextIdCounter(), objects };
-    const blob = new Blob([JSON.stringify(project)], { type: 'application/json' });
-    download(blob, 'figure_project.mfcproj.json');
-    MFC_UI.toast('Project saved.');
+    // The project file is fully self-contained: original TIFF bytes are embedded above
+    // as base64 (fileBase64), not referenced by filesystem path — so moving/archiving
+    // this .json(.gz) file anywhere, independent of where the source images live, is safe.
+    const project = { version: 1, projectName: docProps.name || 'Untitled Figure', docProps, nextId: MFC.getNextIdCounter(), objects };
+    const rawBlob = new Blob([JSON.stringify(project)], { type: 'application/json' });
+
+    let outBlob = rawBlob, filename = sanitizeFilename(docProps.name) + '.mfcproj.json';
+    try {
+      outBlob = await gzipBlob(rawBlob);
+      filename = sanitizeFilename(docProps.name) + '.mfcproj.json.gz';
+    } catch (err) {
+      console.warn('Compression unavailable, saving uncompressed project.', err);
+    }
+
+    download(outBlob, filename);
+    const sizeMB = (outBlob.size / (1024 * 1024)).toFixed(1);
+    MFC_UI.toast(`Saved "${filename}" (${sizeMB} MB)`);
   }
 
   async function loadProject(file) {
-    const text = await file.text();
+    const buf = await file.arrayBuffer();
+    const magic = new Uint8Array(buf.slice(0, 2));
+    const isGzip = magic[0] === 0x1f && magic[1] === 0x8b; // detected by content, not filename/extension
+    let text;
+    if (isGzip) {
+      const decompressed = await gunzipBlob(new Blob([buf]));
+      text = await decompressed.text();
+    } else {
+      text = new TextDecoder().decode(buf);
+    }
     const project = JSON.parse(text);
     const canvas = MFC.getCanvas();
     canvas.clear();
 
     MFC.applyDocProps(project.docProps);
     MFC.setNextIdCounter(project.nextId || 1);
+    document.getElementById('doc-name').value = project.projectName || project.docProps.name || 'Untitled Figure';
     document.getElementById('doc-width').value = project.docProps.width;
     document.getElementById('doc-height').value = project.docProps.height;
     document.getElementById('doc-unit').value = project.docProps.unit;
@@ -154,8 +191,11 @@ const MFC_EXPORT = (function () {
         rawImage.channels.forEach((c, i) => Object.assign(c, objDef.channels[i]));
         await MFC.addImageToCanvas(rawImage, file2);
         const added = canvas.getObjects()[canvas.getObjects().length - 1];
+        const autoId = added.mfcId;
+        const reg = MFC.getRegistry();
+        reg[objDef.mfcId] = reg[autoId];
+        if (objDef.mfcId !== autoId) delete reg[autoId];
         added.mfcId = objDef.mfcId;
-        MFC.getRegistry()[objDef.mfcId] = MFC.getRegistry()[added.mfcId] || MFC.getRegistry()[added.mfcId];
         added.set({ left: objDef.left, top: objDef.top, scaleX: objDef.scaleX, scaleY: objDef.scaleY,
                     angle: objDef.angle, width: objDef.width, height: objDef.height,
                     cropX: objDef.cropX, cropY: objDef.cropY });
@@ -165,9 +205,11 @@ const MFC_EXPORT = (function () {
         const t = new fabric.Textbox(objDef.text, {
           left: objDef.left, top: objDef.top, scaleX: objDef.scaleX, scaleY: objDef.scaleY,
           angle: objDef.angle, width: objDef.width, fontFamily: objDef.fontFamily,
-          fontSize: objDef.fontSize, fill: objDef.fill, styles: objDef.styles
+          fontSize: objDef.fontSize, fill: objDef.fill, styles: objDef.styles,
+          backgroundColor: objDef.backgroundColor || '', textAlign: objDef.textAlign || 'left'
         });
         t.mfcId = objDef.mfcId; t.mfcType = 'text';
+        MFC.attachTextListeners(t);
         canvas.add(t);
       } else if (objDef.fabricJSON) {
         fabric.util.enlivenObjects([objDef.fabricJSON], (enlivened) => {

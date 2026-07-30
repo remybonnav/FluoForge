@@ -17,6 +17,7 @@
     <button id="tool-crop" class="tool-btn" data-tool="crop" title="Crop tool (C)">&#9984; Crop</button>
     <button id="tool-text" class="tool-btn" data-tool="text" title="Text tool (T)">A Text</button>
     <button id="tool-scalebar" class="tool-btn" data-tool="scalebar" title="Scale bar tool (S)">&#8213; Scale bar</button>
+    <button id="tool-shape" class="tool-btn" data-tool="shape" title="Rectangle/square tool (R)">&#9633; Shape</button>
     <button id="btn-grid" title="Arrange selected (or all) images into a grid with header labels">&#9638; Grid</button>
   </div>
 
@@ -41,7 +42,7 @@
     <button id="btn-docprops" title="Document Properties">&#9881; Document</button>
     <button id="btn-save-project" title="Save Project (.mfcproj.json)">Save Project</button>
     <button id="btn-load-project" title="Load Project">Load Project</button>
-    <input type="file" id="project-input" accept=".json,.mfcproj.json" hidden>
+    <input type="file" id="project-input" accept=".json,.mfcproj.json,.gz,.mfcproj.json.gz" hidden>
   </div>
 
   <div class="tool-group dropdown-group">
@@ -84,6 +85,7 @@
 
     <section id="panel-docprops" class="panel">
       <h3>Document Properties</h3>
+      <label>Project name <input type="text" id="doc-name" value="Untitled Figure" style="width:160px;"></label>
       <label>Width <input type="number" id="doc-width" step="any"></label>
       <label>Height <input type="number" id="doc-height" step="any"></label>
       <label>Unit
@@ -173,6 +175,32 @@
       <p class="hint">Attached bars automatically follow that image if you move or resize it.</p>
     </section>
 
+    <section id="panel-shape" class="panel hidden">
+      <h3>Shape</h3>
+      <div class="btn-row">
+        <button id="shape-mode-rect" class="toggle-btn active" style="width:auto;padding:6px 10px;">Rectangle</button>
+        <button id="shape-mode-square" class="toggle-btn" style="width:auto;padding:6px 10px;">Square</button>
+      </div>
+      <label>Stroke color <input type="color" id="shape-stroke-color" value="#ffffff"></label>
+      <label>Stroke width <input type="number" id="shape-stroke-width" value="3" min="0" step="1"></label>
+      <label>Dash style
+        <select id="shape-dash">
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="dotted">Dotted</option>
+          <option value="dashdot">Dash-dot</option>
+          <option value="longdash">Long dash</option>
+        </select>
+      </label>
+      <label>Fill
+        <span style="display:flex;gap:6px;align-items:center;">
+          <input type="checkbox" id="shape-fill-enabled">
+          <input type="color" id="shape-fill-color" value="#ffffff">
+        </span>
+      </label>
+      <p class="hint">Drag on the canvas to draw. Hold Shift while dragging (or use the Square toggle) to constrain to 1:1.</p>
+    </section>
+
     <section id="panel-text" class="panel hidden">
       <h3>Text</h3>
       <label>Font
@@ -186,7 +214,13 @@
         </select>
       </label>
       <label>Size <input type="number" id="text-size" value="24" step="1"></label>
-      <label>Color <input type="color" id="text-color" value="#ffffff"></label>
+      <label>Text color <input type="color" id="text-color" value="#ffffff"></label>
+      <label>Box background
+        <span style="display:flex;gap:6px;align-items:center;">
+          <input type="checkbox" id="text-bg-enabled">
+          <input type="color" id="text-bg-color" value="#000000">
+        </span>
+      </label>
       <div class="btn-row">
         <button id="text-bold" class="toggle-btn" title="Bold"><b>B</b></button>
         <button id="text-italic" class="toggle-btn" title="Italic"><i>I</i></button>

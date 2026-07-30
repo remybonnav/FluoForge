@@ -21,6 +21,9 @@ function showDocPropsModal(onConfirm) {
   backdrop.innerHTML = `
     <div class="modal">
       <h2>Document Properties</h2>
+      <label style="display:flex;justify-content:space-between;margin-bottom:8px;">Project name
+        <input type="text" id="m-name" value="Untitled Figure" style="width:160px;">
+      </label>
       <label style="display:flex;justify-content:space-between;margin-bottom:8px;">Width
         <input type="number" id="m-width" value="21" step="any" style="width:120px;">
       </label>
@@ -42,6 +45,7 @@ function showDocPropsModal(onConfirm) {
   document.body.appendChild(backdrop);
   document.getElementById('m-ok').addEventListener('click', () => {
     const props = {
+      name: document.getElementById('m-name').value.trim() || 'Untitled Figure',
       width: parseFloat(document.getElementById('m-width').value),
       height: parseFloat(document.getElementById('m-height').value),
       unit: document.getElementById('m-unit').value,
@@ -53,6 +57,7 @@ function showDocPropsModal(onConfirm) {
 }
 
 function syncDocPropsPanel(props) {
+  document.getElementById('doc-name').value = props.name || 'Untitled Figure';
   document.getElementById('doc-width').value = props.width;
   document.getElementById('doc-height').value = props.height;
   document.getElementById('doc-unit').value = props.unit;
@@ -85,6 +90,7 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('doc-apply').addEventListener('click', () => {
     const props = {
+      name: document.getElementById('doc-name').value.trim() || 'Untitled Figure',
       width: parseFloat(document.getElementById('doc-width').value),
       height: parseFloat(document.getElementById('doc-height').value),
       unit: document.getElementById('doc-unit').value,
@@ -150,6 +156,14 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('crop-height').addEventListener('input', () => MFC.applyCropFieldsToRect());
   document.getElementById('crop-mode-rect').addEventListener('click', () => MFC.setCropAspectMode('rect'));
   document.getElementById('crop-mode-square').addEventListener('click', () => MFC.setCropAspectMode('square'));
+
+  // ---- shape panel ----
+  document.getElementById('shape-mode-rect').addEventListener('click', () => MFC.setShapeAspectMode('rect'));
+  document.getElementById('shape-mode-square').addEventListener('click', () => MFC.setShapeAspectMode('square'));
+  ['shape-stroke-color', 'shape-stroke-width', 'shape-dash', 'shape-fill-enabled', 'shape-fill-color'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => MFC.applyShapeStyle());
+    document.getElementById(id).addEventListener('change', () => MFC.applyShapeStyle());
+  });
   document.getElementById('crop-apply').addEventListener('click', () => {
     MFC.applyCrop();
     MFC.setTool('select');
@@ -175,6 +189,12 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('text-font').addEventListener('change', (e) => MFC.applyTextStyle('fontFamily', e.target.value));
   document.getElementById('text-size').addEventListener('change', (e) => MFC.applyTextStyle('fontSize', parseInt(e.target.value, 10)));
   document.getElementById('text-color').addEventListener('input', (e) => MFC.applyTextStyle('fill', e.target.value));
+  document.getElementById('text-bg-enabled').addEventListener('change', (e) => {
+    MFC.applyTextStyle('backgroundColor', e.target.checked ? document.getElementById('text-bg-color').value : '');
+  });
+  document.getElementById('text-bg-color').addEventListener('input', (e) => {
+    if (document.getElementById('text-bg-enabled').checked) MFC.applyTextStyle('backgroundColor', e.target.value);
+  });
   document.getElementById('text-bold').addEventListener('click', (e) => {
     e.target.classList.toggle('active');
     MFC.applyTextStyle('fontWeight', e.target.classList.contains('active') ? 'bold' : 'normal');
@@ -235,6 +255,7 @@ window.addEventListener('DOMContentLoaded', () => {
     else if (e.key.toLowerCase() === 'c') { MFC.setTool('crop'); }
     else if (e.key.toLowerCase() === 't') { MFC.setTool('text'); }
     else if (e.key.toLowerCase() === 's' && !ctrl) { MFC.setTool('scalebar'); }
+    else if (e.key.toLowerCase() === 'r' && !ctrl) { MFC.setTool('shape'); }
     else if (e.key === 'Delete' || e.key === 'Backspace') {
       const active = MFC.getCanvas().getActiveObjects();
       if (active.length) { active.forEach(o => MFC.getCanvas().remove(o)); MFC.getCanvas().discardActiveObject(); MFC.getCanvas().requestRenderAll(); MFC.pushHistory(); }
