@@ -624,9 +624,11 @@ const MFC = (function () {
   function applyTextBorder(prop, value) {
     const active = canvas.getActiveObject();
     if (!active || active.type !== 'textbox') return;
+    if (active.isEditing) active.exitEditing(); // avoid racing Fabric's async editing-exit
     active.set(prop, value);
     active.dirty = true;
-    canvas.requestRenderAll();
+    active.setCoords();
+    canvas.renderAll(); // synchronous — don't rely solely on the scheduled requestRenderAll
     canvas.fire('object:modified', { target: active });
   }
 
@@ -774,13 +776,16 @@ const MFC = (function () {
               : (savedSel && savedSel.start !== savedSel.end) ? savedSel
               : null;
 
+    if (active.isEditing) active.exitEditing(); // avoid racing Fabric's async editing-exit (captured sel above first)
+
     if (sel) {
       active.setSelectionStyles({ [prop]: value }, sel.start, sel.end);
     } else {
       active.set(prop, value);
     }
     active.dirty = true;
-    canvas.requestRenderAll();
+    active.setCoords();
+    canvas.renderAll(); // synchronous — don't rely solely on the scheduled requestRenderAll
     canvas.fire('object:modified', { target: active });
   }
 
