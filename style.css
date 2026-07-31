@@ -69,7 +69,7 @@ button.active,.toggle-btn.active{background:var(--accent-dim);border-color:var(-
   repeating-conic-gradient(#2a2e37 0% 25%, #23262e 0% 50%) 50% / 24px 24px;
 }
 #canvas-scroll{display:inline-block;padding:40px;}
-#mfc-canvas{background:#fff;box-shadow:0 0 0 1px #000, 0 20px 60px rgba(0,0,0,.5);}
+#mfc-canvas{background:transparent;}
 #drop-hint{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   background:rgba(91,140,255,.12);border:3px dashed var(--accent);

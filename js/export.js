@@ -59,18 +59,19 @@ const MFC_EXPORT = (function () {
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
 
-  /** Render the full document at full DPI to a data URL, regardless of the current on-screen zoom. */
+  /**
+   * Render the full document at full DPI to a data URL, regardless of the current on-screen
+   * zoom/pasteboard pan. Uses MFC.withDocOnlyView so the canvas is temporarily sized to
+   * exactly the document (no pasteboard margin) — anything a user has parked outside the
+   * page bounds is naturally clipped out and never appears in the exported file, while still
+   * staying visible/editable on the normal canvas view.
+   */
   function renderFullResCanvas() {
     const canvas = MFC.getCanvas();
-    const docProps = MFC.getDocProps();
-    const pxAtDpi = MFC.docPropsToPixels(docProps); // target output size, defined by the doc's DPI — independent of on-screen zoom
-
-    const prevZoom = MFC.getZoomLevel();
-    MFC.setZoom(1); // canvas element now matches pxAtDpi exactly (see canvas-app.js setZoom)
-    const dataURL = canvas.toDataURL({ format: 'png', multiplier: 1 });
-    MFC.setZoom(prevZoom); // restore whatever the user was looking at
-
-    return { dataURL, width: pxAtDpi.width, height: pxAtDpi.height };
+    return MFC.withDocOnlyView((pxAtDpi) => {
+      const dataURL = canvas.toDataURL({ format: 'png', multiplier: 1 });
+      return { dataURL, width: pxAtDpi.width, height: pxAtDpi.height };
+    });
   }
 
   async function exportTIFF() {
@@ -92,10 +93,7 @@ const MFC_EXPORT = (function () {
 
   function exportSVG() {
     const canvas = MFC.getCanvas();
-    const prevZoom = MFC.getZoomLevel();
-    MFC.setZoom(1);
-    const svgStr = canvas.toSVG();
-    MFC.setZoom(prevZoom);
+    const svgStr = MFC.withDocOnlyView(() => canvas.toSVG());
     const blob = new Blob([svgStr], { type: 'image/svg+xml' });
     download(blob, 'figure_export.svg');
     MFC_UI.toast('SVG exported.');
@@ -155,7 +153,7 @@ const MFC_EXPORT = (function () {
     const imagesFolder = zip.folder('images');
     let imgCounter = 0;
 
-    const objects = canvas.getObjects().map(o => {
+    const objects = canvas.getObjects().filter(o => !o.mfcIsPageBounds).map(o => {
       const common = {
         mfcId: o.mfcId, mfcType: o.mfcType || o.type,
         left: o.left, top: o.top, scaleX: o.scaleX, scaleY: o.scaleY,
@@ -220,6 +218,27 @@ const MFC_EXPORT = (function () {
     const docProps = MFC.getDocProps();
     const filename = sanitizeFilename(docProps.name) + '.mfcproj.zip';
 
+    // Grab/confirm the file handle FIRST, before any heavy async work. showSaveFilePicker
+    // requires a live "user activation" (the click that triggered this call) — awaiting
+    // the zip build first was silently burning through that window on larger projects, so
+    // the picker call would then throw (activation expired), get swallowed by the catch
+    // below, and every save quietly fell back to downloading a brand-new file instead of
+    // overwriting the same one. Doing the picker call immediately fixes that.
+    if (supportsFSAccess) {
+      try {
+        if (!projectFileHandle || forceNewLocation) {
+          projectFileHandle = await window.showSaveFilePicker({
+            suggestedName: filename,
+            types: [{ description: 'MFC Project', accept: { 'application/zip': ['.mfcproj.zip'] } }]
+          });
+        }
+      } catch (err) {
+        if (err && err.name === 'AbortError') return; // user cancelled the picker — do nothing
+        console.warn('File System Access picker failed, falling back to download:', err);
+        projectFileHandle = null; // don't keep a bad handle around
+      }
+    }
+
     let blob;
     try {
       blob = await buildProjectZipBlob();
@@ -229,14 +248,8 @@ const MFC_EXPORT = (function () {
       return;
     }
 
-    if (supportsFSAccess) {
+    if (supportsFSAccess && projectFileHandle) {
       try {
-        if (!projectFileHandle || forceNewLocation) {
-          projectFileHandle = await window.showSaveFilePicker({
-            suggestedName: filename,
-            types: [{ description: 'MFC Project', accept: { 'application/zip': ['.mfcproj.zip'] } }]
-          });
-        }
         const writable = await projectFileHandle.createWritable();
         await writable.write(blob);
         await writable.close();
@@ -244,15 +257,14 @@ const MFC_EXPORT = (function () {
         MFC_UI.toast(`Saved "${projectFileHandle.name}" (${sizeMB} MB)`);
         return;
       } catch (err) {
-        if (err && err.name === 'AbortError') return; // user cancelled the picker — do nothing
-        console.warn('File System Access save failed, falling back to download:', err);
+        console.warn('File System Access write failed, falling back to download:', err);
         // fall through to the download() fallback below
       }
     }
 
-    // Fallback for browsers without the File System Access API (Firefox, Safari):
-    // this always triggers a normal "download a new file" — there is no browser
-    // API on those platforms to overwrite an arbitrary local file in place.
+    // Fallback for browsers without the File System Access API (Firefox, Safari), or if
+    // the write above failed: triggers a normal "download a new file" — there is no
+    // browser API on those platforms to overwrite an arbitrary local file in place.
     download(blob, filename);
     const sizeMB = (blob.size / (1024 * 1024)).toFixed(1);
     MFC_UI.toast(`Saved "${filename}" (${sizeMB} MB)`);

@@ -37,7 +37,7 @@ const MFC = (function () {
   const history = { stack: [], index: -1, limit: 60 };
 
   function snapshotState() {
-    return canvas.getObjects().map(o => serializeObjectState(o));
+    return canvas.getObjects().filter(o => !o.mfcIsPageBounds).map(o => serializeObjectState(o));
   }
 
   function serializeObjectState(o) {
@@ -76,7 +76,7 @@ const MFC = (function () {
 
   function applySnapshot(snap) {
     const byId = {};
-    canvas.getObjects().forEach(o => byId[o.mfcId] = o);
+    canvas.getObjects().forEach(o => { if (!o.mfcIsPageBounds) byId[o.mfcId] = o; });
     snap.forEach(s => {
       const o = byId[s.id];
       if (!o) return;
@@ -193,7 +193,37 @@ const MFC = (function () {
 
   // ---- zoom (resizes the actual canvas element too, so the document boundary
   // visibly scales with it — not just the objects inside a fixed-size canvas) ----
+  //
+  // PAGE_PAD adds a pasteboard margin (in doc-space px, so it scales with zoom like
+  // everything else) around the document on all sides. Object coordinates stay
+  // doc-relative (0,0 = top-left of the page) exactly as before — we only shift the
+  // canvas *viewport* by PAGE_PAD so the page renders inset from the canvas edge.
+  // Before this, the fabric canvas element was sized to EXACTLY the document, so
+  // anything positioned outside [0,docW]x[0,docH] fell outside the canvas's own pixel
+  // bounds — it couldn't be drawn or receive mouse events, which is why dragging an
+  // object past the document edge made it vanish and become permanently unselectable.
+  const PAGE_PAD = 260;
   let zoomLevel = 1;
+  let pageRect = null;
+
+  /** Creates (or resizes/re-adds, e.g. after canvas.clear()) the white page-bounds rect that visually marks the document area within the larger pasteboard. Excluded from selection, history, save/export. */
+  function ensurePageRect() {
+    const docPx = docPropsToPixels(docProps);
+    if (!pageRect || canvas.getObjects().indexOf(pageRect) === -1) {
+      pageRect = new fabric.Rect({
+        left: 0, top: 0, width: docPx.width, height: docPx.height,
+        fill: '#ffffff', stroke: '#000000', strokeWidth: 1,
+        selectable: false, evented: false, hoverCursor: 'default',
+        shadow: new fabric.Shadow({ color: 'rgba(0,0,0,0.45)', blur: 30, offsetX: 0, offsetY: 12 })
+      });
+      pageRect.mfcIsPageBounds = true; // flag: never serialized, selected, copied, or history-tracked
+      canvas.add(pageRect);
+    } else {
+      pageRect.set({ width: docPx.width, height: docPx.height });
+    }
+    canvas.sendToBack(pageRect);
+  }
+
   function updateZoomDisplay() {
     const el = document.getElementById('zoom-display');
     if (el) el.textContent = Math.round(zoomLevel * 100) + '%';
@@ -205,16 +235,50 @@ const MFC = (function () {
     zoomLevel = Math.min(20, Math.max(0.05, z));
     const docPx = docPropsToPixels(docProps);
     canvas.setZoom(zoomLevel);
-    canvas.setWidth(docPx.width * zoomLevel);
-    canvas.setHeight(docPx.height * zoomLevel);
+    canvas.setWidth((docPx.width + PAGE_PAD * 2) * zoomLevel);
+    canvas.setHeight((docPx.height + PAGE_PAD * 2) * zoomLevel);
+    // Pan the viewport so doc-space (0,0) lands PAGE_PAD in from the canvas edge,
+    // leaving pasteboard margin on every side. renderFullResCanvas/exportSVG (export.js,
+    // via withDocOnlyView below) temporarily undo this so exports only capture the page.
+    const vpt = canvas.viewportTransform;
+    vpt[4] = PAGE_PAD * zoomLevel;
+    vpt[5] = PAGE_PAD * zoomLevel;
+    canvas.setViewportTransform(vpt);
     canvas.requestRenderAll();
     updateZoomDisplay();
   }
   function getZoomLevel() { return zoomLevel; }
 
+  /**
+   * Runs `callback(docPx)` with the canvas temporarily resized to EXACTLY the document
+   * (no pasteboard margin, no pan offset), so raster/SVG export only captures the page
+   * itself — anything parked out in the pasteboard is naturally clipped out, never
+   * baked into a TIFF/SVG/PDF export. Restores the normal pasteboard view afterward.
+   */
+  function withDocOnlyView(callback) {
+    const docPx = docPropsToPixels(docProps);
+    const prevW = canvas.getWidth(), prevH = canvas.getHeight();
+    const prevVpt = canvas.viewportTransform.slice();
+    canvas.setZoom(1);
+    canvas.setWidth(docPx.width);
+    canvas.setHeight(docPx.height);
+    canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+    canvas.requestRenderAll();
+    try {
+      return callback(docPx);
+    } finally {
+      canvas.setWidth(prevW);
+      canvas.setHeight(prevH);
+      canvas.setZoom(zoomLevel);
+      canvas.setViewportTransform(prevVpt); // explicit, so it wins regardless of what setZoom() did to the translation
+      canvas.requestRenderAll();
+    }
+  }
+
   function applyDocProps(props) {
     docProps = props;
     setZoom(zoomLevel); // recomputes canvas dimensions from the new docProps at current zoom
+    ensurePageRect();
   }
 
   function docPropsToPixels(props) {
@@ -770,6 +834,21 @@ const MFC = (function () {
     const active = canvas.getActiveObject();
     if (!active || active.type !== 'textbox') return;
 
+    // backgroundColor is a whole-textbox property in Fabric — there is no such thing as a
+    // per-character "backgroundColor" (that's the separate `textBackgroundColor` style).
+    // Routing it through the selection-range branch below was a silent no-op whenever a
+    // leftover highlighted range existed (e.g. right after coloring some words), which is
+    // why the "Box background" toggle sometimes stopped updating. Always apply it whole-box.
+    if (prop === 'backgroundColor') {
+      if (active.isEditing) active.exitEditing();
+      active.set('backgroundColor', value);
+      active.dirty = true;
+      active.setCoords();
+      canvas.renderAll();
+      canvas.fire('object:modified', { target: active });
+      return;
+    }
+
     const savedSel = (lastTextSelection && lastTextSelection.id === active.mfcId) ? lastTextSelection : null;
     const liveSel = active.isEditing ? { start: active.selectionStart, end: active.selectionEnd } : null;
     const sel = (liveSel && liveSel.start !== liveSel.end) ? liveSel
@@ -973,22 +1052,42 @@ const MFC = (function () {
 
   // ---- copy/paste ----
   let clipboardObj = null;
+
+  /** Snapshot a single (non-selection) object into a clipboard-ready descriptor. Returns a Promise. */
+  function copySingle(obj) {
+    if (obj.mfcType === 'mfcImage') {
+      return Promise.resolve({ kind: 'mfcImage', sourceId: obj.mfcId, props: serializeObjectState(obj) });
+    }
+    return new Promise((resolve) => {
+      obj.clone((cloned) => resolve({ kind: 'fabric', obj: cloned, isTextbox: obj.type === 'textbox' }));
+    });
+  }
+
   function copySelection() {
     const active = canvas.getActiveObject();
     if (!active) return;
-    if (active.mfcType === 'mfcImage') {
-      clipboardObj = { kind: 'mfcImage', sourceId: active.mfcId, props: serializeObjectState(active) };
-    } else {
-      active.clone((cloned) => { clipboardObj = { kind: 'fabric', obj: cloned }; });
+
+    if (active.type === 'activeSelection') {
+      // Multiple objects selected: snapshot each one individually rather than cloning the
+      // ActiveSelection wrapper itself. ActiveSelection is a transient UI grouping fabric
+      // creates for multi-select — it isn't meant to live on the canvas as a real object.
+      // canvas.add()-ing a clone of one (the old behavior) is what caused pasted groups to
+      // turn into un-clickable, undeletable "ghost outline" objects — and since the images
+      // inside it never got their own registry entry, they'd also fail to (re)composite,
+      // which is why they could end up positioned off the visible area and stay stuck there.
+      const items = active.getObjects();
+      Promise.all(items.map(copySingle)).then((results) => { clipboardObj = { kind: 'multi', items: results }; });
+      return;
     }
+
+    copySingle(active).then((result) => { clipboardObj = result; });
   }
 
-  function pasteSelection() {
-    if (!clipboardObj) return;
-
-    if (clipboardObj.kind === 'mfcImage') {
-      const src = registry[clipboardObj.sourceId];
-      if (!src) return;
+  /** Pastes one clipboard item, offset by (dx,dy). Adds it to the canvas and returns the new object (or null). Does not select it or push history. */
+  function pasteSingle(item, dx, dy) {
+    if (item.kind === 'mfcImage') {
+      const src = registry[item.sourceId];
+      if (!src) return null;
       // Independent copy: new registry entry with its own channel settings (on/off,
       // color, contrast), so the two images can be edited separately from here on.
       // The raw pixel arrays are read-only and safe to share by reference.
@@ -997,9 +1096,9 @@ const MFC = (function () {
       registry[id] = { rawImage: clonedRaw, fileBase64: src.fileBase64, workingScale: src.workingScale };
       const compositeCanvas = MFC_TIFF.compositeChannels(clonedRaw, src.workingScale);
 
-      const p = clipboardObj.props;
+      const p = item.props;
       const fabricImg = new fabric.Image(compositeCanvas, {
-        left: p.left + 24, top: p.top + 24, scaleX: p.scaleX, scaleY: p.scaleY, angle: p.angle,
+        left: p.left + dx, top: p.top + dy, scaleX: p.scaleX, scaleY: p.scaleY, angle: p.angle,
         cropX: p.cropX || 0, cropY: p.cropY || 0, width: p.width, height: p.height,
         cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff'
       });
@@ -1009,28 +1108,44 @@ const MFC = (function () {
       fabricImg.mfcRawHeight = clonedRaw.height;
       fabricImg.mfcFileName = clonedRaw.fileName + ' copy';
       fabricImg.setCoords();
-
       canvas.add(fabricImg);
-      canvas.setActiveObject(fabricImg);
-      canvas.requestRenderAll();
-      pushHistory();
-      refreshChannelPanel();
-      refreshScaleBarRefList();
-      return;
+      return fabricImg;
     }
 
-    clipboardObj.obj.clone((cloned) => {
-      cloned.set({ left: cloned.left + 20, top: cloned.top + 20, evented: true });
-      cloned.mfcId = (cloned.mfcType || 'obj') + (nextId++);
-      if (cloned.type === 'textbox') { cloned.mfcType = 'text'; attachTextListeners(cloned); }
-      if (canvas.getActiveObject && canvas.getActiveObject() && canvas.getActiveObject().type === 'activeSelection') {
-        canvas.discardActiveObject();
-      }
-      canvas.add(cloned);
-      canvas.setActiveObject(cloned);
-      canvas.requestRenderAll();
-      pushHistory();
-    });
+    const cloned = item.obj;
+    cloned.set({ left: cloned.left + dx, top: cloned.top + dy, evented: true });
+    cloned.mfcId = (cloned.mfcType || 'obj') + (nextId++);
+    if (item.isTextbox) { cloned.mfcType = 'text'; attachTextListeners(cloned); }
+    cloned.setCoords();
+    canvas.add(cloned);
+    return cloned;
+  }
+
+  function pasteSelection() {
+    if (!clipboardObj) return;
+    const OFFSET = 24;
+
+    if (canvas.getActiveObject() && canvas.getActiveObject().type === 'activeSelection') {
+      canvas.discardActiveObject();
+    }
+
+    const items = clipboardObj.kind === 'multi' ? clipboardObj.items : [clipboardObj];
+    const pasted = items.map(item => pasteSingle(item, OFFSET, OFFSET)).filter(Boolean);
+    if (!pasted.length) return;
+
+    if (pasted.length === 1) {
+      canvas.setActiveObject(pasted[0]);
+    } else {
+      // Re-select the pasted objects as a fresh ActiveSelection purely to drive the
+      // on-screen multi-select UI — this one is never added to the canvas itself, only
+      // used transiently, so it doesn't hit the bug described above.
+      canvas.setActiveObject(new fabric.ActiveSelection(pasted, { canvas }));
+    }
+
+    canvas.requestRenderAll();
+    pushHistory();
+    refreshChannelPanel();
+    refreshScaleBarRefList();
   }
 
   // ---- grid layout assistant ----
@@ -1098,7 +1213,7 @@ const MFC = (function () {
     document.getElementById('panel-scalebar').classList.toggle('hidden', tool !== 'scalebar');
     canvas.isDrawingMode = false;
     canvas.selection = tool === 'select';
-    canvas.forEachObject(o => o.selectable = tool === 'select');
+    canvas.forEachObject(o => { if (!o.mfcIsPageBounds) o.selectable = tool === 'select'; });
     if (tool === 'crop') startCrop();
     else cancelCrop();
     if (tool === 'scalebar') { refreshScaleBarRefList(); armScaleBar(); }
@@ -1124,7 +1239,7 @@ const MFC = (function () {
     armScaleBar, refreshScaleBarRefList, placeScaleBarAtCorner,
     arrangeGrid,
     applyShapeStyle, setShapeAspectMode, refreshShapePanel,
-    zoomIn, zoomOut, zoomReset, updateZoomDisplay, setZoom, getZoomLevel,
+    zoomIn, zoomOut, zoomReset, updateZoomDisplay, setZoom, getZoomLevel, withDocOnlyView,
     getRegistry, getNextIdCounter, setNextIdCounter,
     get currentTool() { return currentTool; }
   };
