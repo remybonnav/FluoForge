@@ -143,9 +143,21 @@ window.addEventListener('DOMContentLoaded', () => {
   }));
 
   // ---- project save/load ----
-  document.getElementById('btn-save-project').addEventListener('click', () => MFC_EXPORT.saveProject());
+  // "Save Project": first time this session it prompts for a location (on
+  // browsers that support the File System Access API); every click after
+  // that overwrites the same file directly — fast, no new download each time.
+  document.getElementById('btn-save-project').addEventListener('click', () => MFC_EXPORT.saveProject(false));
+
+  // "Save As": always prompts for a new file/location and switches future
+  // "Save Project" clicks to target that new file.
+  const saveAsBtn = document.getElementById('btn-save-project-as');
+  if (saveAsBtn) saveAsBtn.addEventListener('click', () => MFC_EXPORT.saveProject(true));
+
+  // "Load Project": tries the native file picker (and remembers the picked
+  // file so Save Project overwrites it going forward); falls back to the
+  // plain <input type="file"> below on browsers without that API.
   const projInput = document.getElementById('project-input');
-  document.getElementById('btn-load-project').addEventListener('click', () => projInput.click());
+  document.getElementById('btn-load-project').addEventListener('click', () => MFC_EXPORT.pickAndLoadProject());
   projInput.addEventListener('change', (e) => {
     if (e.target.files[0]) MFC_EXPORT.loadProject(e.target.files[0]);
     projInput.value = '';
@@ -258,6 +270,7 @@ window.addEventListener('DOMContentLoaded', () => {
     else if (ctrl && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) { e.preventDefault(); MFC.redo(); }
     else if (ctrl && e.key.toLowerCase() === 'c') { MFC.copySelection(); }
     else if (ctrl && e.key.toLowerCase() === 'v') { MFC.pasteSelection(); }
+    else if (ctrl && e.key.toLowerCase() === 's') { e.preventDefault(); MFC_EXPORT.saveProject(false); }
     else if (e.key.toLowerCase() === 'v') { MFC.setTool('select'); }
     else if (e.key.toLowerCase() === 'c') { MFC.setTool('crop'); }
     else if (e.key.toLowerCase() === 't') { MFC.setTool('text'); }

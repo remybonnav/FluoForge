@@ -21,12 +21,35 @@
  * Storing each image as its own binary entry in the zip avoids this entirely
  * and also avoids the ~33% size bloat of base64.
  *
+ * PERFORMANCE NOTE (save speed): TIFF pixel data barely benefits from
+ * DEFLATE compression relative to the CPU cost of compressing it, so image
+ * entries are stored with compression:'STORE' (no compression) in the zip.
+ * Only the small manifest.json would ever be worth compressing, and even
+ * that is skipped by default since it's tiny. This is what makes repeated
+ * saves fast — we're not re-deflating megabytes of pixel data every time.
+ *
+ * FILE HANDLE REUSE: On browsers that support the File System Access API
+ * (Chrome/Edge/Opera), the first Save Project (or Load Project) call asks
+ * the user to pick a location once via a native file picker, and we keep
+ * that FileSystemFileHandle around. Every subsequent "Save Project" click
+ * writes directly to that same file (a fast in-place overwrite, no new
+ * "Save As" dialog, no new file cluttering the Downloads folder). "Save As"
+ * lets you deliberately pick a new file/location. Browsers without that API
+ * (Firefox, Safari) transparently fall back to the old "trigger a download"
+ * behavior — every save there will still produce a new downloaded file,
+ * since there is no browser API to overwrite an arbitrary local file.
+ *
  * Legacy support: old *.mfcproj.json / *.mfcproj.json.gz project files
  * (single embedded-base64-JSON format) are still detected and loaded fine.
  * -----------------------------------------------------------------------
  */
 
 const MFC_EXPORT = (function () {
+
+  // Remembered after the first successful Save/Load on browsers that support
+  // the File System Access API, so subsequent saves overwrite this same file.
+  let projectFileHandle = null;
+  const supportsFSAccess = ('showSaveFilePicker' in window) && ('showOpenFilePicker' in window);
 
   function download(blob, filename) {
     const url = URL.createObjectURL(blob);
@@ -122,7 +145,8 @@ const MFC_EXPORT = (function () {
     return await new Response(stream).blob();
   }
 
-  async function saveProject() {
+  /** Builds the project zip Blob in memory. Does NOT trigger any download/save UI. */
+  async function buildProjectZipBlob() {
     const canvas = MFC.getCanvas();
     const registry = MFC.getRegistry();
     const docProps = MFC.getDocProps();
@@ -146,7 +170,9 @@ const MFC_EXPORT = (function () {
         // we never build one giant string via JSON.stringify.
         const commaIdx = entry.fileBase64.indexOf(',');
         const base64Data = commaIdx >= 0 ? entry.fileBase64.slice(commaIdx + 1) : entry.fileBase64;
-        imagesFolder.file(archiveName, base64Data, { base64: true });
+        // STORE (no compression) — TIFF pixel data barely compresses anyway,
+        // and skipping DEFLATE here is what makes repeated saves fast.
+        imagesFolder.file(archiveName, base64Data, { base64: true, compression: 'STORE' });
         return Object.assign(common, {
           fileName: o.mfcFileName,
           imageArchivePath: `images/${archiveName}`,
@@ -175,14 +201,86 @@ const MFC_EXPORT = (function () {
 
     const outBlob = await zip.generateAsync({
       type: 'blob',
-      compression: 'DEFLATE',
-      compressionOptions: { level: 6 }
+      compression: 'STORE' // images are already STORE'd above; this avoids compressing anything else too
     });
 
+    return outBlob;
+  }
+
+  /**
+   * Save the current project.
+   * - forceNewLocation=false (default, "Save Project"): if we already have a
+   *   remembered file handle, overwrite it directly (fast, no dialog). If we
+   *   don't have one yet (first save this session, or unsupported browser),
+   *   behaves the same as forceNewLocation=true.
+   * - forceNewLocation=true ("Save As"): always prompts for a new file/location
+   *   (when supported) and remembers that as the new target for future saves.
+   */
+  async function saveProject(forceNewLocation = false) {
+    const docProps = MFC.getDocProps();
     const filename = sanitizeFilename(docProps.name) + '.mfcproj.zip';
-    download(outBlob, filename);
-    const sizeMB = (outBlob.size / (1024 * 1024)).toFixed(1);
+
+    let blob;
+    try {
+      blob = await buildProjectZipBlob();
+    } catch (err) {
+      console.error(err);
+      MFC_UI.toast('Failed to build project file: ' + err.message);
+      return;
+    }
+
+    if (supportsFSAccess) {
+      try {
+        if (!projectFileHandle || forceNewLocation) {
+          projectFileHandle = await window.showSaveFilePicker({
+            suggestedName: filename,
+            types: [{ description: 'MFC Project', accept: { 'application/zip': ['.mfcproj.zip'] } }]
+          });
+        }
+        const writable = await projectFileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        const sizeMB = (blob.size / (1024 * 1024)).toFixed(1);
+        MFC_UI.toast(`Saved "${projectFileHandle.name}" (${sizeMB} MB)`);
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return; // user cancelled the picker — do nothing
+        console.warn('File System Access save failed, falling back to download:', err);
+        // fall through to the download() fallback below
+      }
+    }
+
+    // Fallback for browsers without the File System Access API (Firefox, Safari):
+    // this always triggers a normal "download a new file" — there is no browser
+    // API on those platforms to overwrite an arbitrary local file in place.
+    download(blob, filename);
+    const sizeMB = (blob.size / (1024 * 1024)).toFixed(1);
     MFC_UI.toast(`Saved "${filename}" (${sizeMB} MB)`);
+  }
+
+  /**
+   * Opens the native file picker (when supported) and remembers the chosen
+   * file handle so future "Save Project" calls overwrite THIS file. Falls
+   * back to the plain <input type="file"> click when unsupported.
+   */
+  async function pickAndLoadProject() {
+    if (supportsFSAccess) {
+      try {
+        const [handle] = await window.showOpenFilePicker({
+          types: [{ description: 'MFC Project', accept: { 'application/zip': ['.mfcproj.zip'] } }],
+          excludeAcceptAllOption: false
+        });
+        const file = await handle.getFile();
+        await loadProject(file);
+        projectFileHandle = handle; // remember AFTER successful load, so a failed load doesn't poison future saves
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return; // user cancelled the picker
+        console.warn('File System Access open failed, falling back to file input:', err);
+      }
+    }
+    // Fallback: trigger the hidden <input type="file"> (wired up in main.js)
+    document.getElementById('project-input').click();
   }
 
   async function loadProject(file) {
@@ -275,5 +373,5 @@ const MFC_EXPORT = (function () {
     MFC_UI.toast('Project loaded.');
   }
 
-  return { exportTIFF, exportSVG, exportPDF, saveProject, loadProject };
+  return { exportTIFF, exportSVG, exportPDF, saveProject, loadProject, pickAndLoadProject };
 })();
