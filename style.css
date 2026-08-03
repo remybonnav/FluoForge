@@ -114,7 +114,8 @@ button.active,.toggle-btn.active{background:var(--accent-dim);border-color:var(-
 .channel-row .swatch{width:14px;height:14px;border-radius:3px;border:1px solid #0006;flex-shrink:0;}
 .range-row{display:flex;align-items:center;gap:6px;}
 .range-row input[type=range]{flex:1;width:auto;}
-.range-row .rv{width:44px;text-align:right;color:var(--text-dim);font-size:11px;}
+.range-row .rv-input{width:52px;text-align:right;color:var(--text);font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 4px;}
+.range-row .rv-input:focus{border-color:var(--accent);outline:none;}
 
 /* ---------------- toast ---------------- */
 #toast{

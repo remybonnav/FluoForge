@@ -196,6 +196,14 @@ window.addEventListener('DOMContentLoaded', () => {
     const margin = parseFloat(document.getElementById('sb-margin').value) || 5;
     MFC.placeScaleBarAtCorner(corner, margin);
   });
+  document.getElementById('sb-place-corner-multi').addEventListener('click', () => {
+    const corner = document.getElementById('sb-corner').value;
+    const margin = parseFloat(document.getElementById('sb-margin').value) || 5;
+    MFC.placeScaleBarOnSelectedImages(corner, margin);
+  });
+  document.getElementById('sb-place-multi').addEventListener('click', () => {
+    MFC.placeScaleBarOnSelectedImages(null, 0);
+  });
 
   // ---- text panel ----
   document.getElementById('text-font').addEventListener('change', (e) => MFC.applyTextStyle('fontFamily', e.target.value));
@@ -279,6 +287,16 @@ window.addEventListener('DOMContentLoaded', () => {
     else if (e.key === 'Delete' || e.key === 'Backspace') {
       const active = MFC.getCanvas().getActiveObjects();
       if (active.length) { active.forEach(o => MFC.getCanvas().remove(o)); MFC.getCanvas().discardActiveObject(); MFC.getCanvas().requestRenderAll(); MFC.pushHistory(); }
+    }
+    else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      if (!MFC.getCanvas().getActiveObject()) return; // let arrows do nothing (not scroll-hijack) with no selection
+      e.preventDefault();
+      const step = e.shiftKey ? 10 : 1;
+      const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+      const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+      // Snap only for single-px nudges — with Shift's coarser 10px step the user is
+      // clearly going for a specific offset, so snapping there would fight the input.
+      MFC.nudgeSelection(dx, dy, !e.shiftKey);
     }
   });
 

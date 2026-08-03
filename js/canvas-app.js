@@ -146,7 +146,12 @@ const MFC = (function () {
     canvas.on('mouse:up', onCanvasMouseUp);
 
     canvas.on('object:moving', (e) => {
-      if (e.target && e.target.mfcType === 'mfcImage') repositionAttachedScaleBars(e.target);
+      if (!e.target || e.target === cropRect) return;
+      if (!(e.e && e.e.altKey)) snapObjectPosition(e.target); // hold Alt to move freely without snapping
+      if (e.target.mfcType === 'mfcImage') repositionAttachedScaleBars(e.target);
+      if (e.target.type === 'activeSelection') {
+        e.target.getObjects().forEach(o => { if (o.mfcType === 'mfcImage') repositionAttachedScaleBars(o); });
+      }
     });
 
     // Ctrl+scroll (or pinch, which browsers report as ctrlKey+wheel) zooms the CANVAS,
@@ -183,7 +188,7 @@ const MFC = (function () {
         obj.scaleX = s; obj.scaleY = s;
       }
 
-      if (obj.mfcType === 'mfcImage') repositionAttachedScaleBars(obj);
+      if (obj.mfcType === 'mfcImage') updateScaleBarsForImage(obj);
       refreshObjectSizePanel();
       if (obj.type === 'textbox') refreshTextPanel();
     });
@@ -391,19 +396,20 @@ const MFC = (function () {
         <div class="range-row">
           <span class="hint">min</span>
           <input type="range" class="ch-min" min="0" max="65535" value="${ch.min}">
-          <span class="rv ch-min-val">${Math.round(ch.min)}</span>
+          <input type="number" class="rv-input ch-min-val" min="0" max="65535" value="${Math.round(ch.min)}">
         </div>
         <div class="range-row">
           <span class="hint">max</span>
           <input type="range" class="ch-max" min="0" max="65535" value="${ch.max}">
-          <span class="rv ch-max-val">${Math.round(ch.max)}</span>
+          <input type="number" class="rv-input ch-max-val" min="0" max="65535" value="${Math.round(ch.max)}">
         </div>
       `;
       listEl.appendChild(row);
 
       const rangeCeil = ch.bitDepth > 8 ? 65535 : 255;
-      row.querySelector('.ch-min').max = rangeCeil;
-      row.querySelector('.ch-max').max = rangeCeil;
+      const minSlider = row.querySelector('.ch-min'), maxSlider = row.querySelector('.ch-max');
+      const minInput = row.querySelector('.ch-min-val'), maxInput = row.querySelector('.ch-max-val');
+      [minSlider, maxSlider, minInput, maxInput].forEach(el => el.max = rangeCeil);
 
       row.querySelector('.ch-toggle').addEventListener('change', (e) => {
         ch.enabled = e.target.checked;
@@ -414,18 +420,40 @@ const MFC = (function () {
         row.querySelector('.swatch').style.background = swatchColor(ch.color);
         recomposite(active); canvas.fire('object:modified', { target: active });
       });
-      row.querySelector('.ch-min').addEventListener('input', (e) => {
-        ch.min = Math.min(parseFloat(e.target.value), ch.max - 1);
-        row.querySelector('.ch-min-val').textContent = Math.round(ch.min);
-        recomposite(active);
+
+      // Slider <-> number input stay in sync in both directions; both funnel through
+      // commitMin/commitMax so range validation (min < max, clamped to [0, rangeCeil])
+      // always applies no matter which control the user touched.
+      function commitMin(v) {
+        if (!isFinite(v)) v = ch.min; // invalid input handled gracefully: keep previous value
+        const clamped = Math.min(Math.max(v, 0), ch.max - 1);
+        ch.min = clamped;
+        minSlider.value = clamped;
+        minInput.value = Math.round(clamped);
+      }
+      function commitMax(v) {
+        if (!isFinite(v)) v = ch.max;
+        const clamped = Math.max(Math.min(v, rangeCeil), ch.min + 1);
+        ch.max = clamped;
+        maxSlider.value = clamped;
+        maxInput.value = Math.round(clamped);
+      }
+
+      minSlider.addEventListener('input', (e) => { commitMin(parseFloat(e.target.value)); recomposite(active); });
+      maxSlider.addEventListener('input', (e) => { commitMax(parseFloat(e.target.value)); recomposite(active); });
+      minSlider.addEventListener('change', () => canvas.fire('object:modified', { target: active }));
+      maxSlider.addEventListener('change', () => canvas.fire('object:modified', { target: active }));
+
+      // "change" fires on blur, and also right after Enter's explicit blur() below — this
+      // is how typed values get confirmed (Enter, Tab, or clicking elsewhere all commit).
+      minInput.addEventListener('change', (e) => {
+        commitMin(parseFloat(e.target.value)); recomposite(active); canvas.fire('object:modified', { target: active });
       });
-      row.querySelector('.ch-max').addEventListener('input', (e) => {
-        ch.max = Math.max(parseFloat(e.target.value), ch.min + 1);
-        row.querySelector('.ch-max-val').textContent = Math.round(ch.max);
-        recomposite(active);
+      maxInput.addEventListener('change', (e) => {
+        commitMax(parseFloat(e.target.value)); recomposite(active); canvas.fire('object:modified', { target: active });
       });
-      row.querySelector('.ch-min').addEventListener('change', () => canvas.fire('object:modified', { target: active }));
-      row.querySelector('.ch-max').addEventListener('change', () => canvas.fire('object:modified', { target: active }));
+      minInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); minInput.blur(); } });
+      maxInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); maxInput.blur(); } });
     });
   }
 
@@ -470,6 +498,7 @@ const MFC = (function () {
     canvas.requestRenderAll();
     canvas.fire('object:modified', { target: active });
     refreshObjectSizePanel();
+    if (active.mfcType === 'mfcImage') repositionAttachedScaleBars(active);
   }
 
   function setObjectAngle(deg) {
@@ -479,6 +508,7 @@ const MFC = (function () {
     active.setCoords();
     canvas.requestRenderAll();
     canvas.fire('object:modified', { target: active });
+    if (active.mfcType === 'mfcImage') repositionAttachedScaleBars(active);
   }
 
   function applyObjectSizeFromFields() {
@@ -502,15 +532,16 @@ const MFC = (function () {
     active.setCoords();
     canvas.requestRenderAll();
     canvas.fire('object:modified', { target: active });
+    if (active.mfcType === 'mfcImage') updateScaleBarsForImage(active);
   }
 
   // ---- text panel (re-populates whenever a text box is selected/reselected) ----
   function refreshTextPanel() {
     const panel = document.getElementById('panel-text');
-    const active = canvas.getActiveObject();
-    const isText = active && active.type === 'textbox';
-    panel.classList.toggle('hidden', !(isText || currentTool === 'text'));
-    if (!isText) return;
+    const boxes = getSelectedTextboxes();
+    panel.classList.toggle('hidden', !(boxes.length || currentTool === 'text'));
+    if (!boxes.length) return;
+    const active = boxes[0]; // representative values shown when multiple are selected — edits still apply to every selected box, see applyTextStyle/applyTextBorder/applyTextAlign
 
     document.getElementById('text-font').value = active.fontFamily || 'Arial';
     document.getElementById('text-size').value = Math.round(active.fontSize || 24);
@@ -526,8 +557,16 @@ const MFC = (function () {
     document.getElementById('text-underline').classList.toggle('active', !!active.underline);
     ['left', 'center', 'right'].forEach(a =>
       document.getElementById('text-align-' + a).classList.toggle('active', (active.textAlign || 'left') === a));
-    document.getElementById('text-width').value = Math.round(active.getScaledWidth());
-    document.getElementById('text-height').value = Math.round(active.getScaledHeight());
+
+    // Box width/height are inherently per-object — showing/editing them only makes sense
+    // for a single selected text box, unlike the shared style properties above.
+    const sizeFieldsHidden = boxes.length > 1;
+    document.getElementById('text-width').closest('label').classList.toggle('hidden', sizeFieldsHidden);
+    document.getElementById('text-height').closest('label').classList.toggle('hidden', sizeFieldsHidden);
+    if (!sizeFieldsHidden) {
+      document.getElementById('text-width').value = Math.round(active.getScaledWidth());
+      document.getElementById('text-height').value = Math.round(active.getScaledHeight());
+    }
   }
 
   function applyTextBoxSize(prop, value) {
@@ -656,6 +695,31 @@ const MFC = (function () {
     installTextBorderRenderer(t);
   }
 
+  // Matches installTextBorderRenderer's canvas _render override (below), but for the
+  // canvas.toSVG() export path, which never calls _render at all — it uses Fabric's own
+  // _toSVG() text-markup builder instead. Without this, the box border only showed up in
+  // the app itself and in PDF export (which rasterizes the canvas, so it "sees" _render's
+  // strokeRect), while SVG export silently dropped it. Patched once, globally, on the
+  // Text prototype (mfcBorderWidth defaults to 0/undefined on plain text boxes, so this
+  // is a no-op for any textbox that never had a border applied).
+  fabric.util.object.extend(fabric.Text.prototype, {
+    _toSVG: function () {
+      const offsets = this._getSVGLeftTopOffsets();
+      const textAndBg = this._getSVGTextAndBg(offsets.textTop, offsets.textLeft);
+      const svg = this._wrapSVGTextAndBg(textAndBg);
+      if (this.mfcBorderWidth > 0) {
+        const toFixed = fabric.util.toFixed, digits = fabric.Object.NUM_FRACTION_DIGITS;
+        svg.push(
+          '\t\t<rect x="', toFixed(-this.width / 2, digits), '" y="', toFixed(-this.height / 2, digits),
+          '" width="', toFixed(this.width, digits), '" height="', toFixed(this.height, digits),
+          '" fill="none" stroke="', (this.mfcBorderColor || '#000000'),
+          '" stroke-width="', this.mfcBorderWidth, '" />\n'
+        );
+      }
+      return svg;
+    }
+  });
+
   /**
    * Fabric's native stroke/strokeWidth on a Textbox outlines each glyph, not the box —
    * so a true "box border" (line width + color around the whole text box) needs a small
@@ -685,15 +749,26 @@ const MFC = (function () {
     };
   }
 
-  function applyTextBorder(prop, value) {
+  /** Every currently-selected text box — a single directly-selected one, or all text boxes within a multi-selection (non-textbox objects in a mixed selection are simply skipped). */
+  function getSelectedTextboxes() {
     const active = canvas.getActiveObject();
-    if (!active || active.type !== 'textbox') return;
-    if (active.isEditing) active.exitEditing(); // avoid racing Fabric's async editing-exit
-    active.set(prop, value);
-    active.dirty = true;
-    active.setCoords();
+    if (!active) return [];
+    if (active.type === 'textbox') return [active];
+    if (active.type === 'activeSelection') return active.getObjects().filter(o => o.type === 'textbox');
+    return [];
+  }
+
+  function applyTextBorder(prop, value) {
+    const boxes = getSelectedTextboxes();
+    if (!boxes.length) return;
+    boxes.forEach(box => {
+      if (box.isEditing) box.exitEditing(); // avoid racing Fabric's async editing-exit
+      box.set(prop, value);
+      box.dirty = true;
+      box.setCoords();
+    });
     canvas.renderAll(); // synchronous — don't rely solely on the scheduled requestRenderAll
-    canvas.fire('object:modified', { target: active });
+    canvas.fire('object:modified', { target: canvas.getActiveObject() });
   }
 
   function onCanvasMouseDown(opt) {
@@ -830,50 +905,58 @@ const MFC = (function () {
   }
 
   /** Apply a style prop either to a highlighted text range (per-word/char formatting) or the whole box. */
-  function applyTextStyle(prop, value) {
-    const active = canvas.getActiveObject();
-    if (!active || active.type !== 'textbox') return;
-
+  /** Applies a single style prop to one text box — respects a highlighted per-character range if allowRangeSelection is true (only meaningful when exactly one box is targeted directly; a range can't span multiple separate text box objects). */
+  function applyTextStyleToBox(box, prop, value, allowRangeSelection) {
     // backgroundColor is a whole-textbox property in Fabric — there is no such thing as a
     // per-character "backgroundColor" (that's the separate `textBackgroundColor` style).
     // Routing it through the selection-range branch below was a silent no-op whenever a
     // leftover highlighted range existed (e.g. right after coloring some words), which is
     // why the "Box background" toggle sometimes stopped updating. Always apply it whole-box.
     if (prop === 'backgroundColor') {
-      if (active.isEditing) active.exitEditing();
-      active.set('backgroundColor', value);
-      active.dirty = true;
-      active.setCoords();
-      canvas.renderAll();
-      canvas.fire('object:modified', { target: active });
+      if (box.isEditing) box.exitEditing();
+      box.set('backgroundColor', value);
+      box.dirty = true;
+      box.setCoords();
       return;
     }
 
-    const savedSel = (lastTextSelection && lastTextSelection.id === active.mfcId) ? lastTextSelection : null;
-    const liveSel = active.isEditing ? { start: active.selectionStart, end: active.selectionEnd } : null;
-    const sel = (liveSel && liveSel.start !== liveSel.end) ? liveSel
-              : (savedSel && savedSel.start !== savedSel.end) ? savedSel
-              : null;
-
-    if (active.isEditing) active.exitEditing(); // avoid racing Fabric's async editing-exit (captured sel above first)
+    let sel = null;
+    if (allowRangeSelection) {
+      const savedSel = (lastTextSelection && lastTextSelection.id === box.mfcId) ? lastTextSelection : null;
+      const liveSel = box.isEditing ? { start: box.selectionStart, end: box.selectionEnd } : null;
+      sel = (liveSel && liveSel.start !== liveSel.end) ? liveSel
+          : (savedSel && savedSel.start !== savedSel.end) ? savedSel
+          : null;
+    }
+    if (box.isEditing) box.exitEditing(); // avoid racing Fabric's async editing-exit (captured sel above first)
 
     if (sel) {
-      active.setSelectionStyles({ [prop]: value }, sel.start, sel.end);
+      box.setSelectionStyles({ [prop]: value }, sel.start, sel.end);
     } else {
-      active.set(prop, value);
+      box.set(prop, value);
     }
-    active.dirty = true;
-    active.setCoords();
+    box.dirty = true;
+    box.setCoords();
+  }
+
+  function applyTextStyle(prop, value) {
+    const boxes = getSelectedTextboxes();
+    if (!boxes.length) return;
+    // Highlighted-word-range styling only applies when the selection IS a single text box
+    // being edited directly — with several boxes selected as a group there's no shared
+    // "highlighted range" across separate objects, so each whole box gets the style.
+    const isSingle = boxes.length === 1 && canvas.getActiveObject().type === 'textbox';
+    boxes.forEach(box => applyTextStyleToBox(box, prop, value, isSingle));
     canvas.renderAll(); // synchronous — don't rely solely on the scheduled requestRenderAll
-    canvas.fire('object:modified', { target: active });
+    canvas.fire('object:modified', { target: canvas.getActiveObject() });
   }
 
   function applyTextAlign(align) {
-    const active = canvas.getActiveObject();
-    if (!active || active.type !== 'textbox') return;
-    active.set('textAlign', align);
+    const boxes = getSelectedTextboxes();
+    if (!boxes.length) return;
+    boxes.forEach(box => box.set('textAlign', align));
     canvas.requestRenderAll();
-    canvas.fire('object:modified', { target: active });
+    canvas.fire('object:modified', { target: canvas.getActiveObject() });
     refreshTextPanel();
   }
 
@@ -948,18 +1031,25 @@ const MFC = (function () {
     }
     const onScreenPxLen = computeScaleBarPxLength(refObj, entry, lengthUm);
     const g = buildScaleBarGroup(pointer, onScreenPxLen, thickness, color, showLabel, lengthUm);
+    // Even a "freely placed" bar stays linked to its reference image (but with no
+    // mfcCorner, so it's never auto-repositioned — only its length is kept accurate,
+    // see recalibrateScaleBar/updateScaleBarsForImage) so it doesn't silently go out of
+    // calibration if the image is later resized.
+    g.mfcAttachedTo = refObj.mfcId;
+    g.mfcLengthUm = lengthUm;
     canvas.add(g);
     canvas.setActiveObject(g);
     canvas.requestRenderAll();
     pushHistory();
-    scaleBarArmed = false;
-    setTool('select');
+    // Deliberately stay armed in the scale-bar tool: click a different image to change
+    // the reference (selection stays enabled for this tool — see setTool), then click
+    // empty canvas again to drop another bar, all without re-activating the tool.
   }
 
   /**
    * Place a scale bar directly at a corner of a reference image, offset by a % margin
    * of that image's displayed size, and "attach" it: whenever the image moves or is
-   * resized, the bar is automatically repositioned to keep the same corner + margin.
+   * resized, the bar is automatically repositioned and rescaled to stay calibrated.
    */
   function placeScaleBarAtCorner(corner, marginPct) {
     const refId = document.getElementById('sb-ref-image').value;
@@ -976,6 +1066,7 @@ const MFC = (function () {
     g.mfcAttachedTo = refObj.mfcId;
     g.mfcCorner = corner;
     g.mfcMarginPct = marginPct;
+    g.mfcLengthUm = lengthUm;
     canvas.add(g);
     repositionAttachedScaleBars(refObj);
     canvas.setActiveObject(g);
@@ -983,10 +1074,83 @@ const MFC = (function () {
     pushHistory();
   }
 
-  /** Re-position every scale bar attached to imgObj, called on that image's move/scale events. */
-  function repositionAttachedScaleBars(imgObj) {
+  /** Add scale bars to every selected image at once, using the current form settings for each. */
+  function placeScaleBarOnSelectedImages(corner, marginPct) {
+    const imgs = canvas.getActiveObjects().filter(o => o.mfcType === 'mfcImage');
+    if (imgs.length < 2) {
+      MFC_UI.toast('Select 2 or more images first to batch-apply a scale bar.');
+      return;
+    }
+    const { lengthUm, thickness, color, showLabel } = readScaleBarFormValues();
+    const refSelectEl = document.getElementById('sb-ref-image');
+    const created = [];
+    let skipped = 0;
+
+    imgs.forEach((refObj) => {
+      const entry = registry[refObj.mfcId];
+      if (!entry || !entry.rawImage.voxelSizeUm) { skipped++; return; }
+      const onScreenPxLen = computeScaleBarPxLength(refObj, entry, lengthUm);
+      const g = buildScaleBarGroup({ x: 0, y: 0 }, onScreenPxLen, thickness, color, showLabel, lengthUm);
+      g.mfcAttachedTo = refObj.mfcId;
+      g.mfcLengthUm = lengthUm;
+      if (corner) { g.mfcCorner = corner; g.mfcMarginPct = marginPct; }
+      canvas.add(g);
+      if (corner) repositionAttachedScaleBars(refObj);
+      created.push(g);
+    });
+
+    if (created.length) {
+      canvas.setActiveObject(new fabric.ActiveSelection(created, { canvas }));
+      canvas.requestRenderAll();
+      pushHistory();
+      refSelectEl.value = imgs[imgs.length - 1].mfcId;
+    }
+    if (skipped) {
+      MFC_UI.toast(`Added ${created.length} scale bar(s) — skipped ${skipped} image(s) without voxel-size calibration.`);
+    } else {
+      MFC_UI.toast(`Added scale bars to ${created.length} image(s).`);
+    }
+  }
+
+  /**
+   * Recompute a single scale bar's physical length from scratch against its reference
+   * image's *current* scale (rather than nudging it relative to the previous size), so it
+   * never drifts. Resizes the bar rect directly (not the group's own scaleX/scaleY), so
+   * line thickness and label size stay constant while only the bar's length changes —
+   * exactly like a real scale bar should behave as the image is zoomed in figure layout.
+   */
+  function recalibrateScaleBar(bar) {
+    if (!bar.mfcAttachedTo || bar.mfcLengthUm == null) return;
+    const entry = registry[bar.mfcAttachedTo];
+    const refObj = canvas.getObjects().find(o => o.mfcId === bar.mfcAttachedTo);
+    if (!entry || !refObj || !entry.rawImage.voxelSizeUm) return;
+
+    const targetPxLen = computeScaleBarPxLength(refObj, entry, bar.mfcLengthUm);
+    const rectChild = bar._objects && bar._objects[0];
+    if (!rectChild) return;
+    const groupScaleX = bar.scaleX || 1;
+    const desiredLocalWidth = targetPxLen / groupScaleX;
+    if (Math.abs(rectChild.width - desiredLocalWidth) > 0.01) {
+      rectChild.set({ width: desiredLocalWidth });
+      bar.addWithUpdate(); // recompute the group's own bounding box from its (now resized) children
+      bar.setCoords();
+    }
+  }
+
+  /** Recalibrate (length) and reposition (if corner-attached) every scale bar linked to imgObj. Call whenever imgObj's scale/size changes. */
+  function updateScaleBarsForImage(imgObj) {
     if (!imgObj || imgObj.mfcType !== 'mfcImage') return;
     const bars = canvas.getObjects().filter(o => o.mfcType === 'scalebar' && o.mfcAttachedTo === imgObj.mfcId);
+    if (!bars.length) return;
+    bars.forEach(recalibrateScaleBar);
+    repositionAttachedScaleBars(imgObj);
+    canvas.requestRenderAll();
+  }
+
+  /** Re-position every CORNER-attached scale bar linked to imgObj (freely-placed bars are only recalibrated in length, never moved — see updateScaleBarsForImage). */
+  function repositionAttachedScaleBars(imgObj) {
+    if (!imgObj || imgObj.mfcType !== 'mfcImage') return;
+    const bars = canvas.getObjects().filter(o => o.mfcType === 'scalebar' && o.mfcAttachedTo === imgObj.mfcId && o.mfcCorner);
     if (!bars.length) return;
     const b = imgObj.getBoundingRect(true);
     bars.forEach(bar => {
@@ -1004,6 +1168,70 @@ const MFC = (function () {
       bar.setCoords();
     });
     canvas.requestRenderAll();
+  }
+
+  // ---- snapping (drag-to-edges) ----
+  const SNAP_THRESHOLD_SCREEN_PX = 8; // in on-screen px, so it feels consistent at any zoom
+
+  /** Collects candidate x/y snap lines (edges + center) from the document bounds and every other object. */
+  function getSnapTargets(excludeObj) {
+    const docPx = docPropsToPixels(docProps);
+    const targets = [{ x: [0, docPx.width / 2, docPx.width], y: [0, docPx.height / 2, docPx.height] }];
+    const excludedChildren = excludeObj.type === 'activeSelection' ? excludeObj.getObjects() : [];
+    canvas.getObjects().forEach(o => {
+      if (o === excludeObj || o === cropRect || o.mfcIsPageBounds || excludedChildren.includes(o)) return;
+      const b = o.getBoundingRect(true);
+      targets.push({ x: [b.left, b.left + b.width / 2, b.left + b.width], y: [b.top, b.top + b.height / 2, b.top + b.height] });
+    });
+    return targets;
+  }
+
+  /** Nudges obj.left/top (in place) to align with the nearest snap target within threshold, if any. */
+  function snapObjectPosition(obj) {
+    const b = obj.getBoundingRect(true);
+    const threshold = SNAP_THRESHOLD_SCREEN_PX / zoomLevel;
+    const targets = getSnapTargets(obj);
+    const selfXs = [b.left, b.left + b.width / 2, b.left + b.width];
+    const selfYs = [b.top, b.top + b.height / 2, b.top + b.height];
+
+    let bestDx = null, bestDy = null;
+    targets.forEach(t => {
+      selfXs.forEach(sx => t.x.forEach(tx => {
+        const d = tx - sx;
+        if (Math.abs(d) <= threshold && (bestDx === null || Math.abs(d) < Math.abs(bestDx))) bestDx = d;
+      }));
+      selfYs.forEach(sy => t.y.forEach(ty => {
+        const d = ty - sy;
+        if (Math.abs(d) <= threshold && (bestDy === null || Math.abs(d) < Math.abs(bestDy))) bestDy = d;
+      }));
+    });
+
+    if (bestDx !== null) obj.left += bestDx;
+    if (bestDy !== null) obj.top += bestDy;
+    if (bestDx !== null || bestDy !== null) obj.setCoords();
+  }
+
+  // ---- keyboard nudge ----
+  const NUDGE_SMALL = 1;   // doc px
+  const NUDGE_LARGE = 10;  // doc px, with Shift held
+  let nudgeHistoryTimer = null;
+
+  /** Moves the current selection by (dx,dy) doc-px — works for images/text/shapes/groups/multi-selection alike, since they all expose the same left/top. Snaps to nearby edges unless snap=false. Debounces the history push so holding an arrow key doesn't spam undo steps. */
+  function nudgeSelection(dx, dy, snap) {
+    const active = canvas.getActiveObject();
+    if (!active || active === cropRect) return;
+    active.set({ left: active.left + dx, top: active.top + dy });
+    if (snap) snapObjectPosition(active);
+    active.setCoords();
+
+    if (active.mfcType === 'mfcImage') repositionAttachedScaleBars(active);
+    if (active.type === 'activeSelection') {
+      active.getObjects().forEach(o => { if (o.mfcType === 'mfcImage') repositionAttachedScaleBars(o); });
+    }
+    canvas.requestRenderAll();
+
+    clearTimeout(nudgeHistoryTimer);
+    nudgeHistoryTimer = setTimeout(() => pushHistory(), 300);
   }
 
   // ---- alignment ----
@@ -1176,7 +1404,7 @@ const MFC = (function () {
         top: originY + r * (cellH + gap) + (cellH - img.height * s) / 2
       });
       img.setCoords();
-      repositionAttachedScaleBars(img);
+      updateScaleBarsForImage(img);
     });
 
     if (headerRow) {
@@ -1213,7 +1441,7 @@ const MFC = (function () {
     document.getElementById('panel-scalebar').classList.toggle('hidden', tool !== 'scalebar');
     canvas.isDrawingMode = false;
     canvas.selection = tool === 'select';
-    canvas.forEachObject(o => { if (!o.mfcIsPageBounds) o.selectable = tool === 'select'; });
+    canvas.forEachObject(o => { if (!o.mfcIsPageBounds) o.selectable = (tool === 'select' || tool === 'scalebar'); });
     if (tool === 'crop') startCrop();
     else cancelCrop();
     if (tool === 'scalebar') { refreshScaleBarRefList(); armScaleBar(); }
@@ -1232,11 +1460,11 @@ const MFC = (function () {
     init, getCanvas, getDocProps, applyDocProps, docPropsToPixels,
     importFiles, addImageToCanvas, recomposite, refreshChannelPanel,
     undo, redo, pushHistory,
-    setTool, align, copySelection, pasteSelection,
+    setTool, align, copySelection, pasteSelection, nudgeSelection,
     applyCrop, cancelCrop, setCropAspectMode, applyCropFieldsToRect,
     applyTextStyle, applyTextAlign, applyTextBoxSize, applyTextBorder, refreshTextPanel, attachTextListeners,
     refreshObjectSizePanel, applyObjectSizeFromFields, rotateSelected, setObjectAngle,
-    armScaleBar, refreshScaleBarRefList, placeScaleBarAtCorner,
+    armScaleBar, refreshScaleBarRefList, placeScaleBarAtCorner, placeScaleBarOnSelectedImages,
     arrangeGrid,
     applyShapeStyle, setShapeAspectMode, refreshShapePanel,
     zoomIn, zoomOut, zoomReset, updateZoomDisplay, setZoom, getZoomLevel, withDocOnlyView,

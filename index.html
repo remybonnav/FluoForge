@@ -167,7 +167,11 @@
       </label>
       <label>Margin (% of image) <input type="number" id="sb-margin" value="5" step="1" min="0" max="40"></label>
       <button id="sb-place-corner">Attach to corner</button>
-      <p class="hint">Attached bars automatically follow that image if you move or resize it.</p>
+      <button id="sb-place-corner-multi">Attach to corner on all selected images</button>
+      <p class="hint">Attached bars automatically follow that image if you move or resize it, and stay correctly calibrated if you rescale it.</p>
+      <hr style="border-color:var(--border);margin:10px 0;">
+      <button id="sb-place-multi">Add scale bar to selected images (no corner)</button>
+      <p class="hint">Select 2+ images first. Each bar is calibrated to its own image's pixel size.</p>
     </section>
 
     <section id="panel-shape" class="panel hidden">
