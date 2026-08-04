@@ -354,7 +354,6 @@ const MFC_EXPORT = (function () {
                     angle: objDef.angle, width: objDef.width, height: objDef.height,
                     cropX: objDef.cropX, cropY: objDef.cropY });
         added.setCoords();
-        MFC.recomposite(added, false);
       } else if (objDef.mfcType === 'textbox' || objDef.mfcType === 'text') {
         const t = new fabric.Textbox(objDef.text, {
           left: objDef.left, top: objDef.top, scaleX: objDef.scaleX, scaleY: objDef.scaleY,

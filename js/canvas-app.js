@@ -358,9 +358,21 @@ const MFC = (function () {
     const scale = fullRes ? 1 : entry.workingScale;
     const newCanvas = MFC_TIFF.compositeChannels(entry.rawImage, scale);
     const curScaleX = fabricImg.scaleX, curScaleY = fabricImg.scaleY;
+    const curWidth = fabricImg.width, curHeight = fabricImg.height;
+    const curCropX = fabricImg.cropX, curCropY = fabricImg.cropY;
     fabricImg.setElement(newCanvas);
-    // keep on-screen size stable when working-resolution canvas dims are unchanged (they are)
+    // Fabric's setElement() resets width/height to the new element's full native size
+    // (via _setWidthHeight) but leaves cropX/cropY untouched — so a cropped image would
+    // end up with a nonzero crop *offset* but a full-size crop *window*, drawing past the
+    // intended crop out to the original image's edges with blank space filling the gap.
+    // That's what made cropped images "un-crop" themselves on any channel edit, and (since
+    // this ran again right after the crop was restored) on every project reload — and it
+    // corrupted the image's bounding box, which is also why attached scale bars snapped
+    // back to a corner of the original uncropped image instead of the cropped one.
+    fabricImg.width = curWidth; fabricImg.height = curHeight;
+    fabricImg.cropX = curCropX; fabricImg.cropY = curCropY;
     fabricImg.scaleX = curScaleX; fabricImg.scaleY = curScaleY;
+    fabricImg.setCoords();
     canvas.requestRenderAll();
   }
 
