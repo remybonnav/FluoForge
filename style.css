@@ -31,6 +31,7 @@ body{
   flex-wrap:wrap;
 }
 .brand{font-weight:600;letter-spacing:.3px;color:var(--text);margin-right:8px;}
+.version-tag{font-weight:400;font-size:11px;color:var(--text-dim);}
 .tool-group{display:flex;gap:6px;align-items:center;}
 button{
   background:var(--panel);
@@ -134,3 +135,11 @@ button.active,.toggle-btn.active{background:var(--accent-dim);border-color:var(-
 }
 .modal h2{margin-top:0;font-size:15px;}
 .modal .btn-row{justify-content:flex-end;margin-top:14px;}
+.saving-modal{width:220px;display:flex;flex-direction:column;align-items:center;gap:14px;padding:28px 22px;}
+.saving-msg{margin:0;font-size:13px;color:var(--text);text-align:center;}
+.spinner{
+  width:30px;height:30px;border-radius:50%;
+  border:3px solid var(--border);border-top-color:var(--accent);
+  animation:mfc-spin .8s linear infinite;
+}
+@keyframes mfc-spin{to{transform:rotate(360deg);}}

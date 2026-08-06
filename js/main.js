@@ -12,7 +12,25 @@ const MFC_UI = (function () {
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.classList.add('hidden'), 300); }, 2600);
   }
-  return { toast };
+
+  let savingBackdrop = null;
+  /** Shows an in-page "Saving…" dialog (a normal DOM overlay, not a native browser popup) so a slow save on a large project doesn't look like the app has frozen. */
+  function showSavingDialog(message) {
+    if (savingBackdrop) { savingBackdrop.querySelector('.saving-msg').textContent = message || 'Saving…'; return; }
+    savingBackdrop = document.createElement('div');
+    savingBackdrop.className = 'modal-backdrop';
+    savingBackdrop.innerHTML = `
+      <div class="modal saving-modal">
+        <div class="spinner"></div>
+        <p class="saving-msg">${message || 'Saving…'}</p>
+      </div>`;
+    document.body.appendChild(savingBackdrop);
+  }
+  function hideSavingDialog() {
+    if (savingBackdrop) { savingBackdrop.remove(); savingBackdrop = null; }
+  }
+
+  return { toast, showSavingDialog, hideSavingDialog };
 })();
 
 function showDocPropsModal(onConfirm) {
@@ -78,6 +96,8 @@ function updateDocPixelPreview() {
 
 window.addEventListener('DOMContentLoaded', () => {
   MFC.init();
+  document.getElementById('app-version').textContent = 'v' + MFC.getAppVersion();
+  document.getElementById('doc-version-info').textContent = 'Created with v' + MFC.getAppVersion() + '.';
 
   showDocPropsModal((props) => {
     MFC.applyDocProps(props);
@@ -85,6 +105,7 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   // ---- document properties panel ----
+  document.getElementById('doc-name').addEventListener('input', (e) => MFC.setDocName(e.target.value));
   ['doc-width', 'doc-height', 'doc-unit', 'doc-dpi'].forEach(id => {
     document.getElementById(id).addEventListener('input', updateDocPixelPreview);
   });
@@ -190,7 +211,6 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('obj-rotate-cw').addEventListener('click', () => MFC.rotateSelected(90));
 
   // ---- scale bar panel ----
-  document.getElementById('sb-place').addEventListener('click', () => MFC.armScaleBar());
   document.getElementById('sb-place-corner').addEventListener('click', () => {
     const corner = document.getElementById('sb-corner').value;
     const margin = parseFloat(document.getElementById('sb-margin').value) || 5;
@@ -200,9 +220,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const corner = document.getElementById('sb-corner').value;
     const margin = parseFloat(document.getElementById('sb-margin').value) || 5;
     MFC.placeScaleBarOnSelectedImages(corner, margin);
-  });
-  document.getElementById('sb-place-multi').addEventListener('click', () => {
-    MFC.placeScaleBarOnSelectedImages(null, 0);
   });
 
   // ---- text panel ----

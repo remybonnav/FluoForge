@@ -28,6 +28,9 @@ const MFC = (function () {
   };
 
   let canvas;                       // fabric.Canvas
+  const MFC_VERSION = '0.13';
+  function getAppVersion() { return MFC_VERSION; }
+
   let docProps = { name: 'Untitled Figure', width: 1748, height: 1240, unit: 'px', dpi: 300 }; // A4-ish default @300dpi
   let currentTool = 'select';
   let nextId = 1;
@@ -294,6 +297,15 @@ const MFC = (function () {
   }
 
   function getDocProps() { return docProps; }
+
+  /** Updates just the project name, live as the user types — separate from applyDocProps
+   * (which also resizes the canvas) so Save/Save As always use the name currently shown
+   * in the field, even if the user never clicked "Apply". Previously, typing a new name
+   * and immediately using Save As would silently save under the *old* name because
+   * docProps.name was only ever touched by the Apply button. */
+  function setDocName(name) {
+    docProps.name = (name || '').trim() || 'Untitled Figure';
+  }
   function getCanvas() { return canvas; }
 
   // ---- image import ----
@@ -802,8 +814,6 @@ const MFC = (function () {
       canvas.requestRenderAll();
       pushHistory();
       setTool('select');
-    } else if (currentTool === 'scalebar' && !opt.target && scaleBarArmed) {
-      placeScaleBarAt(canvas.getPointer(opt.e));
     } else if (currentTool === 'shape' && !opt.target) {
       startShapeDrag(canvas.getPointer(opt.e), opt.e);
     }
@@ -973,9 +983,6 @@ const MFC = (function () {
   }
 
   // ---- scale bar ----
-  let scaleBarArmed = false;
-  function armScaleBar() { scaleBarArmed = true; MFC_UI.toast('Click on the canvas to place the scale bar.'); }
-
   function refreshScaleBarRefList() {
     const sel = document.getElementById('sb-ref-image');
     const activeImg = canvas.getActiveObject();
@@ -1004,7 +1011,7 @@ const MFC = (function () {
     return (nativePxLen / compositeToNativeRatio) * refObj.scaleX;
   }
 
-  function buildScaleBarGroup(pointer, onScreenPxLen, thickness, color, showLabel, lengthUm) {
+  function buildScaleBarGroup(onScreenPxLen, thickness, color, showLabel, lengthUm) {
     const bar = new fabric.Rect({
       left: 0, top: 0, width: onScreenPxLen, height: thickness,
       fill: color, originX: 'left', originY: 'top'
@@ -1015,7 +1022,7 @@ const MFC = (function () {
         left: 0, top: -20, fontSize: 16, fill: color, fontFamily: 'Arial', originX: 'left', originY: 'top'
       }));
     }
-    const g = new fabric.Group(items, { left: pointer.x, top: pointer.y, originX: 'left', originY: 'top' });
+    const g = new fabric.Group(items, { left: 0, top: 0, originX: 'left', originY: 'top' });
     g.mfcId = 'sb' + (nextId++);
     g.mfcType = 'scalebar';
     return g;
@@ -1028,34 +1035,6 @@ const MFC = (function () {
       color: document.getElementById('sb-color').value,
       showLabel: document.getElementById('sb-showlabel').checked
     };
-  }
-
-  function placeScaleBarAt(pointer) {
-    const refId = document.getElementById('sb-ref-image').value;
-    const entry = registry[refId];
-    const refObj = canvas.getObjects().find(o => o.mfcId === refId);
-    const { lengthUm, thickness, color, showLabel } = readScaleBarFormValues();
-
-    if (!entry || !entry.rawImage.voxelSizeUm) {
-      MFC_UI.toast('No voxel size calibration found for that image — cannot compute scale bar length.');
-      scaleBarArmed = false; setTool('select');
-      return;
-    }
-    const onScreenPxLen = computeScaleBarPxLength(refObj, entry, lengthUm);
-    const g = buildScaleBarGroup(pointer, onScreenPxLen, thickness, color, showLabel, lengthUm);
-    // Even a "freely placed" bar stays linked to its reference image (but with no
-    // mfcCorner, so it's never auto-repositioned — only its length is kept accurate,
-    // see recalibrateScaleBar/updateScaleBarsForImage) so it doesn't silently go out of
-    // calibration if the image is later resized.
-    g.mfcAttachedTo = refObj.mfcId;
-    g.mfcLengthUm = lengthUm;
-    canvas.add(g);
-    canvas.setActiveObject(g);
-    canvas.requestRenderAll();
-    pushHistory();
-    // Deliberately stay armed in the scale-bar tool: click a different image to change
-    // the reference (selection stays enabled for this tool — see setTool), then click
-    // empty canvas again to drop another bar, all without re-activating the tool.
   }
 
   /**
@@ -1074,7 +1053,7 @@ const MFC = (function () {
       return;
     }
     const onScreenPxLen = computeScaleBarPxLength(refObj, entry, lengthUm);
-    const g = buildScaleBarGroup({ x: 0, y: 0 }, onScreenPxLen, thickness, color, showLabel, lengthUm);
+    const g = buildScaleBarGroup(onScreenPxLen, thickness, color, showLabel, lengthUm);
     g.mfcAttachedTo = refObj.mfcId;
     g.mfcCorner = corner;
     g.mfcMarginPct = marginPct;
@@ -1102,7 +1081,7 @@ const MFC = (function () {
       const entry = registry[refObj.mfcId];
       if (!entry || !entry.rawImage.voxelSizeUm) { skipped++; return; }
       const onScreenPxLen = computeScaleBarPxLength(refObj, entry, lengthUm);
-      const g = buildScaleBarGroup({ x: 0, y: 0 }, onScreenPxLen, thickness, color, showLabel, lengthUm);
+      const g = buildScaleBarGroup(onScreenPxLen, thickness, color, showLabel, lengthUm);
       g.mfcAttachedTo = refObj.mfcId;
       g.mfcLengthUm = lengthUm;
       if (corner) { g.mfcCorner = corner; g.mfcMarginPct = marginPct; }
@@ -1452,12 +1431,11 @@ const MFC = (function () {
     document.getElementById('panel-crop').classList.toggle('hidden', tool !== 'crop');
     document.getElementById('panel-scalebar').classList.toggle('hidden', tool !== 'scalebar');
     canvas.isDrawingMode = false;
-    canvas.selection = tool === 'select';
+    canvas.selection = (tool === 'select' || tool === 'scalebar');
     canvas.forEachObject(o => { if (!o.mfcIsPageBounds) o.selectable = (tool === 'select' || tool === 'scalebar'); });
     if (tool === 'crop') startCrop();
     else cancelCrop();
-    if (tool === 'scalebar') { refreshScaleBarRefList(); armScaleBar(); }
-    else scaleBarArmed = false;
+    if (tool === 'scalebar') refreshScaleBarRefList();
     if (tool !== 'shape' && shapeDrag) { canvas.remove(shapeDrag.rect); shapeDrag = null; }
     refreshTextPanel();
     refreshObjectSizePanel();
@@ -1469,14 +1447,14 @@ const MFC = (function () {
   function setNextIdCounter(v) { nextId = v; }
 
   return {
-    init, getCanvas, getDocProps, applyDocProps, docPropsToPixels,
+    init, getCanvas, getDocProps, applyDocProps, setDocName, getAppVersion, docPropsToPixels,
     importFiles, addImageToCanvas, recomposite, refreshChannelPanel,
     undo, redo, pushHistory,
     setTool, align, copySelection, pasteSelection, nudgeSelection,
     applyCrop, cancelCrop, setCropAspectMode, applyCropFieldsToRect,
     applyTextStyle, applyTextAlign, applyTextBoxSize, applyTextBorder, refreshTextPanel, attachTextListeners,
     refreshObjectSizePanel, applyObjectSizeFromFields, rotateSelected, setObjectAngle,
-    armScaleBar, refreshScaleBarRefList, placeScaleBarAtCorner, placeScaleBarOnSelectedImages,
+    refreshScaleBarRefList, placeScaleBarAtCorner, placeScaleBarOnSelectedImages,
     arrangeGrid,
     applyShapeStyle, setShapeAspectMode, refreshShapePanel,
     zoomIn, zoomOut, zoomReset, updateZoomDisplay, setZoom, getZoomLevel, withDocOnlyView,

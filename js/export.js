@@ -194,7 +194,7 @@ const MFC_EXPORT = (function () {
 
     // manifest.json holds only lightweight metadata now — no embedded binary
     // data — so JSON.stringify here is always safe regardless of project size.
-    const project = { version: 2, projectName: docProps.name || 'Untitled Figure', docProps, nextId: MFC.getNextIdCounter(), objects };
+    const project = { version: 2, appVersion: MFC.getAppVersion(), projectName: docProps.name || 'Untitled Figure', docProps, nextId: MFC.getNextIdCounter(), objects };
     zip.file('manifest.json', JSON.stringify(project));
 
     const outBlob = await zip.generateAsync({
@@ -223,7 +223,8 @@ const MFC_EXPORT = (function () {
     // the zip build first was silently burning through that window on larger projects, so
     // the picker call would then throw (activation expired), get swallowed by the catch
     // below, and every save quietly fell back to downloading a brand-new file instead of
-    // overwriting the same one. Doing the picker call immediately fixes that.
+    // overwriting the same one. Doing the picker call immediately fixes that. (Also: this
+    // native dialog is shown before our own "Saving…" overlay, so the two never overlap.)
     if (supportsFSAccess) {
       try {
         if (!projectFileHandle || forceNewLocation) {
@@ -239,35 +240,43 @@ const MFC_EXPORT = (function () {
       }
     }
 
-    let blob;
+    MFC_UI.showSavingDialog('Saving project…');
     try {
-      blob = await buildProjectZipBlob();
-    } catch (err) {
-      console.error(err);
-      MFC_UI.toast('Failed to build project file: ' + err.message);
-      return;
-    }
-
-    if (supportsFSAccess && projectFileHandle) {
+      let blob;
       try {
-        const writable = await projectFileHandle.createWritable();
-        await writable.write(blob);
-        await writable.close();
-        const sizeMB = (blob.size / (1024 * 1024)).toFixed(1);
-        MFC_UI.toast(`Saved "${projectFileHandle.name}" (${sizeMB} MB)`);
-        return;
+        blob = await buildProjectZipBlob();
       } catch (err) {
-        console.warn('File System Access write failed, falling back to download:', err);
-        // fall through to the download() fallback below
+        console.error(err);
+        MFC_UI.toast('Failed to build project file: ' + err.message);
+        return;
       }
-    }
 
-    // Fallback for browsers without the File System Access API (Firefox, Safari), or if
-    // the write above failed: triggers a normal "download a new file" — there is no
-    // browser API on those platforms to overwrite an arbitrary local file in place.
-    download(blob, filename);
-    const sizeMB = (blob.size / (1024 * 1024)).toFixed(1);
-    MFC_UI.toast(`Saved "${filename}" (${sizeMB} MB)`);
+      const versionNote = document.getElementById('doc-version-info');
+      if (supportsFSAccess && projectFileHandle) {
+        try {
+          const writable = await projectFileHandle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          const sizeMB = (blob.size / (1024 * 1024)).toFixed(1);
+          MFC_UI.toast(`Saved "${projectFileHandle.name}" (${sizeMB} MB)`);
+          if (versionNote) versionNote.textContent = `Saved with v${MFC.getAppVersion()}.`;
+          return;
+        } catch (err) {
+          console.warn('File System Access write failed, falling back to download:', err);
+          // fall through to the download() fallback below
+        }
+      }
+
+      // Fallback for browsers without the File System Access API (Firefox, Safari), or if
+      // the write above failed: triggers a normal "download a new file" — there is no
+      // browser API on those platforms to overwrite an arbitrary local file in place.
+      download(blob, filename);
+      const sizeMB = (blob.size / (1024 * 1024)).toFixed(1);
+      MFC_UI.toast(`Saved "${filename}" (${sizeMB} MB)`);
+      if (versionNote) versionNote.textContent = `Saved with v${MFC.getAppVersion()}.`;
+    } finally {
+      MFC_UI.hideSavingDialog();
+    }
   }
 
   /**
@@ -296,6 +305,15 @@ const MFC_EXPORT = (function () {
   }
 
   async function loadProject(file) {
+    MFC_UI.showSavingDialog('Loading project…');
+    try {
+      return await loadProjectInner(file);
+    } finally {
+      MFC_UI.hideSavingDialog();
+    }
+  }
+
+  async function loadProjectInner(file) {
     const buf = await file.arrayBuffer();
     const magic = new Uint8Array(buf.slice(0, 4));
     const isZip = magic[0] === 0x50 && magic[1] === 0x4b; // 'PK' — zip signature (current format)
@@ -381,7 +399,10 @@ const MFC_EXPORT = (function () {
     MFC.pushHistory();
     MFC.refreshChannelPanel();
     MFC.refreshScaleBarRefList();
-    MFC_UI.toast('Project loaded.');
+
+    const versionLabel = project.appVersion ? `v${project.appVersion}` : 'an earlier version (pre-0.13)';
+    document.getElementById('doc-version-info').textContent = `Saved with ${versionLabel} — currently running v${MFC.getAppVersion()}.`;
+    MFC_UI.toast(`Project loaded (saved with ${versionLabel}).`);
   }
 
   return { exportTIFF, exportSVG, exportPDF, saveProject, loadProject, pickAndLoadProject };
