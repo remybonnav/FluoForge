@@ -18,6 +18,7 @@
     <button id="tool-text" class="tool-btn" data-tool="text" title="Text tool (T)">A Text</button>
     <button id="tool-scalebar" class="tool-btn" data-tool="scalebar" title="Scale bar tool (S)">&#8213; Scale bar</button>
     <button id="tool-shape" class="tool-btn" data-tool="shape" title="Rectangle/square tool (R)">&#9633; Shape</button>
+    <button id="tool-inset" class="tool-btn" data-tool="inset" title="Inset tool — draw an outline on an image (I)">&#8862; Inset</button>
     <button id="btn-grid" title="Arrange selected (or all) images into a grid with header labels">&#9638; Grid</button>
   </div>
 
@@ -113,6 +114,7 @@
         <button id="obj-rotate-cw" style="width:auto;padding:6px 10px;" title="Rotate +90°">&#8635; +90&deg;</button>
       </div>
       <p class="hint">Handy for matching sizes across images — set one image's size here, then type the same values for the others.</p>
+      <button id="obj-uncrop" class="hidden" title="Restore this image to its full, uncropped frame">Uncrop image</button>
     </section>
 
     <section id="panel-channels" class="panel">
@@ -194,6 +196,13 @@
         </span>
       </label>
       <p class="hint">Drag on the canvas to draw. Hold Shift while dragging (or use the Square toggle) to constrain to 1:1.</p>
+    </section>
+
+    <section id="panel-inset" class="panel hidden">
+      <h3>Inset</h3>
+      <p class="hint">Draw an outline directly on an image (drag on the canvas) to mark the region you want as an inset.</p>
+      <button id="inset-create" class="hidden">Create inset</button>
+      <p class="hint">The outline stays on the original image. Once created, moving or resizing the <em>outline</em> updates which part of the source the inset shows — the inset's own size/position on the canvas are never touched, so you can enlarge it freely for the figure. Channels are independently editable on the inset, same as any image.</p>
     </section>
 
     <section id="panel-text" class="panel hidden">

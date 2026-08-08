@@ -192,6 +192,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // ---- shape panel ----
   document.getElementById('shape-mode-rect').addEventListener('click', () => MFC.setShapeAspectMode('rect'));
+  document.getElementById('inset-create').addEventListener('click', () => {
+    const active = MFC.getCanvas().getActiveObject();
+    if (active) MFC.createInsetFromContour(active);
+  });
   document.getElementById('shape-mode-square').addEventListener('click', () => MFC.setShapeAspectMode('square'));
   ['shape-stroke-color', 'shape-stroke-width', 'shape-dash', 'shape-fill-enabled', 'shape-fill-color'].forEach(id => {
     document.getElementById(id).addEventListener('input', () => MFC.applyShapeStyle());
@@ -209,6 +213,10 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('obj-angle').addEventListener('change', (e) => MFC.setObjectAngle(parseFloat(e.target.value) || 0));
   document.getElementById('obj-rotate-ccw').addEventListener('click', () => MFC.rotateSelected(-90));
   document.getElementById('obj-rotate-cw').addEventListener('click', () => MFC.rotateSelected(90));
+  document.getElementById('obj-uncrop').addEventListener('click', () => {
+    const active = MFC.getCanvas().getActiveObject();
+    if (active) MFC.uncropImage(active);
+  });
 
   // ---- scale bar panel ----
   document.getElementById('sb-place-corner').addEventListener('click', () => {

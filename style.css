@@ -110,8 +110,8 @@ button.active,.toggle-btn.active{background:var(--accent-dim);border-color:var(-
   border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:8px;background:var(--bg);
 }
 .channel-row .row-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
-.channel-row .ch-name{flex:1;font-weight:600;font-size:12px;}
-.channel-row select{width:90px;}
+.channel-row .ch-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:12px;}
+.channel-row select{width:78px;flex-shrink:0;}
 .channel-row .swatch{width:14px;height:14px;border-radius:3px;border:1px solid #0006;flex-shrink:0;}
 .range-row{display:flex;align-items:center;gap:6px;}
 .range-row input[type=range]{flex:1;width:auto;}

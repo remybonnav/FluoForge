@@ -28,7 +28,7 @@ const MFC = (function () {
   };
 
   let canvas;                       // fabric.Canvas
-  const MFC_VERSION = '0.13';
+  const MFC_VERSION = '0.14';
   function getAppVersion() { return MFC_VERSION; }
 
   let docProps = { name: 'Untitled Figure', width: 1748, height: 1240, unit: 'px', dpi: 300 }; // A4-ish default @300dpi
@@ -152,6 +152,7 @@ const MFC = (function () {
       if (!e.target || e.target === cropRect) return;
       if (!(e.e && e.e.altKey)) snapObjectPosition(e.target); // hold Alt to move freely without snapping
       if (e.target.mfcType === 'mfcImage') repositionAttachedScaleBars(e.target);
+      if (e.target.mfcType === 'insetContour') syncInsetFromContour(e.target);
       if (e.target.type === 'activeSelection') {
         e.target.getObjects().forEach(o => { if (o.mfcType === 'mfcImage') repositionAttachedScaleBars(o); });
       }
@@ -192,6 +193,7 @@ const MFC = (function () {
       }
 
       if (obj.mfcType === 'mfcImage') updateScaleBarsForImage(obj);
+      if (obj.mfcType === 'insetContour') syncInsetFromContour(obj);
       refreshObjectSizePanel();
       if (obj.type === 'textbox') refreshTextPanel();
     });
@@ -492,6 +494,7 @@ const MFC = (function () {
     refreshTextPanel();
     refreshScaleBarRefList();
     refreshShapePanel();
+    refreshInsetPanel();
     const objs = canvas.getActiveObjects ? canvas.getActiveObjects() : [];
     document.getElementById('align-bar').classList.toggle('hidden', objs.length < 2);
   }
@@ -509,6 +512,46 @@ const MFC = (function () {
     document.getElementById('obj-width').value = Math.round(active.getScaledWidth());
     document.getElementById('obj-height').value = Math.round(active.getScaledHeight());
     document.getElementById('obj-angle').value = Math.round(active.angle || 0);
+
+    const uncropBtn = document.getElementById('obj-uncrop');
+    if (uncropBtn) uncropBtn.classList.toggle('hidden', !isCropped(active));
+  }
+
+  /** Whether an image currently has an active (non-full-frame) crop applied. */
+  function isCropped(img) {
+    if (!img || img.mfcType !== 'mfcImage') return false;
+    const entry = registry[img.mfcId];
+    if (!entry) return false;
+    const fullW = Math.max(1, Math.round(entry.rawImage.width * entry.workingScale));
+    const fullH = Math.max(1, Math.round(entry.rawImage.height * entry.workingScale));
+    return (img.cropX || 0) > 0.01 || (img.cropY || 0) > 0.01 ||
+           Math.abs((img.width || 0) - fullW) > 0.5 || Math.abs((img.height || 0) - fullH) > 0.5;
+  }
+
+  /**
+   * Restores an image to its full, uncropped frame. Registry entries are never purged
+   * when an image is cropped, so the original full-resolution data is always still
+   * there — "uncrop" is just resetting the crop window back to the whole thing. Keeps
+   * the currently-visible crop content anchored at the same screen position (rather
+   * than jumping) by shifting left/top back by the crop offset as the frame expands.
+   */
+  function uncropImage(img) {
+    if (!isCropped(img)) return;
+    const entry = registry[img.mfcId];
+    const fullW = Math.max(1, Math.round(entry.rawImage.width * entry.workingScale));
+    const fullH = Math.max(1, Math.round(entry.rawImage.height * entry.workingScale));
+    const cx = img.cropX || 0, cy = img.cropY || 0;
+    img.set({
+      left: img.left - cx * img.scaleX,
+      top: img.top - cy * img.scaleY,
+      cropX: 0, cropY: 0,
+      width: fullW, height: fullH
+    });
+    img.setCoords();
+    canvas.requestRenderAll();
+    canvas.fire('object:modified', { target: img });
+    updateScaleBarsForImage(img);
+    refreshObjectSizePanel();
   }
 
   /** Rotate the selected object by a relative amount (e.g. ±90°), wrapped to 0-359. */
@@ -816,7 +859,140 @@ const MFC = (function () {
       setTool('select');
     } else if (currentTool === 'shape' && !opt.target) {
       startShapeDrag(canvas.getPointer(opt.e), opt.e);
+    } else if (currentTool === 'inset' && opt.target && opt.target.mfcType === 'mfcImage') {
+      startInsetDrag(canvas.getPointer(opt.e), opt.target);
     }
+  }
+
+  // ---- inset tool (draw an outline on an image, then "Create Inset" duplicates that
+  // region as a separate, independently-editable image kept in sync with the outline) ----
+  let insetDrag = null; // { rect, startX, startY }
+
+  function startInsetDrag(pointer, sourceImg) {
+    const rect = new fabric.Rect({
+      left: pointer.x, top: pointer.y, width: 1, height: 1,
+      fill: 'transparent', stroke: '#ffcc00', strokeWidth: 2, strokeDashArray: [6, 4], strokeUniform: true,
+      cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff'
+    });
+    rect.mfcId = 'ins' + (nextId++);
+    rect.mfcType = 'insetContour';
+    rect.mfcInsetSourceId = sourceImg.mfcId;
+    canvas.add(rect);
+    insetDrag = { rect, startX: pointer.x, startY: pointer.y };
+  }
+
+  function refreshInsetPanel() {
+    const active = canvas.getActiveObject();
+    const isContour = active && active.mfcType === 'insetContour';
+    const panel = document.getElementById('panel-inset');
+    if (!panel) return;
+    panel.classList.toggle('hidden', !(isContour || currentTool === 'inset'));
+    const btn = document.getElementById('inset-create');
+    if (btn) {
+      btn.classList.toggle('hidden', !isContour);
+      if (isContour) btn.textContent = active.mfcInsetTargetId ? 'Update linked inset now' : 'Create inset';
+    }
+  }
+
+  /**
+   * Duplicates the region marked by an inset contour rectangle as a new, independent
+   * image (own registry entry — own channels, so it's separately editable per the
+   * channel panel like any other image), linked back to the contour so future moves/
+   * resizes of the *contour* keep the duplicate's crop window in sync (see
+   * syncInsetFromContour). The duplicate's own on-screen size/position are never
+   * touched by that sync — only which pixels it's showing.
+   */
+  function createInsetFromContour(contourRect) {
+    if (!contourRect || contourRect.mfcType !== 'insetContour') return;
+    const srcImg = canvas.getObjects().find(o => o.mfcId === contourRect.mfcInsetSourceId);
+    const entry = srcImg && registry[srcImg.mfcId];
+    if (!srcImg || !entry) {
+      MFC_UI.toast('Could not find the source image for this outline.');
+      return;
+    }
+
+    const srcBox = srcImg.getBoundingRect(true);
+    const cBox = contourRect.getBoundingRect(true);
+    // Clamp the outline to the source image's current bounds, in case it was dragged
+    // partly outside the image.
+    const clLeft = Math.max(cBox.left, srcBox.left), clTop = Math.max(cBox.top, srcBox.top);
+    const clRight = Math.min(cBox.left + cBox.width, srcBox.left + srcBox.width);
+    const clBottom = Math.min(cBox.top + cBox.height, srcBox.top + srcBox.height);
+    const w = Math.max(1, clRight - clLeft), h = Math.max(1, clBottom - clTop);
+
+    const cropX = srcImg.cropX + (clLeft - srcBox.left) / srcImg.scaleX;
+    const cropY = srcImg.cropY + (clTop - srcBox.top) / srcImg.scaleY;
+    const cropW = w / srcImg.scaleX, cropH = h / srcImg.scaleY;
+
+    let insetImg = contourRect.mfcInsetTargetId
+      ? canvas.getObjects().find(o => o.mfcId === contourRect.mfcInsetTargetId) : null;
+
+    if (insetImg) {
+      // Already linked — "Create inset" becomes "update now" (same effect as a
+      // move/resize sync, just triggered manually).
+      insetImg.set({ cropX, cropY, width: cropW, height: cropH });
+      insetImg.setCoords();
+      canvas.requestRenderAll();
+      pushHistory();
+      MFC_UI.toast('Inset updated.');
+      return;
+    }
+
+    // Independent registry entry: its own channel settings (on/off, color, contrast) so
+    // the inset is separately editable from here on — same duplication pattern used by
+    // copy/paste. Raw pixel arrays are read-only and safe to share by reference.
+    const clonedRaw = { ...entry.rawImage, channels: entry.rawImage.channels.map(c => ({ ...c })) };
+    const insetId = 'img' + (nextId++);
+    registry[insetId] = { rawImage: clonedRaw, fileBase64: entry.fileBase64, workingScale: entry.workingScale };
+    const compositeCanvas = MFC_TIFF.compositeChannels(clonedRaw, entry.workingScale);
+
+    insetImg = new fabric.Image(compositeCanvas, {
+      left: srcBox.left + srcBox.width + 30, top: srcBox.top,
+      cropX, cropY, width: cropW, height: cropH,
+      scaleX: w / cropW, scaleY: h / cropH, // starts at the same on-screen size as the outline; freely resizable afterward
+      cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff'
+    });
+    insetImg.mfcId = insetId;
+    insetImg.mfcType = 'mfcImage';
+    insetImg.mfcRawWidth = clonedRaw.width;
+    insetImg.mfcRawHeight = clonedRaw.height;
+    insetImg.mfcFileName = (clonedRaw.fileName || 'image') + ' (inset)';
+    insetImg.mfcIsInset = true;
+    insetImg.mfcInsetContourId = contourRect.mfcId;
+    insetImg.mfcInsetSourceId = srcImg.mfcId;
+    contourRect.mfcInsetTargetId = insetImg.mfcId;
+
+    canvas.add(insetImg);
+    canvas.setActiveObject(insetImg);
+    canvas.requestRenderAll();
+    pushHistory();
+    refreshChannelPanel();
+    refreshScaleBarRefList();
+    MFC_UI.toast('Inset created — move/resize it freely; adjust the yellow outline on the original to change what it shows.');
+  }
+
+  /** Keeps a linked inset's crop *window* matching its contour rectangle's current position/size on the source image. Never touches the inset's own on-screen size/position — only which pixels it displays. */
+  function syncInsetFromContour(contourRect) {
+    if (!contourRect.mfcInsetTargetId) return;
+    const insetImg = canvas.getObjects().find(o => o.mfcId === contourRect.mfcInsetTargetId);
+    const srcImg = canvas.getObjects().find(o => o.mfcId === contourRect.mfcInsetSourceId);
+    if (!insetImg || !srcImg) return;
+
+    const srcBox = srcImg.getBoundingRect(true);
+    const cBox = contourRect.getBoundingRect(true);
+    const clLeft = Math.max(cBox.left, srcBox.left), clTop = Math.max(cBox.top, srcBox.top);
+    const clRight = Math.min(cBox.left + cBox.width, srcBox.left + srcBox.width);
+    const clBottom = Math.min(cBox.top + cBox.height, srcBox.top + srcBox.height);
+    const w = Math.max(1, clRight - clLeft), h = Math.max(1, clBottom - clTop);
+
+    insetImg.set({
+      cropX: srcImg.cropX + (clLeft - srcBox.left) / srcImg.scaleX,
+      cropY: srcImg.cropY + (clTop - srcBox.top) / srcImg.scaleY,
+      width: w / srcImg.scaleX,
+      height: h / srcImg.scaleY
+    });
+    insetImg.setCoords();
+    canvas.requestRenderAll();
   }
 
   // ---- shape tool (rectangle/square, drag-to-draw) ----
@@ -848,6 +1024,18 @@ const MFC = (function () {
   }
 
   function onCanvasMouseMove(opt) {
+    if (insetDrag) {
+      const p = canvas.getPointer(opt.e);
+      const w = p.x - insetDrag.startX, h = p.y - insetDrag.startY;
+      insetDrag.rect.set({
+        left: w < 0 ? insetDrag.startX + w : insetDrag.startX,
+        top: h < 0 ? insetDrag.startY + h : insetDrag.startY,
+        width: Math.abs(w), height: Math.abs(h)
+      });
+      insetDrag.rect.setCoords();
+      canvas.requestRenderAll();
+      return;
+    }
     if (!shapeDrag) return;
     const p = canvas.getPointer(opt.e);
     let w = p.x - shapeDrag.startX;
@@ -868,6 +1056,22 @@ const MFC = (function () {
   }
 
   function onCanvasMouseUp() {
+    if (insetDrag) {
+      const rect = insetDrag.rect;
+      insetDrag = null;
+      if (rect.width < 8 || rect.height < 8) {
+        // too small a drag to be intentional — discard rather than leave a stray sliver
+        canvas.remove(rect);
+        canvas.requestRenderAll();
+        return;
+      }
+      canvas.setActiveObject(rect);
+      canvas.requestRenderAll();
+      pushHistory();
+      refreshInsetPanel();
+      setTool('select');
+      return;
+    }
     if (!shapeDrag) return;
     const rect = shapeDrag.rect;
     // treat a near-zero drag (a simple click) as "place a default-sized shape here"
@@ -1335,6 +1539,13 @@ const MFC = (function () {
     cloned.set({ left: cloned.left + dx, top: cloned.top + dy, evented: true });
     cloned.mfcId = (cloned.mfcType || 'obj') + (nextId++);
     if (item.isTextbox) { cloned.mfcType = 'text'; attachTextListeners(cloned); }
+    if (cloned.mfcType === 'insetContour') {
+      // A pasted copy of a linked contour must not keep steering the *original*
+      // outline's inset — clone()/toObject() would otherwise carry the old
+      // mfcInsetTargetId straight over, so moving the new copy would silently also
+      // update the original's linked inset image.
+      cloned.mfcInsetTargetId = null;
+    }
     cloned.setCoords();
     canvas.add(cloned);
     return cloned;
@@ -1437,9 +1648,11 @@ const MFC = (function () {
     else cancelCrop();
     if (tool === 'scalebar') refreshScaleBarRefList();
     if (tool !== 'shape' && shapeDrag) { canvas.remove(shapeDrag.rect); shapeDrag = null; }
+    if (tool !== 'inset' && insetDrag) { canvas.remove(insetDrag.rect); insetDrag = null; }
     refreshTextPanel();
     refreshObjectSizePanel();
     refreshShapePanel();
+    refreshInsetPanel();
   }
 
   function getRegistry() { return registry; }
@@ -1453,10 +1666,11 @@ const MFC = (function () {
     setTool, align, copySelection, pasteSelection, nudgeSelection,
     applyCrop, cancelCrop, setCropAspectMode, applyCropFieldsToRect,
     applyTextStyle, applyTextAlign, applyTextBoxSize, applyTextBorder, refreshTextPanel, attachTextListeners,
-    refreshObjectSizePanel, applyObjectSizeFromFields, rotateSelected, setObjectAngle,
+    refreshObjectSizePanel, applyObjectSizeFromFields, rotateSelected, setObjectAngle, uncropImage,
     refreshScaleBarRefList, placeScaleBarAtCorner, placeScaleBarOnSelectedImages,
     arrangeGrid,
     applyShapeStyle, setShapeAspectMode, refreshShapePanel,
+    createInsetFromContour, refreshInsetPanel,
     zoomIn, zoomOut, zoomReset, updateZoomDisplay, setZoom, getZoomLevel, withDocOnlyView,
     getRegistry, getNextIdCounter, setNextIdCounter,
     get currentTool() { return currentTool; }

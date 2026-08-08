@@ -174,7 +174,8 @@ const MFC_EXPORT = (function () {
         return Object.assign(common, {
           fileName: o.mfcFileName,
           imageArchivePath: `images/${archiveName}`,
-          channels: entry.rawImage.channels.map(c => ({ enabled: c.enabled, color: c.color, min: c.min, max: c.max, name: c.name }))
+          channels: entry.rawImage.channels.map(c => ({ enabled: c.enabled, color: c.color, min: c.min, max: c.max, name: c.name })),
+          mfcIsInset: !!o.mfcIsInset, mfcInsetContourId: o.mfcInsetContourId || null, mfcInsetSourceId: o.mfcInsetSourceId || null
         });
       }
       if (o.type === 'textbox') {
@@ -187,6 +188,11 @@ const MFC_EXPORT = (function () {
       if (o.mfcType === 'scalebar') {
         return Object.assign(common, {
           fabricJSON: o.toObject(['mfcId', 'mfcType', 'mfcAttachedTo', 'mfcCorner', 'mfcMarginPct'])
+        });
+      }
+      if (o.mfcType === 'insetContour') {
+        return Object.assign(common, {
+          fabricJSON: o.toObject(['mfcId', 'mfcType', 'mfcInsetSourceId', 'mfcInsetTargetId'])
         });
       }
       return Object.assign(common, { fabricJSON: o.toObject(['mfcId', 'mfcType']) });
@@ -371,6 +377,9 @@ const MFC_EXPORT = (function () {
         added.set({ left: objDef.left, top: objDef.top, scaleX: objDef.scaleX, scaleY: objDef.scaleY,
                     angle: objDef.angle, width: objDef.width, height: objDef.height,
                     cropX: objDef.cropX, cropY: objDef.cropY });
+        added.mfcIsInset = !!objDef.mfcIsInset;
+        added.mfcInsetContourId = objDef.mfcInsetContourId || null;
+        added.mfcInsetSourceId = objDef.mfcInsetSourceId || null;
         added.setCoords();
       } else if (objDef.mfcType === 'textbox' || objDef.mfcType === 'text') {
         const t = new fabric.Textbox(objDef.text, {
@@ -391,6 +400,8 @@ const MFC_EXPORT = (function () {
           if (objDef.fabricJSON.mfcAttachedTo) o.mfcAttachedTo = objDef.fabricJSON.mfcAttachedTo;
           if (objDef.fabricJSON.mfcCorner) o.mfcCorner = objDef.fabricJSON.mfcCorner;
           if (objDef.fabricJSON.mfcMarginPct != null) o.mfcMarginPct = objDef.fabricJSON.mfcMarginPct;
+          if (objDef.fabricJSON.mfcInsetSourceId) o.mfcInsetSourceId = objDef.fabricJSON.mfcInsetSourceId;
+          if (objDef.fabricJSON.mfcInsetTargetId) o.mfcInsetTargetId = objDef.fabricJSON.mfcInsetTargetId;
           canvas.add(o);
         });
       }
