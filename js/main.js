@@ -196,6 +196,10 @@ window.addEventListener('DOMContentLoaded', () => {
     const active = MFC.getCanvas().getActiveObject();
     if (active) MFC.createInsetFromContour(active);
   });
+  ['inset-stroke-color', 'inset-stroke-width', 'inset-dash'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => MFC.applyInsetContourStyle());
+    document.getElementById(id).addEventListener('change', () => MFC.applyInsetContourStyle());
+  });
   document.getElementById('shape-mode-square').addEventListener('click', () => MFC.setShapeAspectMode('square'));
   ['shape-stroke-color', 'shape-stroke-width', 'shape-dash', 'shape-fill-enabled', 'shape-fill-color'].forEach(id => {
     document.getElementById(id).addEventListener('input', () => MFC.applyShapeStyle());
@@ -334,7 +338,7 @@ function attachColorPalettesToAllInputs() {
   const PASTEL = ['#ffb3ba', '#ffdfba', '#ffffba', '#baffc9', '#bae1ff', '#d5baff', '#e8d5c4', '#d0d0d0'];
   const PALETTE = [...NORMAL, ...PASTEL];
 
-  ['text-color', 'text-bg-color', 'text-border-color', 'shape-stroke-color', 'shape-fill-color', 'sb-color'].forEach(id => {
+  ['text-color', 'text-bg-color', 'text-border-color', 'shape-stroke-color', 'shape-fill-color', 'sb-color', 'inset-stroke-color'].forEach(id => {
     const input = document.getElementById(id);
     if (input) attachColorPalette(input, PALETTE);
   });

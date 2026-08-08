@@ -201,6 +201,17 @@
     <section id="panel-inset" class="panel hidden">
       <h3>Inset</h3>
       <p class="hint">Draw an outline directly on an image (drag on the canvas) to mark the region you want as an inset.</p>
+      <label>Outline color <input type="color" id="inset-stroke-color" value="#ffcc00"></label>
+      <label>Outline width <input type="number" id="inset-stroke-width" value="2" min="0" step="1"></label>
+      <label>Dash style
+        <select id="inset-dash">
+          <option value="solid">Solid</option>
+          <option value="dashed" selected>Dashed</option>
+          <option value="dotted">Dotted</option>
+          <option value="dashdot">Dash-dot</option>
+          <option value="longdash">Long dash</option>
+        </select>
+      </label>
       <button id="inset-create" class="hidden">Create inset</button>
       <p class="hint">The outline stays on the original image. Once created, moving or resizing the <em>outline</em> updates which part of the source the inset shows — the inset's own size/position on the canvas are never touched, so you can enlarge it freely for the figure. Channels are independently editable on the inset, same as any image.</p>
     </section>

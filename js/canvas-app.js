@@ -28,7 +28,7 @@ const MFC = (function () {
   };
 
   let canvas;                       // fabric.Canvas
-  const MFC_VERSION = '0.14';
+  const MFC_VERSION = '0.15';
   function getAppVersion() { return MFC_VERSION; }
 
   let docProps = { name: 'Untitled Figure', width: 1748, height: 1240, unit: 'px', dpi: 300 }; // A4-ish default @300dpi
@@ -868,10 +868,21 @@ const MFC = (function () {
   // region as a separate, independently-editable image kept in sync with the outline) ----
   let insetDrag = null; // { rect, startX, startY }
 
+  function readInsetContourFormValues() {
+    const dashKey = document.getElementById('inset-dash').value;
+    return {
+      stroke: document.getElementById('inset-stroke-color').value,
+      strokeWidth: parseFloat(document.getElementById('inset-stroke-width').value) || 0,
+      strokeDashArray: DASH_PRESETS[dashKey] || null
+    };
+  }
+
   function startInsetDrag(pointer, sourceImg) {
+    const style = readInsetContourFormValues();
     const rect = new fabric.Rect({
       left: pointer.x, top: pointer.y, width: 1, height: 1,
-      fill: 'transparent', stroke: '#ffcc00', strokeWidth: 2, strokeDashArray: [6, 4], strokeUniform: true,
+      fill: 'transparent', stroke: style.stroke, strokeWidth: style.strokeWidth, strokeDashArray: style.strokeDashArray,
+      strokeUniform: true,
       cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff'
     });
     rect.mfcId = 'ins' + (nextId++);
@@ -879,6 +890,15 @@ const MFC = (function () {
     rect.mfcInsetSourceId = sourceImg.mfcId;
     canvas.add(rect);
     insetDrag = { rect, startX: pointer.x, startY: pointer.y };
+  }
+
+  /** Live-apply the panel's current stroke settings to the selected inset contour. */
+  function applyInsetContourStyle() {
+    const active = canvas.getActiveObject();
+    if (!active || active.mfcType !== 'insetContour') return;
+    active.set(readInsetContourFormValues());
+    canvas.requestRenderAll();
+    canvas.fire('object:modified', { target: active });
   }
 
   function refreshInsetPanel() {
@@ -891,6 +911,16 @@ const MFC = (function () {
     if (btn) {
       btn.classList.toggle('hidden', !isContour);
       if (isContour) btn.textContent = active.mfcInsetTargetId ? 'Update linked inset now' : 'Create inset';
+    }
+    if (isContour) {
+      document.getElementById('inset-stroke-color').value = toHexColor(active.stroke) || '#ffcc00';
+      document.getElementById('inset-stroke-width').value = active.strokeWidth || 0;
+      const dash = active.strokeDashArray;
+      let dashKey = 'solid';
+      for (const [k, v] of Object.entries(DASH_PRESETS)) {
+        if (v && dash && v.length === dash.length && v.every((n, i) => n === dash[i])) { dashKey = k; break; }
+      }
+      document.getElementById('inset-dash').value = dashKey;
     }
   }
 
@@ -1670,7 +1700,7 @@ const MFC = (function () {
     refreshScaleBarRefList, placeScaleBarAtCorner, placeScaleBarOnSelectedImages,
     arrangeGrid,
     applyShapeStyle, setShapeAspectMode, refreshShapePanel,
-    createInsetFromContour, refreshInsetPanel,
+    createInsetFromContour, refreshInsetPanel, applyInsetContourStyle,
     zoomIn, zoomOut, zoomReset, updateZoomDisplay, setZoom, getZoomLevel, withDocOnlyView,
     getRegistry, getNextIdCounter, setNextIdCounter,
     get currentTool() { return currentTool; }
