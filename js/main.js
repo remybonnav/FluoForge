@@ -192,6 +192,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // ---- shape panel ----
   document.getElementById('shape-mode-rect').addEventListener('click', () => MFC.setShapeAspectMode('rect'));
+  document.getElementById('inset-mode-square').addEventListener('click', () => MFC.setInsetAspectMode('square'));
+  document.getElementById('inset-mode-rect').addEventListener('click', () => MFC.setInsetAspectMode('rect'));
   document.getElementById('inset-create').addEventListener('click', () => {
     const active = MFC.getCanvas().getActiveObject();
     if (active) MFC.createInsetFromContour(active);

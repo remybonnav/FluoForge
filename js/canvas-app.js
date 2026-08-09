@@ -28,7 +28,7 @@ const MFC = (function () {
   };
 
   let canvas;                       // fabric.Canvas
-  const MFC_VERSION = '0.16';
+  const MFC_VERSION = '0.17';
   function getAppVersion() { return MFC_VERSION; }
 
   let docProps = { name: 'Untitled Figure', width: 1748, height: 1240, unit: 'px', dpi: 300 }; // A4-ish default @300dpi
@@ -948,6 +948,13 @@ const MFC = (function () {
   // ---- inset tool (draw an outline on an image, then "Create Inset" duplicates that
   // region as a separate, independently-editable image kept in sync with the outline) ----
   let insetDrag = null; // { rect, startX, startY }
+  let insetAspectMode = 'square'; // 'square' | 'rect' — defaults to square so a drawn outline
+
+  function setInsetAspectMode(mode) {
+    insetAspectMode = mode;
+    document.getElementById('inset-mode-square').classList.toggle('active', mode === 'square');
+    document.getElementById('inset-mode-rect').classList.toggle('active', mode === 'rect');
+  }
 
   function readInsetContourFormValues() {
     const dashKey = document.getElementById('inset-dash').value;
@@ -1137,7 +1144,13 @@ const MFC = (function () {
   function onCanvasMouseMove(opt) {
     if (insetDrag) {
       const p = canvas.getPointer(opt.e);
-      const w = p.x - insetDrag.startX, h = p.y - insetDrag.startY;
+      let w = p.x - insetDrag.startX, h = p.y - insetDrag.startY;
+      const square = insetAspectMode === 'square' ? !opt.e.shiftKey : opt.e.shiftKey;
+      if (square) {
+        const s = Math.max(Math.abs(w), Math.abs(h));
+        w = (w < 0 ? -1 : 1) * s;
+        h = (h < 0 ? -1 : 1) * s;
+      }
       insetDrag.rect.set({
         left: w < 0 ? insetDrag.startX + w : insetDrag.startX,
         top: h < 0 ? insetDrag.startY + h : insetDrag.startY,
@@ -1782,7 +1795,7 @@ const MFC = (function () {
     refreshScaleBarRefList, placeScaleBarAtCorner, placeScaleBarOnSelectedImages,
     arrangeGrid,
     applyShapeStyle, setShapeAspectMode, refreshShapePanel,
-    createInsetFromContour, refreshInsetPanel, applyInsetContourStyle,
+    createInsetFromContour, refreshInsetPanel, applyInsetContourStyle, setInsetAspectMode,
     zoomIn, zoomOut, zoomReset, updateZoomDisplay, setZoom, getZoomLevel, withDocOnlyView,
     getRegistry, getNextIdCounter, setNextIdCounter,
     get currentTool() { return currentTool; }

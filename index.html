@@ -227,6 +227,11 @@
     <section id="panel-inset" class="panel hidden">
       <h3>Inset</h3>
       <p class="hint">Draw an outline directly on an image (drag on the canvas) to mark the region you want as an inset.</p>
+      <div class="btn-row">
+        <button id="inset-mode-square" class="toggle-btn active" style="width:auto;padding:6px 10px;">Square</button>
+        <button id="inset-mode-rect" class="toggle-btn" style="width:auto;padding:6px 10px;">Rectangle</button>
+      </div>
+      <p class="hint">Hold Shift while dragging to temporarily get the other shape.</p>
       <label>Outline color <input type="color" id="inset-stroke-color" value="#ffcc00"></label>
       <label>Outline width <input type="number" id="inset-stroke-width" value="2" min="0" step="1"></label>
       <label>Dash style
