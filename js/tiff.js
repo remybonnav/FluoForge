@@ -433,7 +433,8 @@ const MFC_TIFF = (function () {
       width, height,
       channels: channelsRaw,
       voxelSizeUm: voxelSizeUm || null,
-      meta: descMeta
+      meta: descMeta,
+      sourceFormat: 'tiff'
     };
   }
 
@@ -481,12 +482,102 @@ const MFC_TIFF = (function () {
         }
       }
     }
+
+    // Whole-image brightness/contrast tone curve — applied after channel compositing to
+    // the already-blended RGB, so the same control works identically for TIFF composites
+    // and RGB imports. contrast/brightness default to 0 (no-op) when unset, so existing
+    // images/projects that predate this feature render exactly as before.
+    const brightness = imgData.brightness || 0, contrast = imgData.contrast || 0;
+    if (brightness !== 0 || contrast !== 0) {
+      const contrastFactor = (100 + contrast) / 100; // 0 -> 1x (no change), 100 -> 2x, -100 -> 0x (flat grey)
+      const brightnessOffset = brightness * 2.55;    // -100..100 -> roughly -255..255
+      for (let i = 0; i < outData.length; i += 4) {
+        for (let c = 0; c < 3; c++) {
+          let v = (outData[i + c] - 128) * contrastFactor + 128 + brightnessOffset;
+          outData[i + c] = v < 0 ? 0 : v > 255 ? 255 : v;
+        }
+      }
+    }
+
+    // Preserve real source transparency (e.g. PNG alpha) when present and enabled;
+    // otherwise stays fully opaque (255, set above) same as every other image type.
+    if (imgData.hasAlpha && imgData.alphaEnabled !== false && imgData.alphaData) {
+      const alphaData = imgData.alphaData;
+      for (let y = 0; y < dstH; y++) {
+        const sy = Math.min(srcH - 1, Math.floor(y / scale));
+        for (let x = 0; x < dstW; x++) {
+          const sx = Math.min(srcW - 1, Math.floor(x / scale));
+          outData[(y * dstW + x) * 4 + 3] = alphaData[sy * srcW + sx];
+        }
+      }
+    }
+
     ctx.putImageData(out, 0, 0);
     return canvas;
   }
 
+  /**
+   * Decode a standard raster image (JPEG/PNG/BMP) into the SAME normalized shape
+   * decodeFile() produces for TIFFs — three 8-bit channels (Red/Green/Blue), so it gets
+   * the whole existing per-channel toggle/color/min-max UI and compositeChannels() for
+   * free. Unlike TIFF (raw sensor data, often needing contrast stretch), these formats
+   * are already meant to be viewed as-is, so channel ranges default to the full 0-255
+   * (no auto-contrast). PNG alpha (if any real translucency is present) is kept as a
+   * separate mask applied in compositeChannels, not as a 4th toggle channel — see
+   * `hasAlpha`/`alphaData`/`alphaEnabled`.
+   */
+  async function decodeRasterImage(file) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = () => reject(new Error('Could not decode image: ' + file.name));
+        el.src = url;
+      });
+      const width = img.naturalWidth, height = img.naturalHeight;
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const src = ctx.getImageData(0, 0, width, height).data; // Uint8ClampedArray RGBA
+
+      const n = width * height;
+      const rData = new Uint8Array(n), gData = new Uint8Array(n), bData = new Uint8Array(n);
+      let hasAlpha = false;
+      for (let i = 0; i < n; i++) {
+        const o = i * 4;
+        rData[i] = src[o]; gData[i] = src[o + 1]; bData[i] = src[o + 2];
+        if (src[o + 3] < 255) hasAlpha = true; // only flag real translucency, not incidentally-opaque PNGs
+      }
+      let alphaData = null;
+      if (hasAlpha) {
+        alphaData = new Uint8Array(n);
+        for (let i = 0; i < n; i++) alphaData[i] = src[i * 4 + 3];
+      }
+
+      return {
+        fileName: file.name,
+        width, height,
+        channels: [
+          { data: rData, bitDepth: 8, min: 0, max: 255, color: 'red', enabled: true, name: 'Red' },
+          { data: gData, bitDepth: 8, min: 0, max: 255, color: 'green', enabled: true, name: 'Green' },
+          { data: bData, bitDepth: 8, min: 0, max: 255, color: 'blue', enabled: true, name: 'Blue' }
+        ],
+        voxelSizeUm: null, // JPEG/PNG/BMP never carry physical pixel size — settable manually in the channel panel
+        meta: {},
+        sourceFormat: 'raster',
+        hasAlpha, alphaData, alphaEnabled: true,
+        brightness: 0, contrast: 0
+      };
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
   return {
     decodeFile,
+    decodeRasterImage,
     compositeChannels,
     workingScale,
     COLOR_PRESETS,

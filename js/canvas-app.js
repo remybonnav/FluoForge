@@ -28,7 +28,7 @@ const MFC = (function () {
   };
 
   let canvas;                       // fabric.Canvas
-  const MFC_VERSION = '0.15';
+  const MFC_VERSION = '0.16';
   function getAppVersion() { return MFC_VERSION; }
 
   let docProps = { name: 'Untitled Figure', width: 1748, height: 1240, unit: 'px', dpi: 300 }; // A4-ish default @300dpi
@@ -51,9 +51,16 @@ const MFC = (function () {
       cropX: o.cropX || 0, cropY: o.cropY || 0
     };
     if (o.mfcType === 'mfcImage') {
-      base.channels = registry[o.mfcId] ? JSON.parse(JSON.stringify(
-        registry[o.mfcId].rawImage.channels.map(c => ({ enabled: c.enabled, color: c.color, min: c.min, max: c.max }))
+      const entry = registry[o.mfcId];
+      base.channels = entry ? JSON.parse(JSON.stringify(
+        entry.rawImage.channels.map(c => ({ enabled: c.enabled, color: c.color, min: c.min, max: c.max }))
       )) : null;
+      if (entry) {
+        base.brightness = entry.rawImage.brightness || 0;
+        base.contrast = entry.rawImage.contrast || 0;
+        base.alphaEnabled = entry.rawImage.alphaEnabled !== false;
+        base.voxelSizeUm = entry.rawImage.voxelSizeUm != null ? entry.rawImage.voxelSizeUm : null;
+      }
     }
     if (o.type === 'textbox') {
       base.text = o.text;
@@ -86,7 +93,12 @@ const MFC = (function () {
       o.set({ left: s.left, top: s.top, scaleX: s.scaleX, scaleY: s.scaleY, angle: s.angle,
                width: s.width, height: s.height, cropX: s.cropX, cropY: s.cropY });
       if (s.type === 'mfcImage' && s.channels && registry[s.id]) {
-        registry[s.id].rawImage.channels.forEach((c, i) => Object.assign(c, s.channels[i]));
+        const entry = registry[s.id];
+        entry.rawImage.channels.forEach((c, i) => Object.assign(c, s.channels[i]));
+        if (s.brightness !== undefined) entry.rawImage.brightness = s.brightness;
+        if (s.contrast !== undefined) entry.rawImage.contrast = s.contrast;
+        if (s.alphaEnabled !== undefined) entry.rawImage.alphaEnabled = s.alphaEnabled;
+        if (s.voxelSizeUm !== undefined) entry.rawImage.voxelSizeUm = s.voxelSizeUm;
         recomposite(o);
       }
       if (o.type === 'textbox') {
@@ -314,7 +326,8 @@ const MFC = (function () {
   async function importFiles(fileList) {
     for (const file of Array.from(fileList)) {
       try {
-        const rawImage = await MFC_TIFF.decodeFile(file);
+        const isTiff = /\.tiff?$/i.test(file.name);
+        const rawImage = isTiff ? await MFC_TIFF.decodeFile(file) : await MFC_TIFF.decodeRasterImage(file);
         await addImageToCanvas(rawImage, file);
       } catch (err) {
         console.error(err);
@@ -395,15 +408,39 @@ const MFC = (function () {
     const listEl = document.getElementById('channel-list');
     const nameEl = document.getElementById('channel-image-name');
     const active = canvas.getActiveObject();
+    const calibBox = document.getElementById('channel-calibration');
+    const alphaBox = document.getElementById('channel-alpha');
+    const toneBox = document.getElementById('channel-tone');
 
     if (!active || active.mfcType !== 'mfcImage') {
       listEl.innerHTML = '<p class="hint">Select an image to edit its channels.</p>';
       nameEl.textContent = '';
+      calibBox.classList.add('hidden');
+      alphaBox.classList.add('hidden');
+      toneBox.classList.add('hidden');
       return;
     }
     const entry = registry[active.mfcId];
     nameEl.textContent = '— ' + active.mfcFileName;
     listEl.innerHTML = '';
+
+    calibBox.classList.remove('hidden');
+    const pxSizeInput = document.getElementById('ch-pixelsize');
+    pxSizeInput.value = entry.rawImage.voxelSizeUm != null ? entry.rawImage.voxelSizeUm : '';
+    document.getElementById('ch-pixelsize-hint').textContent = entry.rawImage.voxelSizeUm != null
+      ? 'Used to calibrate scale bars for this image.'
+      : 'No pixel size found in this file — enter one manually to enable scale bars for this image.';
+
+    alphaBox.classList.toggle('hidden', !entry.rawImage.hasAlpha);
+    if (entry.rawImage.hasAlpha) {
+      document.getElementById('ch-alpha-toggle').checked = entry.rawImage.alphaEnabled !== false;
+    }
+
+    toneBox.classList.remove('hidden');
+    document.getElementById('ch-brightness').value = entry.rawImage.brightness || 0;
+    document.getElementById('ch-brightness-val').value = entry.rawImage.brightness || 0;
+    document.getElementById('ch-contrast').value = entry.rawImage.contrast || 0;
+    document.getElementById('ch-contrast-val').value = entry.rawImage.contrast || 0;
 
     entry.rawImage.channels.forEach((ch, idx) => {
       const row = document.createElement('div');
@@ -481,6 +518,50 @@ const MFC = (function () {
       minInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); minInput.blur(); } });
       maxInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); maxInput.blur(); } });
     });
+  }
+
+  /** Manually set (or clear) an image's physical pixel size — the only way to calibrate scale bars for formats (JPEG/PNG/BMP) or TIFFs that carry no resolution metadata. */
+  function applyPixelSize(value) {
+    const active = canvas.getActiveObject();
+    if (!active || active.mfcType !== 'mfcImage') return;
+    const entry = registry[active.mfcId];
+    const v = parseFloat(value);
+    entry.rawImage.voxelSizeUm = (isFinite(v) && v > 0) ? v : null;
+    refreshChannelPanel();
+  }
+
+  function applyAlphaToggle(enabled) {
+    const active = canvas.getActiveObject();
+    if (!active || active.mfcType !== 'mfcImage') return;
+    const entry = registry[active.mfcId];
+    if (!entry.rawImage.hasAlpha) return;
+    entry.rawImage.alphaEnabled = !!enabled;
+    recomposite(active);
+    canvas.fire('object:modified', { target: active });
+  }
+
+  /** Applies the panel's current brightness/contrast values to the selected image's whole composite (see compositeChannels' tone-curve pass — works the same for RGB imports and TIFF composites alike). */
+  function applyBrightnessContrast(brightness, contrast) {
+    const active = canvas.getActiveObject();
+    if (!active || active.mfcType !== 'mfcImage') return;
+    const entry = registry[active.mfcId];
+    const clamp = v => Math.max(-100, Math.min(100, v));
+    entry.rawImage.brightness = isFinite(brightness) ? clamp(brightness) : 0;
+    entry.rawImage.contrast = isFinite(contrast) ? clamp(contrast) : 0;
+    document.getElementById('ch-brightness').value = entry.rawImage.brightness;
+    document.getElementById('ch-brightness-val').value = entry.rawImage.brightness;
+    document.getElementById('ch-contrast').value = entry.rawImage.contrast;
+    document.getElementById('ch-contrast-val').value = entry.rawImage.contrast;
+    recomposite(active);
+  }
+
+  function commitBrightnessContrast() {
+    canvas.fire('object:modified', { target: canvas.getActiveObject() });
+  }
+
+  function resetToneCurve() {
+    applyBrightnessContrast(0, 0);
+    commitBrightnessContrast();
   }
 
   function swatchColor(name) {
@@ -1692,6 +1773,7 @@ const MFC = (function () {
   return {
     init, getCanvas, getDocProps, applyDocProps, setDocName, getAppVersion, docPropsToPixels,
     importFiles, addImageToCanvas, recomposite, refreshChannelPanel,
+    applyPixelSize, applyAlphaToggle, applyBrightnessContrast, commitBrightnessContrast, resetToneCurve,
     undo, redo, pushHistory,
     setTool, align, copySelection, pasteSelection, nudgeSelection,
     applyCrop, cancelCrop, setCropAspectMode, applyCropFieldsToRect,

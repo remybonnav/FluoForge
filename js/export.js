@@ -134,6 +134,16 @@ const MFC_EXPORT = (function () {
     return (name || 'figure_project').trim().replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ') || 'figure_project';
   }
 
+  /** Picks a MIME type for the File re-materialized from an archived image on load — browsers use a Blob's declared type (not just its bytes) to decide how to render it via <img src="blob:...">, so this has to be right for JPEG/PNG/BMP. */
+  function guessMimeType(fileName, sourceFormat) {
+    if (sourceFormat === 'tiff') return 'image/tiff';
+    const ext = (fileName.split('.').pop() || '').toLowerCase();
+    if (ext === 'png') return 'image/png';
+    if (ext === 'bmp') return 'image/bmp';
+    if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+    return 'image/png'; // safe fallback — decodeRasterImage doesn't actually depend on this being exact
+  }
+
   async function gzipBlob(blob) {
     const stream = blob.stream().pipeThrough(new CompressionStream('gzip'));
     return await new Response(stream).blob();
@@ -174,7 +184,12 @@ const MFC_EXPORT = (function () {
         return Object.assign(common, {
           fileName: o.mfcFileName,
           imageArchivePath: `images/${archiveName}`,
+          sourceFormat: entry.rawImage.sourceFormat || 'tiff', // which decoder to use on load — must match the archived original bytes' actual format
           channels: entry.rawImage.channels.map(c => ({ enabled: c.enabled, color: c.color, min: c.min, max: c.max, name: c.name })),
+          voxelSizeUm: entry.rawImage.voxelSizeUm != null ? entry.rawImage.voxelSizeUm : null,
+          brightness: entry.rawImage.brightness || 0,
+          contrast: entry.rawImage.contrast || 0,
+          alphaEnabled: entry.rawImage.alphaEnabled !== false,
           mfcIsInset: !!o.mfcIsInset, mfcInsetContourId: o.mfcInsetContourId || null, mfcInsetSourceId: o.mfcInsetSourceId || null
         });
       }
@@ -364,9 +379,22 @@ const MFC_EXPORT = (function () {
           // legacy fallback
           blob = await (await fetch(objDef.fileBase64)).blob();
         }
-        const file2 = new File([blob], objDef.fileName, { type: 'image/tiff' });
-        const rawImage = await MFC_TIFF.decodeFile(file2);
+        const sourceFormat = objDef.sourceFormat || 'tiff'; // absent = saved before raster-image support existed, so it was necessarily a TIFF
+        const file2 = new File([blob], objDef.fileName, { type: guessMimeType(objDef.fileName, sourceFormat) });
+        // Must match whichever decoder originally produced the archived bytes — the raw
+        // file content is exactly what was uploaded (TIFF binary vs JPEG/PNG/BMP), so
+        // using the wrong decoder here would fail outright (e.g. UTIF on a JPEG).
+        const rawImage = sourceFormat === 'raster'
+          ? await MFC_TIFF.decodeRasterImage(file2)
+          : await MFC_TIFF.decodeFile(file2);
         rawImage.channels.forEach((c, i) => Object.assign(c, objDef.channels[i]));
+        // Decoding re-derives these from the file itself (or resets to defaults), so the
+        // user's saved settings — manual pixel-size calibration, brightness/contrast,
+        // and the alpha-preservation toggle — need restoring explicitly.
+        if (objDef.voxelSizeUm != null) rawImage.voxelSizeUm = objDef.voxelSizeUm;
+        rawImage.brightness = objDef.brightness || 0;
+        rawImage.contrast = objDef.contrast || 0;
+        if (objDef.alphaEnabled != null) rawImage.alphaEnabled = objDef.alphaEnabled;
         await MFC.addImageToCanvas(rawImage, file2);
         const added = canvas.getObjects()[canvas.getObjects().length - 1];
         const autoId = added.mfcId;

@@ -35,8 +35,8 @@
   </div>
 
   <div class="tool-group">
-    <button id="btn-import" title="Import TIFF(s)">&#8593; Import TIFF</button>
-    <input type="file" id="file-input" accept=".tif,.tiff" multiple hidden>
+    <button id="btn-import" title="Import TIFF, JPEG, PNG, or BMP file(s)">&#8593; Import Image</button>
+    <input type="file" id="file-input" accept=".tif,.tiff,.jpg,.jpeg,.png,.bmp" multiple hidden>
   </div>
 
   <div class="tool-group">
@@ -79,7 +79,7 @@
     <div id="canvas-scroll">
       <canvas id="mfc-canvas"></canvas>
     </div>
-    <div id="drop-hint" class="hidden">Drop TIFF file(s) here</div>
+    <div id="drop-hint" class="hidden">Drop image file(s) here (TIFF, JPEG, PNG, BMP)</div>
   </div>
 
   <!-- Right side panel -->
@@ -120,6 +120,32 @@
     <section id="panel-channels" class="panel">
       <h3>Channels <span id="channel-image-name" class="hint"></span></h3>
       <div id="channel-list"><p class="hint">Select an image to edit its channels.</p></div>
+
+      <div id="channel-calibration" class="hidden">
+        <hr style="border-color:var(--border);margin:10px 0;">
+        <label>Pixel size (µm/px) <input type="number" id="ch-pixelsize" step="any" min="0" placeholder="unset"></label>
+        <p class="hint" id="ch-pixelsize-hint"></p>
+      </div>
+
+      <div id="channel-alpha" class="hidden">
+        <label><input type="checkbox" id="ch-alpha-toggle" checked> Preserve transparency (alpha)</label>
+      </div>
+
+      <div id="channel-tone" class="hidden">
+        <hr style="border-color:var(--border);margin:10px 0;">
+        <h3>Brightness / Contrast</h3>
+        <div class="range-row">
+          <span class="hint">bright.</span>
+          <input type="range" class="ch-tone-slider" id="ch-brightness" min="-100" max="100" value="0">
+          <input type="number" class="rv-input" id="ch-brightness-val" min="-100" max="100" value="0">
+        </div>
+        <div class="range-row">
+          <span class="hint">contrast</span>
+          <input type="range" class="ch-tone-slider" id="ch-contrast" min="-100" max="100" value="0">
+          <input type="number" class="rv-input" id="ch-contrast-val" min="-100" max="100" value="0">
+        </div>
+        <button id="ch-tone-reset" style="width:auto;padding:6px 10px;">Reset</button>
+      </div>
     </section>
 
     <section id="panel-crop" class="panel hidden">

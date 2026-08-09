@@ -234,6 +234,39 @@ window.addEventListener('DOMContentLoaded', () => {
     MFC.placeScaleBarOnSelectedImages(corner, margin);
   });
 
+  // ---- channel panel: calibration / alpha / tone (brightness+contrast) ----
+  document.getElementById('ch-pixelsize').addEventListener('change', (e) => MFC.applyPixelSize(e.target.value));
+  document.getElementById('ch-pixelsize').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } });
+  document.getElementById('ch-alpha-toggle').addEventListener('change', (e) => MFC.applyAlphaToggle(e.target.checked));
+
+  function readToneValues() {
+    return {
+      brightness: parseFloat(document.getElementById('ch-brightness-val').value),
+      contrast: parseFloat(document.getElementById('ch-contrast-val').value)
+    };
+  }
+  document.getElementById('ch-brightness').addEventListener('input', (e) => {
+    MFC.applyBrightnessContrast(parseFloat(e.target.value), readToneValues().contrast);
+  });
+  document.getElementById('ch-contrast').addEventListener('input', (e) => {
+    MFC.applyBrightnessContrast(readToneValues().brightness, parseFloat(e.target.value));
+  });
+  document.getElementById('ch-brightness-val').addEventListener('change', (e) => {
+    MFC.applyBrightnessContrast(parseFloat(e.target.value), readToneValues().contrast);
+    MFC.commitBrightnessContrast();
+  });
+  document.getElementById('ch-contrast-val').addEventListener('change', (e) => {
+    MFC.applyBrightnessContrast(readToneValues().brightness, parseFloat(e.target.value));
+    MFC.commitBrightnessContrast();
+  });
+  ['ch-brightness', 'ch-contrast'].forEach(id => {
+    document.getElementById(id).addEventListener('change', () => MFC.commitBrightnessContrast());
+  });
+  ['ch-brightness-val', 'ch-contrast-val'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } });
+  });
+  document.getElementById('ch-tone-reset').addEventListener('click', () => MFC.resetToneCurve());
+
   // ---- text panel ----
   document.getElementById('text-font').addEventListener('change', (e) => MFC.applyTextStyle('fontFamily', e.target.value));
   document.getElementById('text-size').addEventListener('change', (e) => MFC.applyTextStyle('fontSize', parseInt(e.target.value, 10)));
