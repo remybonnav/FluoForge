@@ -112,6 +112,24 @@ button.active,.toggle-btn.active{background:var(--accent-dim);border-color:var(-
 .channel-row .row-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
 .channel-row .ch-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:12px;}
 .channel-row select{width:78px;flex-shrink:0;}
+
+/* ---------------- layers panel ---------------- */
+#layers-list{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto;}
+.layer-row{
+  display:flex;align-items:center;gap:4px;padding:5px 6px;border-radius:5px;
+  background:var(--bg);border:1px solid transparent;font-size:12px;
+}
+.layer-row.active{border-color:var(--accent);background:var(--accent-dim);}
+.layer-row.layer-hidden .layer-name{color:var(--text-dim);font-style:italic;}
+.layer-row button{
+  background:transparent;border:none;padding:2px 4px;font-size:12px;line-height:1;
+  color:var(--text-dim);cursor:pointer;flex-shrink:0;
+}
+.layer-row button:hover{color:var(--text);border-color:transparent;}
+.layer-name{
+  flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  cursor:pointer;padding:0 2px;
+}
 .channel-row .swatch{width:14px;height:14px;border-radius:3px;border:1px solid #0006;flex-shrink:0;}
 .range-row{display:flex;align-items:center;gap:6px;}
 .range-row input[type=range]{flex:1;width:auto;}

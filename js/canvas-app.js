@@ -28,7 +28,7 @@ const MFC = (function () {
   };
 
   let canvas;                       // fabric.Canvas
-  const MFC_VERSION = '0.17';
+  const MFC_VERSION = '0.13';
   function getAppVersion() { return MFC_VERSION; }
 
   let docProps = { name: 'Untitled Figure', width: 1748, height: 1240, unit: 'px', dpi: 300 }; // A4-ish default @300dpi
@@ -37,7 +37,7 @@ const MFC = (function () {
   const registry = {};              // id -> { rawImage (from tiff.js), fileBase64 }
 
   // ---- history (lightweight property snapshots, keyed by object id) ----
-  const history = { stack: [], index: -1, limit: 60 };
+  const history = { stack: [], index: -1, limit: 200 };
 
   function snapshotState() {
     return canvas.getObjects().filter(o => !o.mfcIsPageBounds).map(o => serializeObjectState(o));
@@ -48,7 +48,8 @@ const MFC = (function () {
       id: o.mfcId, type: o.mfcType || o.type,
       left: o.left, top: o.top, scaleX: o.scaleX, scaleY: o.scaleY,
       angle: o.angle, width: o.width, height: o.height,
-      cropX: o.cropX || 0, cropY: o.cropY || 0
+      cropX: o.cropX || 0, cropY: o.cropY || 0,
+      visible: o.visible !== false, locked: !!o.mfcLocked
     };
     if (o.mfcType === 'mfcImage') {
       const entry = registry[o.mfcId];
@@ -61,17 +62,28 @@ const MFC = (function () {
         base.alphaEnabled = entry.rawImage.alphaEnabled !== false;
         base.voxelSizeUm = entry.rawImage.voxelSizeUm != null ? entry.rawImage.voxelSizeUm : null;
       }
-    }
-    if (o.type === 'textbox') {
+      base.mfcFileName = o.mfcFileName;
+      base.mfcIsInset = !!o.mfcIsInset;
+      base.mfcInsetContourId = o.mfcInsetContourId || null;
+      base.mfcInsetSourceId = o.mfcInsetSourceId || null;
+    } else if (o.type === 'textbox') {
       base.text = o.text;
       base.styles = JSON.parse(JSON.stringify(o.styles || {}));
       base.fontFamily = o.fontFamily; base.fontSize = o.fontSize; base.fill = o.fill;
       base.backgroundColor = o.backgroundColor; base.textAlign = o.textAlign;
       base.mfcBorderWidth = o.mfcBorderWidth || 0; base.mfcBorderColor = o.mfcBorderColor || '#000000';
-    }
-    if (o.type === 'rect' && o.mfcType === 'shape') {
+    } else if (o.type === 'rect' && o.mfcType === 'shape') {
       base.stroke = o.stroke; base.strokeWidth = o.strokeWidth;
       base.fill = o.fill; base.strokeDashArray = o.strokeDashArray ? o.strokeDashArray.slice() : null;
+    } else {
+      // Everything else (scale bars, inset outlines, and any future misc object type):
+      // capture a full Fabric serialization as a reconstruction fallback, so undo can
+      // recreate one from scratch if it was deleted. Safe here (unlike mfcImage) since
+      // none of these embed large pixel payloads in their toObject() output.
+      base.fabricJSON = o.toObject([
+        'mfcId', 'mfcType', 'mfcAttachedTo', 'mfcCorner', 'mfcMarginPct',
+        'mfcInsetSourceId', 'mfcInsetTargetId', 'mfcRelX', 'mfcRelY', 'mfcRelW', 'mfcRelH'
+      ]);
     }
     return base;
   }
@@ -84,14 +96,95 @@ const MFC = (function () {
     history.index = history.stack.length - 1;
   }
 
-  function applySnapshot(snap) {
+  /** Builds a fresh fabric object for a snapshot entry whose object no longer exists on canvas (i.e. undo needs to restore something that was deleted). Returns null (synchronously) for the fabricJSON-fallback types (scalebar/insetContour), which are handled separately in applySnapshot since enlivenObjects is async. */
+  function reconstructObject(s) {
+    if (s.type === 'mfcImage') {
+      const entry = registry[s.id];
+      if (!entry) { console.warn('Cannot restore image ' + s.id + ' — its source data is no longer available.'); return null; }
+      const compositeCanvas = MFC_TIFF.compositeChannels(entry.rawImage, entry.workingScale);
+      const img = new fabric.Image(compositeCanvas, {
+        cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff'
+      });
+      img.mfcId = s.id;
+      img.mfcType = 'mfcImage';
+      img.mfcRawWidth = entry.rawImage.width;
+      img.mfcRawHeight = entry.rawImage.height;
+      img.mfcFileName = s.mfcFileName || entry.rawImage.fileName;
+      img.mfcIsInset = !!s.mfcIsInset;
+      img.mfcInsetContourId = s.mfcInsetContourId || null;
+      img.mfcInsetSourceId = s.mfcInsetSourceId || null;
+      return img;
+    }
+    if (s.type === 'textbox' || s.type === 'text') {
+      const t = new fabric.Textbox(s.text || '', {
+        fontFamily: s.fontFamily, fontSize: s.fontSize, fill: s.fill, styles: s.styles,
+        backgroundColor: s.backgroundColor || '', textAlign: s.textAlign || 'left'
+      });
+      t.mfcId = s.id; t.mfcType = 'text';
+      t.mfcBorderWidth = s.mfcBorderWidth || 0; t.mfcBorderColor = s.mfcBorderColor || '#000000';
+      attachTextListeners(t);
+      return t;
+    }
+    if (s.type === 'shape') {
+      const r = new fabric.Rect({
+        stroke: s.stroke, strokeWidth: s.strokeWidth, fill: s.fill, strokeDashArray: s.strokeDashArray,
+        cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff'
+      });
+      r.mfcId = s.id; r.mfcType = 'shape';
+      return r;
+    }
+    return null;
+  }
+
+  /** Reconstructs a fabricJSON-fallback object (scalebar/insetContour) via Fabric's async enlivenObjects. */
+  function reconstructFromFabricJSON(s) {
+    return new Promise((resolve) => {
+      fabric.util.enlivenObjects([s.fabricJSON], (enlivened) => {
+        const o = enlivened[0];
+        o.mfcId = s.id; o.mfcType = s.type;
+        const j = s.fabricJSON;
+        if (j.mfcAttachedTo) o.mfcAttachedTo = j.mfcAttachedTo;
+        if (j.mfcCorner) o.mfcCorner = j.mfcCorner;
+        if (j.mfcMarginPct != null) o.mfcMarginPct = j.mfcMarginPct;
+        if (j.mfcInsetSourceId) o.mfcInsetSourceId = j.mfcInsetSourceId;
+        if (j.mfcInsetTargetId) o.mfcInsetTargetId = j.mfcInsetTargetId;
+        if (j.mfcRelX != null) o.mfcRelX = j.mfcRelX;
+        if (j.mfcRelY != null) o.mfcRelY = j.mfcRelY;
+        if (j.mfcRelW != null) o.mfcRelW = j.mfcRelW;
+        if (j.mfcRelH != null) o.mfcRelH = j.mfcRelH;
+        resolve(o);
+      });
+    });
+  }
+
+  async function applySnapshot(snap) {
     const byId = {};
     canvas.getObjects().forEach(o => { if (!o.mfcIsPageBounds) byId[o.mfcId] = o; });
-    snap.forEach(s => {
-      const o = byId[s.id];
-      if (!o) return;
+    const snapIds = new Set(snap.map(s => s.id));
+
+    // Remove objects that exist on canvas but aren't in this snapshot — undo of an add,
+    // or redo of a delete.
+    Object.keys(byId).forEach(id => {
+      if (!snapIds.has(id)) { canvas.remove(byId[id]); delete byId[id]; }
+    });
+
+    // Add back (or update) every object the snapshot describes.
+    for (const s of snap) {
+      let o = byId[s.id];
+      if (!o) {
+        // Undo of a delete, or redo of an add whose object was itself removed by a later
+        // undo step — either way, it doesn't exist on canvas right now and needs rebuilding.
+        o = s.fabricJSON ? await reconstructFromFabricJSON(s) : reconstructObject(s);
+        if (!o) continue;
+        canvas.add(o);
+        byId[s.id] = o;
+      }
       o.set({ left: s.left, top: s.top, scaleX: s.scaleX, scaleY: s.scaleY, angle: s.angle,
-               width: s.width, height: s.height, cropX: s.cropX, cropY: s.cropY });
+               width: s.width, height: s.height, cropX: s.cropX, cropY: s.cropY,
+               visible: s.visible !== false });
+      o.mfcLocked = !!s.locked;
+      o.selectable = !o.mfcLocked;
+      o.evented = !o.mfcLocked;
       if (s.type === 'mfcImage' && s.channels && registry[s.id]) {
         const entry = registry[s.id];
         entry.rawImage.channels.forEach((c, i) => Object.assign(c, s.channels[i]));
@@ -111,21 +204,28 @@ const MFC = (function () {
         o.set({ stroke: s.stroke, strokeWidth: s.strokeWidth, fill: s.fill, strokeDashArray: s.strokeDashArray });
       }
       o.setCoords();
-    });
+    }
+
+    canvas.discardActiveObject();
     canvas.requestRenderAll();
     refreshShapePanel();
     refreshChannelPanel();
+    refreshTextPanel();
+    refreshObjectSizePanel();
+    refreshScaleBarRefList();
+    refreshInsetPanel();
+    refreshLayersPanel();
   }
 
-  function undo() {
+  async function undo() {
     if (history.index <= 0) return;
     history.index--;
-    applySnapshot(history.stack[history.index]);
+    await applySnapshot(history.stack[history.index]);
   }
-  function redo() {
+  async function redo() {
     if (history.index >= history.stack.length - 1) return;
     history.index++;
-    applySnapshot(history.stack[history.index]);
+    await applySnapshot(history.stack[history.index]);
   }
 
   // ---- init ----
@@ -155,6 +255,8 @@ const MFC = (function () {
     canvas.on('selection:created', onSelectionChanged);
     canvas.on('selection:updated', onSelectionChanged);
     canvas.on('selection:cleared', onSelectionChanged);
+    canvas.on('object:added', () => refreshLayersPanel());
+    canvas.on('object:removed', () => refreshLayersPanel());
     canvas.on('text:changed', () => { /* debounced via object:modified on blur */ });
     canvas.on('mouse:down', onCanvasMouseDown);
     canvas.on('mouse:move', onCanvasMouseMove);
@@ -163,10 +265,10 @@ const MFC = (function () {
     canvas.on('object:moving', (e) => {
       if (!e.target || e.target === cropRect) return;
       if (!(e.e && e.e.altKey)) snapObjectPosition(e.target); // hold Alt to move freely without snapping
-      if (e.target.mfcType === 'mfcImage') repositionAttachedScaleBars(e.target);
+      if (e.target.mfcType === 'mfcImage') { repositionAttachedScaleBars(e.target); followSourceImage(e.target); }
       if (e.target.mfcType === 'insetContour') syncInsetFromContour(e.target);
       if (e.target.type === 'activeSelection') {
-        e.target.getObjects().forEach(o => { if (o.mfcType === 'mfcImage') repositionAttachedScaleBars(o); });
+        e.target.getObjects().forEach(o => { if (o.mfcType === 'mfcImage') { repositionAttachedScaleBars(o); followSourceImage(o); } });
       }
     });
 
@@ -204,7 +306,7 @@ const MFC = (function () {
         obj.scaleX = s; obj.scaleY = s;
       }
 
-      if (obj.mfcType === 'mfcImage') updateScaleBarsForImage(obj);
+      if (obj.mfcType === 'mfcImage') { updateScaleBarsForImage(obj); followSourceImage(obj); }
       if (obj.mfcType === 'insetContour') syncInsetFromContour(obj);
       refreshObjectSizePanel();
       if (obj.type === 'textbox') refreshTextPanel();
@@ -576,6 +678,7 @@ const MFC = (function () {
     refreshScaleBarRefList();
     refreshShapePanel();
     refreshInsetPanel();
+    refreshLayersPanel();
     const objs = canvas.getActiveObjects ? canvas.getActiveObjects() : [];
     document.getElementById('align-bar').classList.toggle('hidden', objs.length < 2);
   }
@@ -632,6 +735,7 @@ const MFC = (function () {
     canvas.requestRenderAll();
     canvas.fire('object:modified', { target: img });
     updateScaleBarsForImage(img);
+    followSourceImage(img);
     refreshObjectSizePanel();
   }
 
@@ -680,7 +784,7 @@ const MFC = (function () {
     active.setCoords();
     canvas.requestRenderAll();
     canvas.fire('object:modified', { target: active });
-    if (active.mfcType === 'mfcImage') updateScaleBarsForImage(active);
+    if (active.mfcType === "mfcImage") { updateScaleBarsForImage(active); followSourceImage(active); }
   }
 
   // ---- text panel (re-populates whenever a text box is selected/reselected) ----
@@ -1090,11 +1194,10 @@ const MFC = (function () {
   }
 
   /** Keeps a linked inset's crop *window* matching its contour rectangle's current position/size on the source image. Never touches the inset's own on-screen size/position — only which pixels it displays. */
+  /** Keeps a linked inset's crop *window* matching its contour rectangle's current position/size on the source image. Never touches the inset's own on-screen size/position — only which pixels it displays. Also records the outline's position as fractions of the source image's bounds, so followSourceImage() can keep the outline anchored to the same region if the *source* is later moved or resized. */
   function syncInsetFromContour(contourRect) {
-    if (!contourRect.mfcInsetTargetId) return;
-    const insetImg = canvas.getObjects().find(o => o.mfcId === contourRect.mfcInsetTargetId);
     const srcImg = canvas.getObjects().find(o => o.mfcId === contourRect.mfcInsetSourceId);
-    if (!insetImg || !srcImg) return;
+    if (!srcImg) return;
 
     const srcBox = srcImg.getBoundingRect(true);
     const cBox = contourRect.getBoundingRect(true);
@@ -1103,6 +1206,15 @@ const MFC = (function () {
     const clBottom = Math.min(cBox.top + cBox.height, srcBox.top + srcBox.height);
     const w = Math.max(1, clRight - clLeft), h = Math.max(1, clBottom - clTop);
 
+    contourRect.mfcRelX = (clLeft - srcBox.left) / srcBox.width;
+    contourRect.mfcRelY = (clTop - srcBox.top) / srcBox.height;
+    contourRect.mfcRelW = w / srcBox.width;
+    contourRect.mfcRelH = h / srcBox.height;
+
+    if (!contourRect.mfcInsetTargetId) return; // outline drawn but no inset created yet
+    const insetImg = canvas.getObjects().find(o => o.mfcId === contourRect.mfcInsetTargetId);
+    if (!insetImg) return;
+
     insetImg.set({
       cropX: srcImg.cropX + (clLeft - srcBox.left) / srcImg.scaleX,
       cropY: srcImg.cropY + (clTop - srcBox.top) / srcImg.scaleY,
@@ -1110,6 +1222,28 @@ const MFC = (function () {
       height: h / srcImg.scaleY
     });
     insetImg.setCoords();
+    canvas.requestRenderAll();
+  }
+
+  /** Keeps any inset outline(s) drawn on srcImg anchored to the same region of it when srcImg itself is moved or resized (the reverse direction of syncInsetFromContour, which handles the outline moving). Rotating the source is not tracked — only move/resize. */
+  function followSourceImage(srcImg) {
+    if (!srcImg || srcImg.mfcType !== 'mfcImage') return;
+    const contours = canvas.getObjects().filter(o =>
+      o.mfcType === 'insetContour' && o.mfcInsetSourceId === srcImg.mfcId && o.mfcRelX != null);
+    if (!contours.length) return;
+    const srcBox = srcImg.getBoundingRect(true);
+    contours.forEach(contour => {
+      const newW = contour.mfcRelW * srcBox.width;
+      const newH = contour.mfcRelH * srcBox.height;
+      contour.set({
+        left: srcBox.left + contour.mfcRelX * srcBox.width,
+        top: srcBox.top + contour.mfcRelY * srcBox.height,
+        scaleX: newW / contour.width,
+        scaleY: newH / contour.height
+      });
+      contour.setCoords();
+      syncInsetFromContour(contour); // keep the linked inset's crop window in sync too
+    });
     canvas.requestRenderAll();
   }
 
@@ -1190,6 +1324,7 @@ const MFC = (function () {
         return;
       }
       canvas.setActiveObject(rect);
+      syncInsetFromContour(rect); // establishes mfcRelX/Y/W/H immediately, so followSourceImage works even before "Create inset" is pressed
       canvas.requestRenderAll();
       pushHistory();
       refreshInsetPanel();
@@ -1553,6 +1688,125 @@ const MFC = (function () {
     nudgeHistoryTimer = setTimeout(() => pushHistory(), 300);
   }
 
+  // ---- layers panel ----
+  function layerLabel(o) {
+    if (o.mfcType === 'mfcImage') return (o.mfcFileName || 'Image') + (o.mfcIsInset ? ' (inset)' : '');
+    if (o.type === 'textbox') {
+      const t = (o.text || '').replace(/\n/g, ' ').trim();
+      return 'Text: "' + (t.length > 18 ? t.slice(0, 18) + '…' : t || '(empty)') + '"';
+    }
+    if (o.mfcType === 'shape') return 'Shape';
+    if (o.mfcType === 'scalebar') return 'Scale bar';
+    if (o.mfcType === 'insetContour') return 'Inset outline';
+    if (o.type === 'group') return 'Group';
+    return o.type ? (o.type[0].toUpperCase() + o.type.slice(1)) : 'Object';
+  }
+
+  function refreshLayersPanel() {
+    const listEl = document.getElementById('layers-list');
+    if (!listEl) return;
+    const objs = canvas.getObjects().filter(o => !o.mfcIsPageBounds);
+    const activeIds = new Set((canvas.getActiveObjects ? canvas.getActiveObjects() : []).map(o => o.mfcId));
+
+    if (!objs.length) {
+      listEl.innerHTML = '<p class="hint">No objects on the canvas yet.</p>';
+      return;
+    }
+
+    // Top of the list = front-most (matches the usual layers-panel convention), so
+    // reverse the canvas's back-to-front stacking order for display.
+    listEl.innerHTML = '';
+    for (let i = objs.length - 1; i >= 0; i--) {
+      const o = objs[i];
+      const row = document.createElement('div');
+      row.className = 'layer-row' + (activeIds.has(o.mfcId) ? ' active' : '');
+      row.innerHTML = `
+        <button class="layer-eye" title="${o.visible === false ? 'Show' : 'Hide'}">${o.visible === false ? '&#128065;&#8203;' : '&#128065;'}</button>
+        <button class="layer-lock" title="${o.mfcLocked ? 'Unlock' : 'Lock'}">${o.mfcLocked ? '&#128274;' : '&#128275;'}</button>
+        <span class="layer-name" title="${layerLabel(o)}">${layerLabel(o)}</span>
+        <button class="layer-up" title="Move forward">&#9650;</button>
+        <button class="layer-down" title="Move backward">&#9660;</button>
+      `;
+      if (o.visible === false) row.classList.add('layer-hidden');
+      row.querySelector('.layer-name').addEventListener('click', () => selectLayer(o));
+      row.querySelector('.layer-eye').addEventListener('click', (e) => { e.stopPropagation(); toggleLayerVisibility(o); });
+      row.querySelector('.layer-lock').addEventListener('click', (e) => { e.stopPropagation(); toggleLayerLock(o); });
+      row.querySelector('.layer-up').addEventListener('click', (e) => { e.stopPropagation(); moveLayer(o, 'up'); });
+      row.querySelector('.layer-down').addEventListener('click', (e) => { e.stopPropagation(); moveLayer(o, 'down'); });
+      listEl.appendChild(row);
+    }
+  }
+
+  function selectLayer(o) {
+    if (o.mfcLocked) { MFC_UI.toast('This layer is locked — unlock it first to select it.'); return; }
+    canvas.discardActiveObject();
+    canvas.setActiveObject(o);
+    canvas.requestRenderAll();
+  }
+
+  function toggleLayerVisibility(o) {
+    o.visible = o.visible === false ? true : false;
+    if (!o.visible && canvas.getActiveObject() === o) canvas.discardActiveObject();
+    canvas.requestRenderAll();
+    pushHistory();
+    refreshLayersPanel();
+  }
+
+  function toggleLayerLock(o) {
+    o.mfcLocked = !o.mfcLocked;
+    o.selectable = !o.mfcLocked;
+    o.evented = !o.mfcLocked;
+    if (o.mfcLocked && canvas.getActiveObject() === o) canvas.discardActiveObject();
+    canvas.requestRenderAll();
+    pushHistory();
+    refreshLayersPanel();
+  }
+
+  /** direction: 'up' (toward front, one step) or 'down' (toward back, one step). */
+  function moveLayer(o, direction) {
+    if (direction === 'up') canvas.bringForward(o);
+    else canvas.sendBackwards(o);
+    if (pageRect) canvas.sendToBack(pageRect); // the page background must always stay behind everything
+    canvas.requestRenderAll();
+    pushHistory();
+    refreshLayersPanel();
+  }
+
+  /**
+   * Bundles the current multi-selection into a real, persistent fabric.Group (Ctrl+G).
+   * Note: while grouped, the individual images/text/shapes inside are no longer top-level
+   * canvas objects, so their type-specific panels (Channels, Text, Scale Bar reference
+   * list, Inset tool) can't reach them — same as every other design tool, ungroup
+   * (Ctrl+Shift+G) first to edit an object's own properties.
+   */
+  function groupSelection() {
+    const active = canvas.getActiveObject();
+    if (!active || active.type !== 'activeSelection' || active.size() < 2) {
+      MFC_UI.toast('Select 2 or more objects to group.');
+      return;
+    }
+    const group = active.toGroup(); // Fabric's own, well-tested ActiveSelection -> Group conversion
+    group.mfcId = 'grp' + (nextId++);
+    group.mfcType = 'group';
+    group.set({ cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff' });
+    canvas.requestRenderAll();
+    pushHistory();
+    refreshLayersPanel();
+  }
+
+  /** Inverse of groupSelection (Ctrl+Shift+G) — dissolves the group and re-selects its former children as a normal multi-selection. Each child's own mfcId/mfcType/channel-registry linkage is untouched by this, since Fabric's toActiveSelection() only reparents objects, never rewrites their properties. */
+  function ungroupSelection() {
+    const active = canvas.getActiveObject();
+    if (!active || active.type !== 'group') {
+      MFC_UI.toast('Select a group to ungroup.');
+      return;
+    }
+    active.toActiveSelection();
+    canvas.requestRenderAll();
+    pushHistory();
+    refreshLayersPanel();
+  }
+
   // ---- alignment ----
   function align(mode) {
     const objs = canvas.getActiveObjects();
@@ -1731,6 +1985,7 @@ const MFC = (function () {
       });
       img.setCoords();
       updateScaleBarsForImage(img);
+      followSourceImage(img);
     });
 
     if (headerRow) {
@@ -1788,7 +2043,8 @@ const MFC = (function () {
     importFiles, addImageToCanvas, recomposite, refreshChannelPanel,
     applyPixelSize, applyAlphaToggle, applyBrightnessContrast, commitBrightnessContrast, resetToneCurve,
     undo, redo, pushHistory,
-    setTool, align, copySelection, pasteSelection, nudgeSelection,
+    setTool, align, copySelection, pasteSelection, nudgeSelection, refreshLayersPanel,
+    groupSelection, ungroupSelection,
     applyCrop, cancelCrop, setCropAspectMode, applyCropFieldsToRect,
     applyTextStyle, applyTextAlign, applyTextBoxSize, applyTextBorder, refreshTextPanel, attachTextListeners,
     refreshObjectSizePanel, applyObjectSizeFromFields, rotateSelected, setObjectAngle, uncropImage,

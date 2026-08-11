@@ -207,7 +207,7 @@ const MFC_EXPORT = (function () {
       }
       if (o.mfcType === 'insetContour') {
         return Object.assign(common, {
-          fabricJSON: o.toObject(['mfcId', 'mfcType', 'mfcInsetSourceId', 'mfcInsetTargetId'])
+          fabricJSON: o.toObject(['mfcId', 'mfcType', 'mfcInsetSourceId', 'mfcInsetTargetId', 'mfcRelX', 'mfcRelY', 'mfcRelW', 'mfcRelH'])
         });
       }
       return Object.assign(common, { fabricJSON: o.toObject(['mfcId', 'mfcType']) });
@@ -430,6 +430,10 @@ const MFC_EXPORT = (function () {
           if (objDef.fabricJSON.mfcMarginPct != null) o.mfcMarginPct = objDef.fabricJSON.mfcMarginPct;
           if (objDef.fabricJSON.mfcInsetSourceId) o.mfcInsetSourceId = objDef.fabricJSON.mfcInsetSourceId;
           if (objDef.fabricJSON.mfcInsetTargetId) o.mfcInsetTargetId = objDef.fabricJSON.mfcInsetTargetId;
+          if (objDef.fabricJSON.mfcRelX != null) o.mfcRelX = objDef.fabricJSON.mfcRelX;
+          if (objDef.fabricJSON.mfcRelY != null) o.mfcRelY = objDef.fabricJSON.mfcRelY;
+          if (objDef.fabricJSON.mfcRelW != null) o.mfcRelW = objDef.fabricJSON.mfcRelW;
+          if (objDef.fabricJSON.mfcRelH != null) o.mfcRelH = objDef.fabricJSON.mfcRelH;
           canvas.add(o);
         });
       }

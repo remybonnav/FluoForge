@@ -98,6 +98,7 @@ window.addEventListener('DOMContentLoaded', () => {
   MFC.init();
   document.getElementById('app-version').textContent = 'v' + MFC.getAppVersion();
   document.getElementById('doc-version-info').textContent = 'Created with v' + MFC.getAppVersion() + '.';
+  MFC.refreshLayersPanel();
 
   showDocPropsModal((props) => {
     MFC.applyDocProps(props);
@@ -329,9 +330,11 @@ window.addEventListener('DOMContentLoaded', () => {
   MFC.updateZoomDisplay();
 
   // ---- alignment bar ----
-  document.querySelectorAll('#align-bar button').forEach(b => {
+  document.querySelectorAll('#align-bar button[data-align]').forEach(b => {
     b.addEventListener('click', () => MFC.align(b.dataset.align));
   });
+  document.getElementById('btn-group').addEventListener('click', () => MFC.groupSelection());
+  document.getElementById('btn-ungroup').addEventListener('click', () => MFC.ungroupSelection());
 
   // ---- keyboard shortcuts ----
   window.addEventListener('keydown', (e) => {
@@ -342,6 +345,8 @@ window.addEventListener('DOMContentLoaded', () => {
     else if (ctrl && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) { e.preventDefault(); MFC.redo(); }
     else if (ctrl && e.key.toLowerCase() === 'c') { MFC.copySelection(); }
     else if (ctrl && e.key.toLowerCase() === 'v') { MFC.pasteSelection(); }
+    else if (ctrl && e.key.toLowerCase() === 'g' && e.shiftKey) { e.preventDefault(); MFC.ungroupSelection(); }
+    else if (ctrl && e.key.toLowerCase() === 'g') { e.preventDefault(); MFC.groupSelection(); }
     else if (ctrl && e.key.toLowerCase() === 's') { e.preventDefault(); MFC_EXPORT.saveProject(false); }
     else if (e.key.toLowerCase() === 'v') { MFC.setTool('select'); }
     else if (e.key.toLowerCase() === 'c') { MFC.setTool('crop'); }

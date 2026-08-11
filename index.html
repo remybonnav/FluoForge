@@ -69,6 +69,8 @@
   <span class="align-label">Distribute:</span>
   <button data-align="distH" title="Distribute horizontally">&#8644; H</button>
   <button data-align="distV" title="Distribute vertically">&#8645; V</button>
+  <span class="align-label">|</span>
+  <button id="btn-group" title="Group selected objects (Ctrl+G)">&#8862; Group</button>
 </div>
 
 <!-- ======================= MAIN LAYOUT ======================= -->
@@ -101,6 +103,13 @@
       <button id="doc-apply">Apply</button>
       <p class="hint" id="doc-pixel-preview"></p>
       <p class="hint" id="doc-version-info"></p>
+    </section>
+
+    <section id="panel-layers" class="panel">
+      <h3>Layers</h3>
+      <div id="layers-list"><p class="hint">No objects on the canvas yet.</p></div>
+      <button id="btn-ungroup" style="width:auto;padding:6px 10px;margin-top:8px;" title="Ungroup the selected group (Ctrl+Shift+G)">Ungroup</button>
+      <p class="hint">Click a name to select. Ctrl+G groups the current selection, Ctrl+Shift+G ungroups.</p>
     </section>
 
     <section id="panel-object" class="panel hidden">
