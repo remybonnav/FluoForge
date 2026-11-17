@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>FluoForge browser regressions</title>
+<style>
+body{font:14px system-ui;background:#eef0f5;color:#172031;margin:16px}button{padding:10px 16px;margin-right:8px}pre{white-space:pre-wrap}iframe{width:1280px;height:850px;border:1px solid #b5bdc9;max-width:100%}
+</style>
+<h1>FluoForge browser regressions</h1>
+<button data-suite="dev-interface-regression">Interface and real mouse drags</button>
+<button data-suite="path-regression">Pen / Path</button>
+<button data-suite="regression">Existing interactions</button>
+<button data-suite="project-export-regression">Projects and exports</button>
+<button data-suite="ui-fixes-regression">UI fixes (locks, text box, zoom, insets)</button>
+<button data-suite="v024-regression">v0.24 (legacy projects, scale bars, crop to shape, pages)</button>
+<button data-suite="zstack-regression">Z stacks and time series</button>
+<pre id="result" role="status">Choose a suite. Each run uses a fresh test frame and isolated recovery storage.</pre>
+<div id="frame"></div>
+<script>
+const suites={ 'dev-interface-regression':'runDevInterfaceRegressions', 'path-regression':'runPathRegressions',
+  regression:'runMfcRegressions', 'project-export-regression':'runProjectExportRegressions',
+  'ui-fixes-regression':'runUiFixesRegressions', 'v024-regression':'runV024Regressions',
+  'zstack-regression':'runZStackRegressions' };
+document.querySelectorAll('button').forEach(button=>button.onclick=async()=>{
+  const result=document.getElementById('result'); result.textContent='Running '+button.dataset.suite+'…';
+  const frame=document.createElement('iframe');frame.src='../?test=regression-'+Date.now();document.getElementById('frame').replaceChildren(frame);
+  try {
+    await new Promise(resolve=>frame.onload=resolve);
+    const win=frame.contentWindow;
+    while(!win.document.getElementById('app-version').textContent)await new Promise(resolve=>setTimeout(resolve,50));
+    const script=win.document.createElement('script');script.src='tests/'+button.dataset.suite+'.js?run='+Date.now();
+    await new Promise((resolve,reject)=>{script.onload=resolve;script.onerror=reject;win.document.head.append(script);});
+    const report=await win[suites[button.dataset.suite]]();
+    const checks=Array.isArray(report)?report:report.checks;
+    result.textContent='PASS — '+checks.length+' checks\n'+checks.join('\n');
+  } catch(error){result.textContent='FAIL — '+(error.stack||error);console.error(error);}
+});
+</script>
+</html>

@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FluoForge — Microscopy figures</title>
+<link rel="icon" href="assets/FluoForge-app-icons/favicon.ico" sizes="any">
+<link rel="icon" href="assets/FluoForge-app-icons/fluoforge-icon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/FluoForge-app-icons/icon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
+<meta name="theme-color" content="#07090C">
+<link rel="stylesheet" href="style.css?v=0.26-dev.4">
+</head>
+<body>
+
+<!-- ======================= TOP TOOLBAR ======================= -->
+<header id="topbar">
+  <div class="brand"><img class="brand-icon" src="assets/FluoForge-app-icons/fluoforge-icon-small.svg" alt="" width="22" height="22">FluoForge <span id="app-version" class="version-tag"></span></div>
+
+  <div class="tool-group">
+    <button id="tool-select" data-requires-document class="tool-btn active" data-tool="select" title="Select / Move (V)">&#9992; Select</button>
+    <button id="tool-crop" data-requires-document class="tool-btn" data-tool="crop" title="Crop tool (C)">&#9984; Crop</button>
+    <button id="tool-text" data-requires-document class="tool-btn" data-tool="text" title="Text tool (T)">A Text</button>
+    <button id="tool-scalebar" data-requires-document class="tool-btn" data-tool="scalebar" title="Scale bar tool (S)">&#8213; Scale bar</button>
+    <button id="tool-shape" data-requires-document class="tool-btn" data-tool="shape" title="Rectangle/square tool (R)">&#9633; Shape</button>
+    <button id="tool-path" data-requires-document class="tool-btn" data-tool="path" title="Pen / Path tool (P)">&#9998; Pen / Path</button>
+    <button id="tool-inset" data-requires-document class="tool-btn" data-tool="inset" title="Inset tool — draw an outline on an image (I)">&#8862; Inset</button>
+    <button id="btn-grid" data-requires-document title="Arrange selected (or all) images into a grid with header labels">&#9638; Grid</button>
+  </div>
+
+  <div class="tool-group">
+    <button id="zoom-out" data-requires-document title="Zoom out (−) — centered on the selection, if any">&#8722;</button>
+    <span id="zoom-display" class="hint" style="min-width:42px;text-align:center;">100%</span>
+    <button id="zoom-in" data-requires-document title="Zoom in (+) — centered on the selection, if any">&#43;</button>
+    <button id="zoom-reset" data-requires-document title="Reset zoom to 100% (0)">1:1</button>
+    <button id="zoom-selection" data-requires-document title="Zoom to fit the selection (Shift+2)">Fit selection</button>
+    <select id="page-nav" data-requires-document title="Go to page" aria-label="Go to page" hidden></select>
+    <button id="btn-add-page" data-requires-document title="Add a page after the last one (multi-page figure)">+ Page</button>
+  </div>
+
+  <div class="tool-group">
+    <button id="btn-duplicate" data-requires-document title="Duplicate selected objects (Ctrl+D)">Duplicate</button>
+    <button id="btn-undo" data-requires-document title="Undo (Ctrl+Z)">&#8630; Undo</button>
+    <button id="btn-redo" data-requires-document title="Redo (Ctrl+Y)">&#8631; Redo</button>
+  </div>
+
+  <div class="tool-group">
+    <button id="btn-import" data-requires-document title="Import TIFF, JPEG, PNG, or BMP file(s)">&#8593; Import Image</button>
+    <input type="file" id="file-input" accept=".tif,.tiff,.jpg,.jpeg,.png,.bmp" multiple hidden>
+  </div>
+
+  <div class="tool-group">
+    <button id="btn-new-document">New figure</button>
+    <button id="btn-docprops" data-requires-document title="Document Properties">&#9881; Document</button>
+    <button id="btn-save-project" data-requires-document title="Save Project (overwrites the file you picked, if supported)">Save Project</button>
+    <button id="btn-save-project-as" data-requires-document title="Save to a new file / location">Save As</button>
+    <button id="btn-versions" data-requires-document>Versions</button>
+    <button id="btn-load-project" title="Load Project">Open project</button>
+    <input type="file" id="project-input" accept=".json,.mfcproj.json,.gz,.mfcproj.json.gz,.zip,.mfcproj.zip" hidden>
+  </div>
+
+  <div class="tool-group dropdown-group">
+    <button id="btn-export" data-requires-document title="Export">&#8681; Export</button>
+    <div id="export-menu" class="dropdown hidden">
+      <button data-export="tiff">Export TIFF (flattened RGB)</button>
+      <button data-export="svg">Export SVG</button>
+      <button data-export="pdf">Export PDF</button>
+    </div>
+  </div>
+  <label class="theme-control">Theme
+    <select id="theme-select" aria-label="Color theme">
+      <option value="light">Light · Lavender</option>
+      <option value="sage">Light · Sage</option>
+      <option value="dark">Dark · Plum</option>
+      <option value="slate">Dark · Slate</option>
+    </select>
+  </label>
+</header>
+
+<!-- ======================= SELECTION BAR (always reserved while a document is open) ======================= -->
+<div id="selection-bar" role="toolbar" aria-label="Selection">
+  <span id="sel-label" class="sel-label">Nothing selected</span>
+  <div id="sel-transform" class="sel-group hidden">
+    <label title="Left edge (document px)">X <input type="number" id="obj-x" step="1"></label>
+    <label title="Top edge (document px)">Y <input type="number" id="obj-y" step="1"></label>
+    <label title="Width (document px)">W <input type="number" id="obj-width" step="1" min="1"></label>
+    <label title="Height (document px)">H <input type="number" id="obj-height" step="1" min="1"></label>
+    <label class="sel-check" title="Keep the width/height ratio when typing a size"><input type="checkbox" id="obj-lock-aspect" checked> Ratio</label>
+    <label title="Rotation in degrees">&#8736; <input type="number" id="obj-angle" value="0" step="1"></label>
+    <button id="obj-rotate-ccw" title="Rotate -90°">&#8634; 90&deg;</button>
+    <button id="obj-rotate-cw" title="Rotate +90°">&#8635; 90&deg;</button>
+    <button id="obj-position-lock" class="toggle-btn sel-lock" title="Lock position and size: the object cannot be moved, resized or rotated, but channels, colors and styles stay editable">Lock position</button>
+    <button id="obj-uncrop" class="hidden" title="Restore this image to its full, uncropped frame">Uncrop</button>
+    <button id="obj-release-clip" class="hidden" title="Remove the shape crop and give the shape back as an editable shape">Remove shape crop</button>
+  </div>
+  <div id="sel-align" class="sel-group hidden">
+    <span class="align-label">Align</span>
+    <button data-align="left" title="Align left">&#8676;</button>
+    <button data-align="hcenter" title="Center horizontally">&#8596;</button>
+    <button data-align="right" title="Align right">&#8677;</button>
+    <button data-align="top" title="Align top">&#8607;</button>
+    <button data-align="vcenter" title="Center vertically">&#8597;</button>
+    <button data-align="bottom" title="Align bottom">&#8609;</button>
+    <span class="align-label">Distribute</span>
+    <button data-align="distH" title="Distribute horizontally">&#8644; H</button>
+    <button data-align="distV" title="Distribute vertically">&#8645; V</button>
+    <button id="btn-group" title="Group selected objects (Ctrl+G)">&#8862; Group</button>
+    <button id="btn-crop-shape" class="hidden" title="Crop the selected image (or object) to the selected closed shape: box, ellipse or closed path">&#9986; Crop to shape</button>
+  </div>
+  <span id="sel-lock-note" class="sel-lock-note hidden"></span>
+</div>
+
+<!-- ======================= MAIN LAYOUT ======================= -->
+<div id="main">
+
+  <!-- Canvas area -->
+  <div id="canvas-wrap">
+    <div id="workspace-empty">
+      <img class="empty-logo" src="assets/FluoForge-app-icons/fluoforge-icon.svg" alt="FluoForge" width="88" height="88">
+      <h1>A blank space for your next figure</h1>
+      <p>Create a document or open a FluoForge project to get started.</p>
+      <div class="btn-row">
+        <button id="empty-create-document" class="primary-button">Create figure</button>
+        <button id="empty-open-project">Open project</button>
+      </div>
+      <span class="hint">Microscopy panels, editable annotations, publication exports.</span>
+    </div>
+    <div id="canvas-scroll">
+      <canvas id="mfc-canvas"></canvas>
+    </div>
+    <div id="drop-hint" class="hidden">Drop image file(s) here (TIFF, JPEG, PNG, BMP)</div>
+  </div>
+
+  <!-- Right side panel -->
+  <aside id="side-panel">
+    <div class="inspector-header">
+      <div><h2>Inspector</h2><p id="inspector-context">No document open</p></div>
+      <button id="inspector-collapse-all" title="Collapse all inspector sections" aria-label="Collapse all inspector sections">−</button>
+    </div>
+    <p class="inspector-empty hint">Your document and tool settings will appear here.</p>
+
+    <section id="panel-docprops" class="panel">
+      <h3>Document Properties</h3>
+      <label>Project name <input type="text" id="doc-name" value="Untitled Figure" style="width:160px;"></label>
+      <label>Width <input type="number" id="doc-width" step="any"></label>
+      <label>Height <input type="number" id="doc-height" step="any"></label>
+      <label>Unit
+        <select id="doc-unit">
+          <option value="px">pixels</option>
+          <option value="cm">cm</option>
+          <option value="in">inches</option>
+        </select>
+      </label>
+      <label>DPI <input type="number" id="doc-dpi" step="1" min="30" max="1200"></label>
+      <button id="doc-apply">Apply</button>
+      <p class="hint">Pages: <strong id="doc-pages-count">1</strong> (every page has the size above)</p>
+      <div class="btn-row">
+        <button id="doc-add-page" style="width:auto;padding:6px 10px;">Add page</button>
+        <button id="doc-remove-page" style="width:auto;padding:6px 10px;">Remove last page</button>
+      </div>
+      <p class="hint">PDF export writes one PDF page per page; SVG and TIFF export write one file per page.</p>
+      <p class="hint" id="doc-pixel-preview"></p>
+      <p class="hint" id="doc-version-info"></p>
+      <label>Next version name <input id="version-name" type="text" placeholder="Optional, for Save As"></label>
+      <p id="project-status" class="hint" role="status">Not saved yet</p>
+      <p id="autosave-status" class="hint" role="status">Browser recovery ready</p>
+    </section>
+
+    <section id="panel-layers" class="panel">
+      <h3>Layers</h3>
+      <div id="layers-list"><p class="hint">No objects on the canvas yet.</p></div>
+      <div class="btn-row layer-actions">
+        <button id="layers-show-all" title="Show every layer">Show all</button>
+        <button id="layers-hide-all" title="Hide every layer">Hide all</button>
+        <button id="btn-ungroup" title="Ungroup the selected group (Ctrl+Shift+G)">Ungroup</button>
+      </div>
+      <p class="hint">Click a name to select. Eye: show/hide. Padlock: layer lock (blocks everything). Pin: position/size lock (channels and styles stay editable). Ctrl+G groups, Ctrl+Shift+G ungroups.</p>
+    </section>
+
+
+    <section id="panel-history" class="panel">
+      <h3>History</h3>
+      <div id="history-list" class="history-list"><p class="hint">No steps yet.</p></div>
+      <p class="hint">Click a step to go back to it; later steps stay available (redo) until you make a new change. Ctrl+Z / Ctrl+Y step one at a time.</p>
+    </section>
+
+    <section id="panel-channels" class="panel">
+      <h3>Channels <span id="channel-image-name" class="hint"></span></h3>
+      <div id="channel-stack" class="hidden">
+        <p class="hint" id="ch-stack-info"></p>
+        <label id="ch-zmode-row">Z display
+          <select id="ch-zmode">
+            <option value="max">Maximum intensity projection</option>
+            <option value="mean">Mean intensity projection</option>
+            <option value="slice">Single slice</option>
+          </select>
+        </label>
+        <div class="range-row" id="ch-zslice-row">
+          <span class="hint">slice</span>
+          <input type="range" id="ch-zslice" min="1" max="1" step="1" value="1">
+          <input type="number" class="rv-input" id="ch-zslice-val" min="1" max="1" step="1" value="1">
+        </div>
+        <div class="range-row" id="ch-tframe-row">
+          <span class="hint">frame</span>
+          <input type="range" id="ch-tframe" min="1" max="1" step="1" value="1">
+          <input type="number" class="rv-input" id="ch-tframe-val" min="1" max="1" step="1" value="1">
+        </div>
+        <hr style="border-color:var(--border);margin:10px 0;">
+      </div>
+      <div id="channel-list"><p class="hint">Select an image to edit its channels.</p></div>
+
+      <div id="channel-calibration" class="hidden">
+        <hr style="border-color:var(--border);margin:10px 0;">
+        <label>Pixel size (µm/px) <input type="number" id="ch-pixelsize" step="any" min="0" placeholder="unset"></label>
+        <p class="hint" id="ch-pixelsize-hint"></p>
+      </div>
+
+      <div id="channel-alpha" class="hidden">
+        <label><input type="checkbox" id="ch-alpha-toggle" checked> Preserve transparency (alpha)</label>
+      </div>
+
+      <div id="channel-tone" class="hidden">
+        <hr style="border-color:var(--border);margin:10px 0;">
+        <h3>Brightness / Contrast</h3>
+        <div class="range-row">
+          <span class="hint">bright.</span>
+          <input type="range" class="ch-tone-slider" id="ch-brightness" min="-100" max="100" value="0">
+          <input type="number" class="rv-input" id="ch-brightness-val" min="-100" max="100" value="0">
+        </div>
+        <div class="range-row">
+          <span class="hint">contrast</span>
+          <input type="range" class="ch-tone-slider" id="ch-contrast" min="-100" max="100" value="0">
+          <input type="number" class="rv-input" id="ch-contrast-val" min="-100" max="100" value="0">
+        </div>
+        <button id="ch-tone-reset" style="width:auto;padding:6px 10px;">Reset</button>
+      </div>
+    </section>
+
+    <section id="panel-crop" class="panel hidden">
+      <h3>Crop</h3>
+      <div class="btn-row">
+        <button id="crop-mode-rect" class="toggle-btn active" style="width:auto;padding:6px 10px;">Rectangle</button>
+        <button id="crop-mode-square" class="toggle-btn" style="width:auto;padding:6px 10px;">Square</button>
+      </div>
+      <label>Width (px) <input type="number" id="crop-width"></label>
+      <label>Height (px) <input type="number" id="crop-height"></label>
+      <button id="crop-apply">Apply Crop</button>
+      <button id="crop-cancel">Cancel</button>
+      <p class="hint">Drag the blue handles on the canvas, or type exact values above — both stay in sync.</p>
+    </section>
+
+    <section id="panel-grid" class="panel hidden">
+      <h3>Grid Layout</h3>
+      <label>Rows <input type="number" id="grid-rows" value="2" min="1" step="1"></label>
+      <label>Columns <input type="number" id="grid-cols" value="3" min="1" step="1"></label>
+      <label>Cell width (px) <input type="number" id="grid-cellw" value="300" step="1"></label>
+      <label>Cell height (px) <input type="number" id="grid-cellh" value="300" step="1"></label>
+      <label>Gap (px) <input type="number" id="grid-gap" value="16" step="1"></label>
+      <label><input type="checkbox" id="grid-header-row" checked> Column headers (above)</label>
+      <label><input type="checkbox" id="grid-header-col" checked> Row labels (left side)</label>
+      <button id="grid-arrange">Arrange</button>
+      <button id="grid-cancel">Close</button>
+      <p class="hint">Select 2+ images first to arrange just those; otherwise every image on the canvas is used.</p>
+    </section>
+
+    <section id="panel-scalebar" class="panel hidden">
+      <h3>Scale Bar</h3>
+      <div id="sb-selected-info" class="sb-selected-info hidden">
+        <p class="sb-info-title">Selected scale bar</p>
+        <p class="sb-info-text"></p>
+        <p class="hint">Changing length, thickness, color, label, corner or margin below updates the selected scale bar(s).</p>
+      </div>
+      <label>Reference image
+        <select id="sb-ref-image"></select>
+      </label>
+      <label>Length (µm) <input type="number" id="sb-length" value="50" step="any"></label>
+      <label>Thickness (px) <input type="number" id="sb-thickness" value="6" step="1"></label>
+      <label>Color <input type="color" id="sb-color" value="#ffffff"></label>
+      <label><input type="checkbox" id="sb-showlabel" checked> Show label</label>
+      <label>Corner
+        <select id="sb-corner">
+          <option value="bottom-right">Bottom right</option>
+          <option value="bottom-left">Bottom left</option>
+          <option value="top-right">Top right</option>
+          <option value="top-left">Top left</option>
+        </select>
+      </label>
+      <label>Margin (% of image) <input type="number" id="sb-margin" value="5" step="1" min="0" max="40"></label>
+      <div id="sb-place-actions">
+        <button id="sb-place-corner">Attach to corner</button>
+        <button id="sb-place-corner-multi">Attach to corner on all selected images</button>
+        <p id="sb-preview-status" class="hint" role="status"></p>
+      </div>
+      <p class="hint">Scale bars are always placed by attaching to a corner of an image — select the reference image (or several) above, pick a corner, and click a button. Attached bars automatically follow that image if you move or resize it, and stay correctly calibrated if you rescale it.</p>
+    </section>
+
+    <section id="panel-shape" class="panel hidden">
+      <h3>Shape</h3>
+      <div class="btn-row">
+        <button id="shape-mode-rect" class="toggle-btn active" style="width:auto;padding:6px 10px;">Rectangle</button>
+        <button id="shape-mode-square" class="toggle-btn" style="width:auto;padding:6px 10px;">Square</button>
+      </div>
+      <div class="btn-row" id="shape-kinds">
+        <button data-shape-kind="rect" class="toggle-btn active">Box</button>
+        <button data-shape-kind="ellipse" class="toggle-btn">Ellipse</button>
+        <button data-shape-kind="line" class="toggle-btn">Line</button>
+      </div>
+      <label>Stroke color <input type="color" id="shape-stroke-color" value="#ffcc00"></label>
+      <label>Stroke width <input type="number" id="shape-stroke-width" value="3" min="0" step="1"></label>
+      <label>Dash style
+        <select id="shape-dash">
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="dotted">Dotted</option>
+          <option value="dashdot">Dash-dot</option>
+          <option value="longdash">Long dash</option>
+        </select>
+      </label>
+      <label>Fill
+        <span style="display:flex;gap:6px;align-items:center;">
+          <input type="checkbox" id="shape-fill-enabled">
+          <input type="color" id="shape-fill-color" value="#ffffff">
+        </span>
+      </label>
+      <p class="hint">Drag on the canvas to draw a box, ellipse or line. Hold Shift (or choose Square) for a square or circle. To crop an image to a shape, select the image and a closed shape together and click <em>Crop to shape</em> in the bar above.</p>
+    </section>
+
+    <section id="panel-path" class="panel hidden">
+      <h3>Pen / Path</h3>
+      <div class="btn-row">
+        <button id="path-mode-straight" class="toggle-btn active path-wide-button">Straight</button>
+        <button id="path-mode-bezier" class="toggle-btn path-wide-button">Bézier</button>
+      </div>
+      <label>Stroke color <input type="color" id="path-stroke-color" value="#ffcc00"></label>
+      <label>Stroke width <input type="number" id="path-stroke-width" value="3" min="0.1" step="0.5"></label>
+      <label>Opacity <input type="number" id="path-opacity" value="100" min="0" max="100" step="1"></label>
+      <label>Dash style
+        <select id="path-dash">
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="dotted">Dotted</option>
+          <option value="dashdot">Dash-dot</option>
+          <option value="longdash">Long dash</option>
+        </select>
+      </label>
+      <label>Line cap
+        <select id="path-line-cap">
+          <option value="round">Round</option>
+          <option value="butt">Butt</option>
+          <option value="square">Square</option>
+        </select>
+      </label>
+      <label>Line join
+        <select id="path-line-join">
+          <option value="round">Round</option>
+          <option value="miter">Miter</option>
+          <option value="bevel">Bevel</option>
+        </select>
+      </label>
+      <label>Start arrow
+        <select id="path-arrow-start">
+          <option value="none">None</option>
+          <option value="arrow">Arrow</option>
+        </select>
+      </label>
+      <label>End arrow
+        <select id="path-arrow-end">
+          <option value="none">None</option>
+          <option value="arrow">Arrow</option>
+        </select>
+      </label>
+      <div class="btn-row path-edit-actions">
+        <button id="path-edit-nodes" class="path-wide-button">Edit nodes</button>
+        <button id="path-close-toggle" class="path-wide-button">Close path</button>
+      </div>
+      <div id="path-node-actions" class="hidden">
+        <div class="btn-row path-edit-actions">
+          <button id="path-node-corner">Corner</button>
+          <button id="path-node-smooth">Smooth</button>
+          <button id="path-node-delete">Delete node</button>
+        </div>
+        <div class="btn-row path-edit-actions">
+          <button id="path-segment-line">Straight segment</button>
+          <button id="path-segment-curve">Curve segment</button>
+        </div>
+        <button id="path-edit-done">Done editing</button>
+      </div>
+      <p id="path-status" class="hint" role="status">Click to add nodes; drag a node while placing it to create Bézier handles.</p>
+      <p class="hint">Double-click or Enter finishes. Escape cancels. Click the first node to close. Shift constrains to 45° angles. Ctrl snaps to nearby nodes and object edges. In node editing, Alt breaks smooth handles.</p>
+    </section>
+
+    <section id="panel-inset" class="panel hidden">
+      <h3>Inset</h3>
+      <p class="hint">Draw an outline directly on an image (drag on the canvas) to mark the region you want as an inset.</p>
+      <p id="inset-size-readout" class="inset-readout" role="status">Draw on an image: the outline size appears here while you drag.</p>
+      <div class="btn-row">
+        <button id="inset-mode-square" class="toggle-btn active" style="width:auto;padding:6px 10px;">Square</button>
+        <button id="inset-mode-rect" class="toggle-btn" style="width:auto;padding:6px 10px;">Rectangle</button>
+      </div>
+      <p class="hint">Hold Shift while dragging to temporarily get the other shape.</p>
+      <label>Outline color <input type="color" id="inset-stroke-color" value="#ffcc00"></label>
+      <label>Outline width <input type="number" id="inset-stroke-width" value="2" min="0" step="1"></label>
+      <label>Dash style
+        <select id="inset-dash">
+          <option value="solid">Solid</option>
+          <option value="dashed" selected>Dashed</option>
+          <option value="dotted">Dotted</option>
+          <option value="dashdot">Dash-dot</option>
+          <option value="longdash">Long dash</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="inset-fixed-size"> Exact outline size</label>
+      <label>Outline width (px) <input type="number" id="inset-fixed-w" value="100" min="2" step="1"></label>
+      <label>Outline height (px) <input type="number" id="inset-fixed-h" value="100" min="2" step="1"></label>
+      <label>Inset magnification (×) <input type="number" id="inset-magnification" value="1" min="0.05" step="0.1"></label>
+      <button id="inset-apply-size" class="hidden">Apply exact size to selected outline</button>
+      <p class="hint">With <em>Exact outline size</em> on, click an image to place an outline of exactly that size. The fields keep the size of the last outline you drew or placed, so repeated insets match across images. New insets are shown at outline size × magnification.</p>
+      <button id="inset-create" class="hidden">Create inset</button>
+      <p class="hint">The outline stays on the original image. Once created, moving or resizing the <em>outline</em> updates which part of the source the inset shows — the inset's own size/position on the canvas are never touched, so you can enlarge it freely for the figure. Channels are independently editable on the inset, same as any image.</p>
+    </section>
+
+    <section id="panel-text" class="panel hidden">
+      <h3>Text</h3>
+      <label>Font
+        <select id="text-font">
+          <option>Liberation Sans</option>
+          <option>Liberation Serif</option>
+          <option>Liberation Mono</option>
+          <option>Arial</option>
+          <option>Helvetica</option>
+          <option>Times New Roman</option>
+          <option>Courier New</option>
+          <option>Georgia</option>
+          <option>Verdana</option>
+        </select>
+      </label>
+      <p class="hint">PDF embeds Liberation Sans, Serif, and Mono. Other fonts must be changed before PDF export.</p>
+      <label>Size <input type="number" id="text-size" value="24" step="1" min="1"></label>
+      <label>Text color <input type="color" id="text-color" value="#000000"></label>
+      <label>Box background
+        <span style="display:flex;gap:6px;align-items:center;">
+          <input type="checkbox" id="text-bg-enabled">
+          <input type="color" id="text-bg-color" value="#000000">
+        </span>
+      </label>
+      <label>Box border
+        <span style="display:flex;gap:6px;align-items:center;">
+          <input type="checkbox" id="text-border-enabled">
+          <input type="color" id="text-border-color" value="#000000">
+        </span>
+      </label>
+      <label>Border width (px) <input type="number" id="text-border-width" value="2" min="1" step="1"></label>
+      <div class="btn-row">
+        <button id="text-bold" class="toggle-btn" title="Bold"><b>B</b></button>
+        <button id="text-italic" class="toggle-btn" title="Italic"><i>I</i></button>
+        <button id="text-underline" class="toggle-btn" title="Underline"><u>U</u></button>
+      </div>
+      <div class="btn-row">
+        <button id="text-align-left" class="toggle-btn active" title="Align left" style="width:auto;padding:6px 10px;">&#8676;</button>
+        <button id="text-align-center" class="toggle-btn" title="Center" style="width:auto;padding:6px 10px;">&#8596;</button>
+        <button id="text-align-right" class="toggle-btn" title="Align right" style="width:auto;padding:6px 10px;">&#8677;</button>
+        <button id="text-center-both" title="Center text horizontally and vertically in its box" style="width:auto;padding:6px 10px;">Center both</button>
+      </div>
+      <div class="btn-row">
+        <button id="text-valign-top" class="toggle-btn active" title="Align to the top of the box" style="width:auto;padding:6px 10px;">Top</button>
+        <button id="text-valign-middle" class="toggle-btn" title="Center vertically in the box" style="width:auto;padding:6px 10px;">Middle</button>
+        <button id="text-valign-bottom" class="toggle-btn" title="Align to the bottom of the box" style="width:auto;padding:6px 10px;">Bottom</button>
+      </div>
+      <p class="hint">The box size is independent of the font size: set W/H in the bar above, or drag the side and top/bottom handles. Corner handles scale the text itself.</p>
+      <p class="hint">To color/style just some words: double-click into the text, drag to highlight a range, then use the controls above — the highlight is remembered even if you click a color swatch.</p>
+    </section>
+
+  </aside>
+</div>
+
+<div id="toast" class="hidden"></div>
+
+<!-- ======================= LIBRARIES ======================= -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+<script src="assets/vendor/pako.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+<!-- ======================= APP ======================= -->
+<script src="js/tiff.js?v=0.26-dev.4"></script>
+<script src="js/canvas-app.js?v=0.26-dev.4"></script>
+<script src="assets/vendor/svg2pdf.umd.min.js"></script>
+<script src="js/project.js?v=0.26-dev.4"></script>
+<script src="js/autosave.js?v=0.26-dev.4"></script>
+<script src="js/export.js?v=0.26-dev.4"></script>
+<script src="js/main.js?v=0.26-dev.4"></script>
+</body>
+</html>
