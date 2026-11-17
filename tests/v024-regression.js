@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Copyright (C) 2026 Remy Bonnavion
+ */
 /* v0.24 requests: legacy project loading, inset size readout, scale bar preview and
    metadata, PDF/SVG export fixes, crop to shape, multi-object edits, pages, close warning. */
 async function runV024Regressions() {

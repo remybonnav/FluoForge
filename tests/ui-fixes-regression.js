@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Copyright (C) 2026 Remy Bonnavion
+ */
 /* UI/UX fixes of 2026-10-12 (items A1–G2), driven through native DOM mouse events where it matters. */
 async function runUiFixesRegressions() {
   const checks=[];

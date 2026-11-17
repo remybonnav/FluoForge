@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Copyright (C) 2026 Remy Bonnavion
+ */
 /* Run in the locally served editor with: await runPathRegressions() */
 async function runPathRegressions() {
   const checks=[];

@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Copyright (C) 2026 Remy Bonnavion
+ */
 async function runProjectExportRegressions() {
   const checks=[], assert=(name,ok)=>{if(!ok)throw new Error(name);checks.push(name);};
   const canvas=MFC.getCanvas();

@@ -1,4 +1,8 @@
 <!DOCTYPE html>
+<!--
+  SPDX-License-Identifier: AGPL-3.0-only
+  Copyright (C) 2026 Remy Bonnavion
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -10,13 +14,13 @@
 <link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#07090C">
-<link rel="stylesheet" href="style.css?v=0.26-dev.4">
+<link rel="stylesheet" href="style.css?v=0.1.0">
 </head>
 <body>
 
 <!-- ======================= TOP TOOLBAR ======================= -->
 <header id="topbar">
-  <div class="brand"><img class="brand-icon" src="assets/FluoForge-app-icons/fluoforge-icon-small.svg" alt="" width="22" height="22">FluoForge <span id="app-version" class="version-tag"></span></div>
+  <button type="button" id="brand-about" class="brand" title="About FluoForge" aria-haspopup="dialog"><img class="brand-icon" src="assets/FluoForge-app-icons/fluoforge-icon-small.svg" alt="" width="22" height="22">FluoForge <span id="app-version" class="version-tag"></span></button>
 
   <div class="tool-group">
     <button id="tool-select" data-requires-document class="tool-btn active" data-tool="select" title="Select / Move (V)">&#9992; Select</button>
@@ -484,12 +488,12 @@
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
 <!-- ======================= APP ======================= -->
-<script src="js/tiff.js?v=0.26-dev.4"></script>
-<script src="js/canvas-app.js?v=0.26-dev.4"></script>
+<script src="js/tiff.js?v=0.1.0"></script>
+<script src="js/canvas-app.js?v=0.1.0"></script>
 <script src="assets/vendor/svg2pdf.umd.min.js"></script>
-<script src="js/project.js?v=0.26-dev.4"></script>
-<script src="js/autosave.js?v=0.26-dev.4"></script>
-<script src="js/export.js?v=0.26-dev.4"></script>
-<script src="js/main.js?v=0.26-dev.4"></script>
+<script src="js/project.js?v=0.1.0"></script>
+<script src="js/autosave.js?v=0.1.0"></script>
+<script src="js/export.js?v=0.1.0"></script>
+<script src="js/main.js?v=0.1.0"></script>
 </body>
 </html>

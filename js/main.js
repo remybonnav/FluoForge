@@ -1,4 +1,8 @@
 /*
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Copyright (C) 2026 Remy Bonnavion
+ */
+/*
  * main.js — app bootstrap & UI wiring
  */
 
@@ -185,6 +189,47 @@ function showDocPropsModal(onConfirm) {
   document.getElementById('m-name').focus();
 }
 
+/* About dialog: copyright, licence, and the AGPL section 13 offer of the running version's source. */
+const FLUOFORGE_REPO = 'https://github.com/remybonnav/FluoForge';
+function showAboutDialog() {
+  if (document.querySelector('.about-backdrop')) return;
+  const version = MFC.getAppVersion();
+  const active = document.activeElement;
+  const opener = active && active !== document.body ? active : document.getElementById('brand-about');
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop about-backdrop';
+  backdrop.innerHTML = `
+    <div class="modal about-modal" role="dialog" aria-modal="true" aria-labelledby="about-title" aria-describedby="about-licence">
+      <h2 id="about-title"><img src="assets/FluoForge-app-icons/fluoforge-icon-small.svg" alt="">FluoForge</h2>
+      <p class="about-dim">Version <span id="about-version"></span></p>
+      <p>Copyright (C) 2026 Remy Bonnavion</p>
+      <p id="about-licence">Licensed under the <a href="LICENSE" target="_blank" rel="noopener">GNU Affero General Public License v3.0 only</a>.</p>
+      <p class="about-dim">FluoForge comes with ABSOLUTELY NO WARRANTY. You may redistribute and modify it under the terms of that licence.</p>
+      <ul>
+        <li><a id="about-source" target="_blank" rel="noopener">Source code</a></li>
+        <li><a href="COMMERCIAL-LICENSE.md" target="_blank" rel="noopener">Commercial licence</a></li>
+        <li><a href="THIRD-PARTY-NOTICES.md" target="_blank" rel="noopener">Third-party notices</a></li>
+      </ul>
+      <div class="btn-row"><button type="button" id="about-close">Close</button></div>
+    </div>`;
+  backdrop.querySelector('#about-version').textContent = 'v' + version;
+  backdrop.querySelector('#about-source').href = FLUOFORGE_REPO + '/tree/v' + encodeURIComponent(version);
+  const close = () => { backdrop.remove(); if (opener && opener.focus) opener.focus(); };
+  backdrop.querySelector('#about-close').addEventListener('click', close);
+  backdrop.addEventListener('click', event => { if (event.target === backdrop) close(); });
+  backdrop.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); close(); return; }
+    if (event.key !== 'Tab') return;
+    // Keep keyboard focus inside the dialog while it is open.
+    const items = [...backdrop.querySelectorAll('a[href], button')];
+    const first = items[0], last = items[items.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  });
+  document.body.appendChild(backdrop);
+  backdrop.querySelector('#about-close').focus();
+}
+
 function syncDocPropsPanel(props) {
   document.getElementById('doc-name').value = props.name || 'Untitled Figure';
   document.getElementById('doc-width').value = props.width;
@@ -212,6 +257,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   MFC.init();
   document.getElementById('app-version').textContent = 'v' + MFC.getAppVersion();
   document.getElementById('doc-version-info').textContent = 'Created with v' + MFC.getAppVersion() + '.';
+  document.getElementById('brand-about').addEventListener('click', showAboutDialog);
   MFC.refreshLayersPanel();
 
   syncDocPropsPanel(MFC.getDocProps());

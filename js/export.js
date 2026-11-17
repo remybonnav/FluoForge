@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Copyright (C) 2026 Remy Bonnavion
+ */
 /* Vector SVG/PDF exports share a source-resolution image compositor with flattened TIFF. */
 const MFC_EXPORT = (() => {
   const FONTS = { 'Liberation Sans': 'LiberationSans', 'Liberation Serif': 'LiberationSerif', 'Liberation Mono': 'LiberationMono' };

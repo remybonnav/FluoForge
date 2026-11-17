@@ -117,6 +117,8 @@ The UI suite (`tests/ui-fixes-regression.js`, also in the browser runner) covers
 
 The Z stack suite (`tests/zstack-regression.js`, browser runner) builds small ImageJ hyperstacks and checks the channel/slice/frame split, max and mean projections, the slice and frame controls, history labels, undo/redo and saved projects.
 
+The About suite (`tests/about-regression.js`, browser runner) opens the About dialog from the brand and checks the version, copyright, licence links, a source link that contains the running version, keyboard focus, Escape and Close.
+
 The v0.24 suite (`tests/v024-regression.js`, also in the browser runner) covers opening a v0.18-format project, the live inset size readout, scale bar previews and metadata editing, multi-image channel and multi-shape edits, transform-free dashed SVG outlines, crop to shape, multi-page export, and the close warning.
 
 `assets/vendor/svg2pdf.umd.min.js` carries one local fix (marked at the top of the file): its data-URL pattern no longer overflows the call stack on very large embedded images, which made PDF export fail with "Maximum call stack size exceeded".
@@ -124,3 +126,11 @@ The v0.24 suite (`tests/v024-regression.js`, also in the browser runner) covers 
 ## Logo and app icons
 
 The README logo is `assets/FluoForge-logo-Github-viridis.svg`. The app icons (SVG, PNG from 16 to 512 px, `favicon.ico` and the Apple touch icon) are in `assets/FluoForge-app-icons/`; the page uses them as its browser favicon, in the top bar and on the empty workspace.
+
+## Licence
+
+From v0.1.0, FluoForge is licensed under the [GNU Affero General Public License v3.0 only](LICENSE) (AGPL-3.0-only). Copyright (C) 2026 Remy Bonnavion.
+
+A commercial licence is available for organisations that want to use, modify, embed or host FluoForge without the AGPL obligations, or that need an invoice, support or deployment help. See [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
+
+Third-party libraries and fonts keep their own licences; see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Contributions need a signed Contributor License Agreement; see [CONTRIBUTING.md](CONTRIBUTING.md). Click the FluoForge name in the app's top bar to see the version, licence and a link to its source code.

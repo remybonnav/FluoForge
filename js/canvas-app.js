@@ -1,4 +1,8 @@
 /*
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Copyright (C) 2026 Remy Bonnavion
+ */
+/*
  * canvas-app.js
  * -----------------------------------------------------------------------
  * Fabric.js canvas orchestration: importing images as fabric objects,
@@ -29,7 +33,7 @@ const MFC = (function () {
   };
 
   let canvas;                       // fabric.Canvas
-  const MFC_VERSION = '0.26-dev';
+  const MFC_VERSION = '0.1.0';
   function getAppVersion() { return MFC_VERSION; }
 
   let docProps = { name: 'Untitled Figure', width: 1748, height: 1240, unit: 'px', dpi: 300 }; // A4-ish default @300dpi

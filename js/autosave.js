@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Copyright (C) 2026 Remy Bonnavion
+ */
 /* IndexedDB drafts are recovery checkpoints, never permanent project versions. */
 const MFC_AUTOSAVE = (() => {
   const testId = new URLSearchParams(location.search).get('test');

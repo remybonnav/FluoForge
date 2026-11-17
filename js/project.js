@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Copyright (C) 2026 Remy Bonnavion
+ */
 /* Versioned projects: immutable source blobs and recursive, pixel-free figure states. */
 const MFC_PROJECT = (() => {
   const FORMAT = 3;

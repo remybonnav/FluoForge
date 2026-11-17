@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Copyright (C) 2026 Remy Bonnavion
+ */
 /* Z stacks and time series: ImageJ hyperstacks are split into channels x slices x frames,
    shown as a projection or one slice, and the choice survives undo, save and reopen. */
 async function runZStackRegressions() {

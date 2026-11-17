@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Copyright (C) 2026 Remy Bonnavion
+ */
 /* Real DOM mouse events must traverse Fabric's pointer-to-document conversion. */
 async function runDevInterfaceRegressions() {
   const checks=[];

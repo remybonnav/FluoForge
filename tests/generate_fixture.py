@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 Remy Bonnavion
 """Create a deterministic 16-bit multichannel TIFF larger than the editor preview."""
 from pathlib import Path
 import numpy as np
