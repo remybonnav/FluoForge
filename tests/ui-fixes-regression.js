@@ -262,7 +262,7 @@ async function runUiFixesRegressions() {
   }
   assert('ImageJ swatch applies the pure color',canvas.getObjects().find(o=>o.mfcId==='uiText').fill==='#00ffff');
   // ---- Projects saved by v0.22 (main branch before these changes) still open ----
-  const fixture=await fetch('tests/compat/main-v0.22-project.mfcproj.zip');
+  const fixture=await fetch('tests/compat/legacy-v0.22/project.mfcproj.zip');
   if(fixture.ok){
     await MFC_PROJECT.loadProject(new File([await fixture.blob()],'main-v0.22-project.mfcproj.zip'));
     const objs=canvas.getObjects().filter(o=>o.mfcId),find=id=>objs.find(o=>o.mfcId===id);

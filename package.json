@@ -1,6 +1,6 @@
 {
   "name": "fluoforge",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "Browser-only figure editor for multichannel microscopy images. This file is for development only: it installs the headless test tools. The app itself needs no build and no Node.",
   "license": "AGPL-3.0-only",
@@ -12,7 +12,8 @@
     "fixtures": "node tests/generate-fixtures.mjs",
     "make-reference": "node tests/run-headless.mjs --make-reference",
     "install-browsers": "playwright install chromium firefox",
-    "release": "node scripts/release.mjs"
+    "release": "node scripts/release.mjs",
+    "compat-fixture": "node tests/make-compat-fixture.mjs"
   },
   "devDependencies": {
     "pdfjs-dist": "3.11.174",

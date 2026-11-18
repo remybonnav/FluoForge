@@ -1,0 +1,16 @@
+{
+  "about": "Projects saved by earlier versions. Each must open, match its expected.json and export an SVG matching export.svg in every later version (tests/compat-regression.js). Release fixtures are built with tests/make-compat-fixture.mjs by the version itself; see docs/PROJECT-FORMAT.md.",
+  "fixtures": [
+    { "name": "legacy-v0.18-zip", "kind": "legacy", "what": "v0.18 project (manifest version 2, zip) with a scale bar whose length is only in its label, and a group" },
+    { "name": "legacy-format2-zip", "kind": "legacy", "what": "manifest version 2 zip with the image in images/ and a cropped, rotated panel" },
+    { "name": "legacy-format2-json", "kind": "legacy", "what": "manifest version 2 as plain JSON, the image embedded as a data: URL" },
+    { "name": "legacy-format2-gzip", "kind": "legacy", "what": "the same JSON project, gzip-compressed" },
+    { "name": "legacy-v0.22", "kind": "legacy", "what": "project saved by v0.22 before the 0.1.0 reset (format 3)" },
+    { "name": "v0.1.0", "kind": "release", "what": "reference figure saved by FluoForge 0.1.0" },
+    { "name": "v0.1.1", "kind": "release", "what": "reference figure saved by FluoForge 0.1.1" },
+    { "name": "v0.1.2", "kind": "release", "what": "reference figure saved by FluoForge 0.1.2" },
+    { "name": "v0.1.3", "kind": "release", "what": "reference figure saved by FluoForge 0.1.3" },
+    { "name": "v0.1.4", "kind": "release", "what": "reference figure saved by FluoForge 0.1.4" },
+    { "name": "v0.1.5", "kind": "release", "what": "reference figure saved by FluoForge 0.1.5" }
+  ]
+}

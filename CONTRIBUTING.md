@@ -46,7 +46,7 @@ npm test
 
 `npm test` runs `tests/run-headless.mjs`, which:
 
-1. Checks that the version is the same everywhere (`npm run release -- --check`, see [Releasing](#releasing)) and runs the release script's own tests (`tests/release-regression.mjs`).
+1. In Node: checks that the version is the same everywhere (`npm run release -- --check`, see [Releasing](#releasing)) and runs the release script's own tests (`tests/release-regression.mjs`); then tests the project-format migrations, the fixture library and the format lock (`tests/migrations-regression.mjs`).
 2. Generates the test images with `tests/generate-fixtures.mjs` (pure Node, no Python).
 3. Serves the repository on a local port.
 4. Runs every suite of the browser runner in headless Chromium and Firefox, blocking and reporting every request to another origin.
@@ -75,10 +75,12 @@ GitHub Actions runs `npm test` on every push and pull request (`.github/workflow
 
 ### Old projects
 
-`tests/compat/` holds projects saved by earlier versions; they must keep opening (`compat-regression`):
+A project saved by any release since v0.1.0, or in a legacy format, must open, look the same and export the same in every later version. [docs/PROJECT-FORMAT.md](docs/PROJECT-FORMAT.md) describes the format, the migrations and the fixtures; in short:
 
-- `main-v0.22-project.mfcproj.zip`: saved by the app before the 0.1.0 reset.
-- `v0.1.0-project.mfcproj.zip`: the reference figure, built and saved by FluoForge 0.1.0, extracted from the `v0.1.0` tag. Its four CDN scripts were pointed at the vendored copies, which are byte-identical (see `assets/vendor/VERSIONS.md`).
+- `tests/compat/` holds one folder per fixture (listed in `tests/compat/index.json`): the project file, its `expected.json` and its SVG export. The `compat-regression` suite checks every one.
+- A change to what a saved state means bumps the schema and adds a pure migration in `js/migrations/`. `tests/migrations-regression.mjs` tests each migration alone and fails if one is missing.
+- A pull request that changes `serializeObject`, `restoreObject` or `captureState` must add a migration or explain why none is needed: `npm test` fails until `tests/compat/format-lock.json` is recorded again with `node tests/migrations-regression.mjs --update-lock`.
+- Each release adds its own fixture before it ships (see [Releasing](#releasing)).
 
 ### The browser suites
 
@@ -97,7 +99,7 @@ Open [the browser regression runner](tests/browser-regression.html) on the local
 | `offline-regression` | The Content-Security-Policy, same-origin scripts and styles, no request to another origin, a blocked third-party image and fetch, each vendored file's SHA-256, bundled licence files. |
 | `module-api-regression` | The `window.MFC` API keeps exactly its names, no global leaks, no module over 600 lines, every tool exports `activate`, `deactivate` and `refreshPanel`, the app version matches the module entry's `?v=`. |
 | `image-info-regression` | Quiet import, the `?debug=1` logger, the Image info dialog. |
-| `compat-regression` | Old projects reopen identically and save as `.fluoforge`. |
+| `compat-regression` | Every fixture in `tests/compat/` opens, matches its `expected.json` and SVG export, keeps its source images byte for byte, keeps its original version when migrated, and reopens identically; saving as `.fluoforge`; a damaged source; a project from a newer version. |
 | `errors-storage-regression` | The error message and Copy details, damaged TIFFs, the memory warning, a full IndexedDB, the storage line. |
 
 The suites can also be run from the browser console with the app open, for example:
@@ -126,7 +128,7 @@ npm run release -- --check   # change nothing; fail and list every copy that dif
 
 With a version number, the script also renames the CHANGELOG's `## Unreleased` notes to `## v0.1.5 (<today>)` and leaves a new empty `## Unreleased` above them. It refuses a malformed version, an empty "Unreleased" section or a version that is already in the CHANGELOG, and then changes nothing.
 
-To release: describe the changes under "Unreleased", run `npm run release -- <version>`, run `npm test`, and commit. A local script or stylesheet added to `index.html` must carry a `?v=` query; the check reports one that does not.
+To release: describe the changes under "Unreleased", run `npm run release -- <version>`, then `npm run compat-fixture -- --ref=worktree` to save that version's fixture (add its folder to `tests/compat/index.json`), run `npm test`, and commit. `npm test` fails while the current version has no fixture. A local script or stylesheet added to `index.html` must carry a `?v=` query; the check reports one that does not.
 
 ## Project notes
 

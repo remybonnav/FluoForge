@@ -4,7 +4,7 @@
    - scripts/release.mjs on a throwaway copy of the files it edits: bump, idempotence, CHANGELOG
      dating, refusals that change nothing, and --check on a mismatch;
    - the real repository has one version everywhere;
-   - every relative link in README, CONTRIBUTING, CHANGELOG and the manual leads to an existing file
+   - every relative link in README, CONTRIBUTING, CHANGELOG, the manual and PROJECT-FORMAT leads to an existing file
      and heading, the README stays short, and CONTRIBUTING lists every browser suite. */
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, copyFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -96,7 +96,7 @@ export function runReleaseRegressions() {
   // --- Documentation -------------------------------------------------------------------------
   const slug = heading => heading.trim().toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, '').replace(/\s/g, '-');
   const anchors = file => new Set(readFileSync(file, 'utf8').replace(/```[\s\S]*?```/g, '').split('\n').filter(l => /^#{1,6} /.test(l)).map(l => slug(l.replace(/^#+ /, ''))));
-  const docs = ['README.md', 'CONTRIBUTING.md', 'CHANGELOG.md', 'docs/MANUAL.md'];
+  const docs = ['README.md', 'CONTRIBUTING.md', 'CHANGELOG.md', 'docs/MANUAL.md', 'docs/PROJECT-FORMAT.md'];
   let links = 0;
   for (const doc of docs) {
     const text = readFileSync(join(ROOT, doc), 'utf8').replace(/```[\s\S]*?```/g, '').replace(/`[^`\n]*`/g, '');

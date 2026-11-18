@@ -2,9 +2,20 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  * Copyright (C) 2026 Remy Bonnavion
  */
-/* Versioned projects: immutable source blobs and recursive, pixel-free figure states. */
+/* Versioned projects: immutable source blobs and recursive, pixel-free figure states.
+   The file format is described in docs/PROJECT-FORMAT.md. */
 const MFC_PROJECT = (() => {
-  const FORMAT = 3;
+  const FORMAT = 3;   // manifest.version
+  const SCHEMA = 1;   // state.schema written by captureState; equals CURRENT_SCHEMA in js/migrations/index.js
+  // Migrations are ES modules (pure functions on JSON), loaded the first time a project is opened.
+  const MIGRATIONS_URL = new URL('migrations/index.js', document.currentScript?.src || new URL('js/', document.baseURI)).href;
+  let migrations = null;
+  const loadMigrations = () => (migrations ||= import(MIGRATIONS_URL).then(module => {
+    if (module.CURRENT_SCHEMA !== SCHEMA) throw new Error(`js/migrations/index.js is at format ${module.CURRENT_SCHEMA}, js/project.js at ${SCHEMA}.`);
+    return module;
+  }));
+  /** Brings a saved state up to the current schema (a no-op for current and newer states). */
+  async function migrateState(state) { return (await loadMigrations()).migrateState(state); }
   const sources = new Map();
   const decoded = new Map();
   const uuid = () => crypto.randomUUID();
@@ -12,6 +23,15 @@ const MFC_PROJECT = (() => {
   let fileHandle = null;
   let busy = false;
   let restoring = false;
+  // What the open figure holds that this version does not understand (from a newer FluoForge):
+  // unknown state fields, the newer schema number, and objects it cannot draw. captureState puts
+  // them back, so saving, undo and recovery keep them unchanged.
+  let kept = { schema: null, fields: {}, objects: [] };
+  const STATE_KEYS = ['schema', 'documentOpen', 'docProps', 'nextId', 'objects'];
+  const MANIFEST_KEYS = ['format', 'version', 'projectId', 'appVersion', 'savedAt', 'currentVersionId', 'versions', 'sources'];
+  // Keys serializeObject writes itself; anything else in a saved object that toObject does not
+  // produce is a field this version does not know, kept on the object as ffUnknownFields.
+  const WRITTEN_KEYS = ['type', 'objects', 'sourceId', 'workingScale', 'cropX', 'cropY', 'filters', 'display', 'clipPath'];
   function freshContext() {
     return { projectId: uuid(), versions: [], states: {}, currentVersionId: null,
       workingBaseVersionId: null, savedAt: 0, savedFingerprint: '' };
@@ -52,6 +72,7 @@ const MFC_PROJECT = (() => {
       if (raw.stack) Object.assign(json.display, { zMode: raw.zMode, zIndex: raw.zIndex, tIndex: raw.tIndex });
     }
     if (obj.clipPath) json.clipPath = serializeObject(obj.clipPath);
+    if (obj.ffUnknownFields) for (const [key, value] of Object.entries(obj.ffUnknownFields)) if (!(key in json)) json[key] = copy(value);
     if (top && obj.group?.type === 'activeSelection') {
       const m = obj.calcTransformMatrix(), d = fabric.util.qrDecompose(m);
       Object.assign(json, { originX: 'center', originY: 'center', left: m[4], top: m[5],
@@ -61,8 +82,10 @@ const MFC_PROJECT = (() => {
     return json;
   }
   function captureState() {
-    return { schema: 1, documentOpen: MFC.hasDocument, docProps: copy(MFC.getDocProps()), nextId: MFC.getNextIdCounter(),
-      objects: MFC.getCanvas().getObjects().filter(o => !o.mfcIsPageBounds && o.mfcId).map(o => serializeObject(o, true)) };
+    const objects = MFC.getCanvas().getObjects().filter(o => !o.mfcIsPageBounds && o.mfcId).map(o => serializeObject(o, true));
+    for (const { index, json } of kept.objects) objects.splice(Math.min(index, objects.length), 0, copy(json));
+    return { ...copy(kept.fields), schema: kept.schema ?? SCHEMA, documentOpen: MFC.hasDocument, docProps: copy(MFC.getDocProps()),
+      nextId: MFC.getNextIdCounter(), objects };
   }
   // Projects saved before multi-page figures have no docProps.pages; they are one page.
   const pageCountOf = state => Math.max(1, Math.floor(state.docProps?.pages) || 1);
@@ -87,6 +110,10 @@ const MFC_PROJECT = (() => {
     const options = copy(json); delete options.objects; delete options.clipPath;
     delete options.display; delete options.sourceId; delete options.workingScale;
     let obj;
+    if (json.mfcType !== 'mfcImage' && !(json.type && fabric.util.getKlass(json.type, 'fabric'))) {
+      const error = new Error(`This figure contains a "${json.mfcType || json.type || 'unknown'}" object from a newer FluoForge, which this version cannot draw.`);
+      error.name = 'UnsupportedObject'; throw error;
+    }
     if (json.mfcType === 'mfcImage') {
       const original = await sourceRaw(json.sourceId);
       const raw = { ...original, ...json.display,
@@ -116,6 +143,10 @@ const MFC_PROJECT = (() => {
       obj = await enliven(options);
     }
     for (const key of Object.keys(json).filter(k => k.startsWith('mfc'))) obj[key] = json[key];
+    // Fields from a newer version that toObject would drop are kept and written back unchanged.
+    const written = forExport ? null : obj.mfcType === 'mfcImage' || obj.type === 'group' ? fabric.Object.prototype.toObject.call(obj, propsFor(obj)) : obj.toObject(propsFor(obj));
+    const unknown = written ? Object.keys(json).filter(key => !(key in written) && !WRITTEN_KEYS.includes(key)) : [];
+    if (unknown.length) obj.ffUnknownFields = Object.fromEntries(unknown.map(key => [key, copy(json[key])]));
     if (json.clipPath) obj.clipPath = await restoreObject(json.clipPath, registry, forExport);
     if (obj.type === 'textbox') MFC.attachTextListeners(obj);
     if (['path','curve','polyline'].includes(obj.mfcShapeKind)) MFC.installPathControls(obj);
@@ -129,8 +160,14 @@ const MFC_PROJECT = (() => {
     restoring = true;
     try {
       // Prepare before clearing so a missing/corrupt source cannot destroy the working canvas.
-      const registry = {}, objects = [];
-      for (const json of state.objects) objects.push(await restoreObject(json, registry));
+      const registry = {}, objects = [], unsupported = [];
+      for (const [index, json] of state.objects.entries()) {
+        try { objects.push(await restoreObject(json, registry)); }
+        catch (error) { if (error.name !== 'UnsupportedObject') throw error; unsupported.push({ index, json: copy(json) }); }
+      }
+      kept = { schema: state.schema > SCHEMA ? state.schema : null,
+        fields: Object.fromEntries(Object.entries(state).filter(([key]) => !STATE_KEYS.includes(key)).map(([k, v]) => [k, copy(v)])),
+        objects: unsupported };
       const canvas = MFC.getCanvas();
       canvas.discardActiveObject(); canvas.clear();
       const live = MFC.getRegistry(); Object.keys(live).forEach(k => delete live[k]); Object.assign(live, registry);
@@ -158,13 +195,18 @@ const MFC_PROJECT = (() => {
       throw new Error('An earlier version is restored. Use Save As to create a new version without replacing the latest saved version.');
     const next = copy(context), state = captureState(), now = Date.now();
     let id = next.currentVersionId;
-    if (newVersion || !id) {
+    // The first save of a migrated project must not overwrite the version it was opened from: that
+    // state stays in versions/ exactly as it was read, and the migrated figure becomes a new version.
+    const keepOriginal = next.originalVersionId && next.originalVersionId === id;
+    if (newVersion || !id || keepOriginal) {
       id = uuid();
-      next.versions.push({ id, timestamp: now, updatedAt: now, name: name.trim(), parentVersionId: next.workingBaseVersionId,
+      next.versions.push({ id, timestamp: now, updatedAt: now,
+        name: name.trim() || (keepOriginal ? 'Updated by FluoForge ' + MFC.getAppVersion() : ''), parentVersionId: next.workingBaseVersionId,
         statePath: 'versions/' + id + '.json' });
     } else next.versions.find(v => v.id === id).updatedAt = now;
     next.states[id] = state; next.currentVersionId = id; next.workingBaseVersionId = id;
     next.savedAt = now; next.savedFingerprint = fingerprint(state);
+    delete next.originalVersionId;
     return next;
   }
   async function buildArchive(next) {
@@ -176,7 +218,7 @@ const MFC_PROJECT = (() => {
       return { id, path, name: source.name, type: source.type, format: source.format };
     });
     next.versions.forEach(version => zip.file(version.statePath, JSON.stringify(next.states[version.id])));
-    zip.file('manifest.json', JSON.stringify({ format: 'FluoForge', version: FORMAT, projectId: next.projectId,
+    zip.file('manifest.json', JSON.stringify({ ...next.manifestExtras, format: 'FluoForge', version: Math.max(FORMAT, next.formatVersion || 0), projectId: next.projectId,
       appVersion: MFC.getAppVersion(), savedAt: next.savedAt, currentVersionId: next.currentVersionId,
       versions: next.versions, sources: sourceDefs }));
     return zip.generateAsync({ type: 'blob', compression: 'STORE' });
@@ -258,28 +300,18 @@ const MFC_PROJECT = (() => {
           delete json[key];
       }
       if (json.objects) json.objects = await Promise.all(json.objects.map(migrateObject));
-      // v0.18 did not store a scale bar's length; its label ("20 µm") still has it.
-      if (json.mfcType === 'scalebar' && json.mfcLengthUm == null) {
-        const label = (json.objects || []).find(o => typeof o.text === 'string');
-        const value = label && parseFloat(label.text.replace(',', '.'));
-        if (value > 0) json.mfcLengthUm = value;
-      }
       return json;
     };
-    const state = { schema: 1, docProps: project.docProps, nextId: project.nextId,
+    // Schema 0: the legacy objects as plain Fabric JSON with registered sources. The remaining
+    // fixes (scale bar length from its label, inset outlines in source pixels) are the pure
+    // migration js/migrations/schema-0-to-1.js, run when the state is opened.
+    const state = { schema: 0, docProps: project.docProps, nextId: project.nextId,
       objects: await Promise.all(project.objects.map(migrateObject)) };
-    // Legacy outlines recorded source-relative fractions, not pixel coordinates.
-    const flat = []; const walk = o => { flat.push(o); (o.objects || []).forEach(walk); }; state.objects.forEach(walk);
-    flat.filter(o => o.mfcType === 'insetContour' && o.mfcCropX == null).forEach(o => {
-      const image = flat.find(i => i.mfcId === o.mfcInsetSourceId);
-      if (image) Object.assign(o, { mfcCropX: (image.cropX || 0) + (o.mfcRelX || 0)*image.width,
-        mfcCropY: (image.cropY || 0) + (o.mfcRelY || 0)*image.height,
-        mfcCropW: (o.mfcRelW || 1)*image.width, mfcCropH: (o.mfcRelH || 1)*image.height });
-    });
     const next = freshContext(), id = uuid();
     Object.assign(next, { currentVersionId: id, workingBaseVersionId: id, savedAt,
       savedFingerprint: fingerprint(state), states: { [id]: state },
-      versions: [{ id, timestamp: savedAt, updatedAt: savedAt, name: 'Version 1 (imported)', parentVersionId: null, statePath: 'versions/'+id+'.json' }] });
+      versions: [{ id, timestamp: savedAt, updatedAt: savedAt, name: 'Original (imported from ' + (project.appVersion ? 'v' + project.appVersion : 'an older format') + ')',
+        parentVersionId: null, statePath: 'versions/'+id+'.json' }] });
     return next;
   }
   async function readArchive(file) {
@@ -292,15 +324,24 @@ const MFC_PROJECT = (() => {
       const text = magic[0] === 0x1f && magic[1] === 0x8b ? await new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).text() : await blob.text();
       manifest = JSON.parse(text);
     }
-    if (manifest.version !== FORMAT) {
-      if (manifest.version > FORMAT) throw new Error('This project was saved by a newer FluoForge format.');
+    // Manifest versions 1 and 2 are the legacy formats (before 0.1.0). Their loader stays forever.
+    if (!(manifest.version >= FORMAT)) {
       const next = await migrateLegacy(manifest, zip, file.lastModified || Date.now());
-      next.projectId = 'legacy-' + await hashBlob(file); next.migrated = true; return next;
+      next.projectId = 'legacy-' + await hashBlob(file); return next;
     }
-    const next = { ...manifest, states: {}, workingBaseVersionId: manifest.currentVersionId };
+    // A newer format is read with this version's reader: it loads what it understands.
+    if (!zip || !Array.isArray(manifest.versions) || !Array.isArray(manifest.sources))
+      throw new Error(`This project was saved by FluoForge ${manifest.appVersion ? 'v' + manifest.appVersion : '(a newer version)'} in a format this version cannot read. Open it with that version or a later one.`);
+    const next = { ...manifest, states: {}, workingBaseVersionId: manifest.currentVersionId, formatVersion: manifest.version,
+      manifestExtras: Object.fromEntries(Object.entries(manifest).filter(([key]) => !MANIFEST_KEYS.includes(key))) };
+    for (const key of Object.keys(next.manifestExtras)) delete next[key];
     for (const source of manifest.sources) {
       const entry = zip.file(source.path); if (!entry) throw new Error('Missing source file: ' + source.name);
-      sources.set(source.id, { ...source, blob: await entry.async('blob') });
+      const blob = await entry.async('blob');
+      // Source ids are the SHA-256 of the original file; a mismatch means the copy is damaged.
+      const hash = /^src-([0-9a-f]{64})$/.exec(source.id);
+      if (hash && await hashBlob(blob) !== hash[1]) throw new Error(`The image ${source.name} inside this project is damaged: its bytes do not match its checksum.`);
+      sources.set(source.id, { ...source, blob });
     }
     for (const version of manifest.versions) {
       const entry = zip.file(version.statePath); if (!entry) throw new Error('Missing version state: ' + version.id);
@@ -315,15 +356,25 @@ const MFC_PROJECT = (() => {
     MFC_UI.showSavingDialog('Loading project…');
     try {
       const next = await readArchive(file);
-      await restoreState(next.states[next.currentVersionId]); context = next; fileHandle = handle;
-      // A migrated legacy state is not in the editor's normalized form; what was just
-      // opened is, by definition, what the file holds.
-      if (next.migrated) { delete next.migrated; next.savedFingerprint = fingerprint(captureState()); }
-      status('Opened ' + file.name); document.querySelector('.document-start-modal')?.remove();
+      const opened = await migrateState(next.states[next.currentVersionId]);
+      await restoreState(opened.state); context = next; fileHandle = handle;
+      if (opened.applied.length) {
+        // The file's state stays untouched in context.states; the first save adds the migrated
+        // figure as a new version instead of overwriting it (prepareSave). What was just opened
+        // is, by definition, what the file holds, so it counts as saved.
+        next.originalVersionId = next.currentVersionId;
+        next.savedFingerprint = fingerprint(captureState());
+      }
+      // Newer means a later format or schema. App version numbers cannot tell: versions from before
+      // the 0.1.0 reset were numbered 0.18 to 0.24, and any new kind of content bumps the schema anyway.
+      const newer = opened.newer || next.formatVersion > FORMAT;
+      status(newer ? newerNotice(next.appVersion) : 'Opened ' + file.name); document.querySelector('.document-start-modal')?.remove();
+      if (newer) MFC_UI.toast(newerNotice(next.appVersion));
     } catch (error) { status('Load failed: ' + error.message); throw error; }
     finally { busy = false; MFC_UI.hideSavingDialog(); }
     await MFC_AUTOSAVE.offerRecovery(context.projectId);
   }
+  const newerNotice = version => `Saved by FluoForge ${version ? 'v' + version : '(a newer version)'}; some content may not display.`;
   async function pickAndLoadProject() {
     try {
       if (!window.showOpenFilePicker) { document.getElementById('project-input').click(); return; }
@@ -336,7 +387,7 @@ const MFC_PROJECT = (() => {
     if (MFC.hasDocument) await MFC_AUTOSAVE.checkpoint();
     busy = true;
     try {
-      await restoreState({schema:1, documentOpen:true, docProps:copy(props), nextId:1, objects:[]});
+      await restoreState({schema:SCHEMA, documentOpen:true, docProps:copy(props), nextId:1, objects:[]});
       context = freshContext(); fileHandle = null;
       status('New figure — not saved yet');
     } finally { busy = false; }
@@ -344,7 +395,7 @@ const MFC_PROJECT = (() => {
   async function restoreVersion(id) {
     if (!context.states[id]) throw new Error('Version not found.');
     await MFC_AUTOSAVE.checkpoint();
-    await restoreState(context.states[id]); context.workingBaseVersionId = id;
+    await restoreState((await migrateState(context.states[id])).state); context.workingBaseVersionId = id;
     status('Restored ' + (context.versions.find(v => v.id === id).name || 'version') + '. Use Save As to branch from this state.');
   }
   function showVersions() {
@@ -372,7 +423,7 @@ const MFC_PROJECT = (() => {
       return fingerprint(state) !== context.savedFingerprint;
     } catch (_) { return true; } // cannot tell: better to ask than to lose work
   }
-  return { registerSource, sources, captureState, restoreState, restoreObject, serializeObject, fingerprint,
+  return { SCHEMA, FORMAT, migrateState, registerSource, sources, captureState, restoreState, restoreObject, serializeObject, fingerprint,
     referencedSources, prepareSave, buildArchive, commitSave, readArchive, saveProject, loadProject,
     pickAndLoadProject, createProject, restoreVersion, showVersions, status, adoptRecovery, hasUnsavedChanges,
     get context() { return context; }, get suspended() { return restoring || busy; } };

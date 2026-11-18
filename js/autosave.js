@@ -142,7 +142,8 @@ const MFC_AUTOSAVE = (() => {
       MFC_PROJECT.sources.set(id, source);
     }
     const next = structuredClone(project.context); next.workingBaseVersionId = draft.baseVersionId;
-    await MFC_PROJECT.restoreState(draft.state); MFC_PROJECT.adoptRecovery(next);
+    // A draft written by an earlier version is migrated like a project file.
+    await MFC_PROJECT.restoreState((await MFC_PROJECT.migrateState(draft.state)).state); MFC_PROJECT.adoptRecovery(next);
     lastFingerprint = draft.fingerprint; lastProjectId = project.projectId;
     document.querySelector('.document-start-modal')?.remove();
     MFC_PROJECT.status('Recovered draft from ' + new Date(draft.timestamp).toLocaleString() + '. Save manually to keep it.');
