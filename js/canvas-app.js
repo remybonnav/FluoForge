@@ -21,7 +21,11 @@
  * -----------------------------------------------------------------------
  */
 
-const MFC = (function () {
+import { pushHistory } from './core/history.js';
+import { pageBounds, pageCount, sendPagesToBack } from './core/pages.js';
+import { canvas, currentTool, documentOpen, isHelper, registry, setCanvas, setCurrentTool, takeId } from './core/state.js';
+import { setZoom, zoomAnchor, zoomLevel } from './core/zoom.js';
+
   fabric.Object.NUM_FRACTION_DIGITS = 8;
 
   const DASH_PRESETS = {
@@ -32,160 +36,12 @@ const MFC = (function () {
     longdash: [22, 10]
   };
 
-  let canvas;                       // fabric.Canvas
-  const MFC_VERSION = '0.1.1';
-  function getAppVersion() { return MFC_VERSION; }
-
-  let docProps = { name: 'Untitled Figure', width: 1748, height: 1240, unit: 'px', dpi: 300 }; // A4-ish default @300dpi
-  let currentTool = 'select';
-  let documentOpen = false;
-  let nextId = 1;
-  const registry = {};              // view id -> { rawImage, sourceId, sourceBlob, workingScale }
-
-  // Undo, versions and recovery use one recursive serializer, without image bytes.
-  // Each step also keeps a label (worked out by comparing it with the previous step)
-  // and a time, for the History panel.
-  const history = { stack: [], labels: [], times: [], index: -1, limit: 200, restoring: false };
-  function pushHistory() {
-    if (history.restoring) return;
-    const state = MFC_PROJECT.captureState();
-    const previous = history.stack[history.index];
-    // Identical consecutive states (a field firing both input and change) are one step.
-    if (previous && MFC_PROJECT.fingerprint(previous) === MFC_PROJECT.fingerprint(state)) return;
-    history.stack = history.stack.slice(0, history.index + 1);
-    history.labels = history.labels.slice(0, history.index + 1);
-    history.times = history.times.slice(0, history.index + 1);
-    history.stack.push(state);
-    history.labels.push(previous ? describeHistoryStep(previous, state) : 'Opened figure');
-    history.times.push(Date.now());
-    if (history.stack.length > history.limit) { history.stack.shift(); history.labels.shift(); history.times.shift(); }
-    history.index = history.stack.length - 1;
-    refreshHistoryPanel();
-    window.dispatchEvent(new Event('mfc:changed'));
-  }
-  function resetHistory() { history.stack = []; history.labels = []; history.times = []; history.index = -1; pushHistory(); }
-  async function moveHistory(delta) { await jumpToHistory(history.index + delta); }
-  /** Restores any step of the history; later steps stay available for redo until something new is done. */
-  async function jumpToHistory(index) {
-    if (history.restoring || index < 0 || index >= history.stack.length || index === history.index) return;
-    history.restoring = true;
-    try { await MFC_PROJECT.restoreState(history.stack[index], { resetHistory: false }); history.index = index; }
-    finally { history.restoring = false; refreshHistoryPanel(); }
-  }
-
-  // ---- history labels ----
-  function historyObjectName(json) {
-    if (json.mfcType === 'mfcImage') return (json.mfcFileName || 'image') + (json.mfcIsInset && !/\(inset\)$/.test(json.mfcFileName || '') ? ' (inset)' : '');
-    if (json.type === 'textbox' || json.mfcType === 'text') {
-      const t = String(json.text || '').replace(/\s+/g, ' ').trim();
-      return 'text "' + (t.length > 16 ? t.slice(0, 16) + '…' : t) + '"';
-    }
-    if (json.mfcType === 'scalebar') return 'scale bar' + (json.mfcLengthUm != null ? ' ' + json.mfcLengthUm + ' µm' : '');
-    if (json.mfcType === 'insetContour') return 'inset outline';
-    if (json.mfcShapeKind === 'path') return 'path';
-    if (json.mfcType === 'shape') return json.mfcShapeKind || (json.type === 'ellipse' ? 'ellipse' : 'box');
-    if (json.type === 'group') return 'group';
-    return json.type || 'object';
-  }
-  /** What kind of change turned a into b (same object, two states). */
-  function historyChangeKind(a, b) {
-    const differs = keys => keys.some(k => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
-    const changed = new Set(Object.keys({ ...a, ...b }).filter(k => JSON.stringify(a[k]) !== JSON.stringify(b[k])));
-    if (!a.clipPath && b.clipPath) return 'Cropped to shape';
-    if (a.clipPath && !b.clipPath) return 'Removed shape crop';
-    if (changed.has('visible')) return b.visible === false ? 'Hid' : 'Showed';
-    if (changed.has('mfcLocked')) return b.mfcLocked ? 'Locked' : 'Unlocked';
-    if (changed.has('mfcPositionLocked')) return b.mfcPositionLocked ? 'Locked position of' : 'Unlocked position of';
-    if (changed.has('display')) {
-      const strip = d => { const { zMode, zIndex, tIndex, ...rest } = d || {}; return JSON.stringify(rest); };
-      if (strip(a.display) === strip(b.display)) {
-        const z = d => JSON.stringify([(d || {}).zMode, (d || {}).zIndex]);
-        return z(a.display) !== z(b.display) ? 'Changed Z plane of' : 'Changed time frame of';
-      }
-      return 'Changed channels of';
-    }
-    if (differs(['cropX', 'cropY']) && a.mfcType === 'mfcImage' && !a.mfcIsInset) return 'Cropped';
-    if (changed.has('text') || changed.has('styles')) return 'Edited';
-    if (differs(['scaleX', 'scaleY', 'width', 'height', 'rx', 'ry', 'mfcBoxHeight'])) return 'Resized';
-    if (changed.has('angle')) return 'Rotated';
-    if ([...changed].every(k => ['left', 'top'].includes(k))) return 'Moved';
-    if (differs(['path', 'mfcPathNodes', 'mfcPathClosed'])) return 'Reshaped';
-    if (differs(['stroke', 'strokeWidth', 'strokeDashArray', 'fill', 'opacity', 'strokeLineCap', 'strokeLineJoin', 'mfcArrowStart', 'mfcArrowEnd', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'underline', 'textAlign', 'mfcVAlign', 'backgroundColor', 'mfcBorderWidth', 'mfcBorderColor'])) return 'Restyled';
-    return 'Changed';
-  }
-  function describeHistoryStep(prev, next) {
-    const before = new Map(prev.objects.map(o => [o.mfcId, o])), after = new Map(next.objects.map(o => [o.mfcId, o]));
-    const added = next.objects.filter(o => !before.has(o.mfcId)), removed = prev.objects.filter(o => !after.has(o.mfcId));
-    const pagesBefore = Math.max(1, prev.docProps?.pages || 1), pagesAfter = Math.max(1, next.docProps?.pages || 1);
-    if (pagesAfter > pagesBefore) return 'Added page ' + pagesAfter;
-    if (pagesAfter < pagesBefore) return 'Removed page ' + pagesBefore;
-    if (added.length === 1 && added[0].type === 'group' && added[0].mfcType !== 'scalebar' && removed.length > 1) return 'Grouped ' + removed.length + ' objects';
-    if (removed.length === 1 && removed[0].type === 'group' && removed[0].mfcType !== 'scalebar' && !added.length) {
-      const ids = new Set((removed[0].objects || []).map(o => o.mfcId));
-      if (ids.size && [...ids].every(id => after.has(id))) return 'Ungrouped ' + ids.size + ' objects';
-    }
-    if (added.length === 1 && removed.length === 1 && added[0].mfcType === 'shape' && removed[0].mfcType === 'shape') return 'Changed ' + historyObjectName(added[0]);
-    if (removed.length === 1 && !added.length && next.objects.some(o => o.clipPath && o.clipPath.mfcId === removed[0].mfcId)) {
-      return 'Cropped ' + historyObjectName(next.objects.find(o => o.clipPath && o.clipPath.mfcId === removed[0].mfcId)) + ' to shape';
-    }
-    if (added.length === 1 && !removed.length && prev.objects.some(o => o.clipPath && o.clipPath.mfcId === added[0].mfcId)) {
-      return 'Removed shape crop of ' + historyObjectName(prev.objects.find(o => o.clipPath && o.clipPath.mfcId === added[0].mfcId));
-    }
-    if (added.length && !removed.length) return added.length === 1 ? 'Added ' + historyObjectName(added[0]) : 'Added ' + added.length + ' objects';
-    if (removed.length && !added.length) return removed.length === 1 ? 'Deleted ' + historyObjectName(removed[0]) : 'Deleted ' + removed.length + ' objects';
-    if (added.length && removed.length) return 'Replaced ' + removed.length + ' object(s)';
-    const changed = next.objects.filter(o => before.has(o.mfcId) && JSON.stringify(before.get(o.mfcId)) !== JSON.stringify(o));
-    if (changed.length === 1) {
-      const kind = historyChangeKind(before.get(changed[0].mfcId), changed[0]);
-      return kind === 'Cropped to shape' || kind === 'Removed shape crop'
-        ? kind.replace('Cropped', 'Cropped ' + historyObjectName(changed[0])).replace('Removed shape crop', 'Removed shape crop of ' + historyObjectName(changed[0]))
-        : kind + ' ' + historyObjectName(changed[0]);
-    }
-    if (changed.length > 1) {
-      const kinds = new Set(changed.map(o => historyChangeKind(before.get(o.mfcId), o)));
-      return (kinds.size === 1 ? [...kinds][0] : 'Changed') + ' ' + changed.length + ' objects';
-    }
-    if (prev.objects.map(o => o.mfcId).join() !== next.objects.map(o => o.mfcId).join()) return 'Changed layer order';
-    if (JSON.stringify(prev.docProps) !== JSON.stringify(next.docProps)) return 'Changed document properties';
-    return 'Changed figure';
-  }
-
-  /** History panel: every step, oldest first; click one to go back (or forward) to it. */
-  function refreshHistoryPanel() {
-    const list = document.getElementById('history-list');
-    if (!list) return;
-    if (!history.stack.length) { list.innerHTML = '<p class="hint">No steps yet.</p>'; return; }
-    const time = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    list.replaceChildren(...history.labels.map((label, i) => {
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.className = 'history-row' + (i === history.index ? ' current' : '') + (i > history.index ? ' undone' : '');
-      row.dataset.index = String(i);
-      row.title = i === history.index ? 'Current state' : (i < history.index ? 'Go back to this step' : 'Redo up to this step');
-      const name = document.createElement('span'); name.className = 'history-label'; name.textContent = label;
-      const when = document.createElement('span'); when.className = 'history-time'; when.textContent = time(history.times[i]);
-      row.append(name, when);
-      row.addEventListener('click', () => jumpToHistory(i));
-      return row;
-    }));
-    const current = list.querySelector('.history-row.current');
-    if (current) list.scrollTop = Math.max(0, current.offsetTop - list.clientHeight + current.offsetHeight + 4);
-    const undoBtn = document.getElementById('btn-undo'), redoBtn = document.getElementById('btn-redo');
-    if (MFC_UI && documentOpen) { undoBtn.disabled = history.index <= 0; redoBtn.disabled = history.index >= history.stack.length - 1; }
-  }
-  function getHistory() { return { labels: history.labels.slice(), index: history.index }; }
-
-  const undo = () => moveHistory(-1), redo = () => moveHistory(1);
-
-  /** Page backgrounds, path drawing aids and scale bar previews: on the canvas but never part of the figure. */
-  function isHelper(o) { return !!(o && (o.mfcIsPageBounds || o.mfcIsPathHelper || o.mfcIsPathDraft || o.mfcIsPreview)); }
-
   // ---- init ----
-  function init() {
-    canvas = new fabric.Canvas('mfc-canvas', {
+  export function init() {
+    setCanvas(new fabric.Canvas('mfc-canvas', {
       preserveObjectStacking: true,
       selection: true
-    });
+    }));
     setZoom(1);
 
     canvas.on('object:modified', (e) => {
@@ -288,225 +144,8 @@ const MFC = (function () {
     pushHistory();
   }
 
-  // ---- zoom (resizes the actual canvas element too, so the document boundary
-  // visibly scales with it — not just the objects inside a fixed-size canvas) ----
-  //
-  // PAGE_PAD adds a pasteboard margin (in doc-space px, so it scales with zoom like
-  // everything else) around the document on all sides. Object coordinates stay
-  // doc-relative (0,0 = top-left of the page) exactly as before — we only shift the
-  // canvas *viewport* by PAGE_PAD so the page renders inset from the canvas edge.
-  // Before this, the fabric canvas element was sized to EXACTLY the document, so
-  // anything positioned outside [0,docW]x[0,docH] fell outside the canvas's own pixel
-  // bounds — it couldn't be drawn or receive mouse events, which is why dragging an
-  // object past the document edge made it vanish and become permanently unselectable.
-  const PAGE_PAD = 260;
-  let zoomLevel = 1;
-  let pageRects = [];
-
-  // ---- pages: every page has the document size; pages are stacked vertically on one
-  // canvas, PAGE_GAP apart, so objects (and links between them) can cross pages. ----
-  const PAGE_GAP = 120;
-  function pageCount(props = docProps) { return Math.max(1, Math.floor(props.pages) || 1); }
-  /** Page i (0-based) in document coordinates. */
-  function pageBounds(i, props = docProps) {
-    const px = docPropsToPixels(props);
-    return { left: 0, top: i * (px.height + PAGE_GAP), width: px.width, height: px.height };
-  }
-  /** The area holding every page, used to size the canvas. */
-  function docExtent(props = docProps) {
-    const last = pageBounds(pageCount(props) - 1, props);
-    return { width: last.width, height: last.top + last.height };
-  }
-  /** Index of the page whose area overlaps the given box the most, or -1 for the pasteboard. */
-  function pageIndexForBox(box) {
-    let best = -1, bestArea = 0;
-    for (let i = 0; i < pageCount(); i++) {
-      const p = pageBounds(i);
-      const w = Math.min(box.left + box.width, p.left + p.width) - Math.max(box.left, p.left);
-      const h = Math.min(box.top + box.height, p.top + p.height) - Math.max(box.top, p.top);
-      if (w > 0 && h > 0 && w * h > bestArea) { best = i; bestArea = w * h; }
-    }
-    return best;
-  }
-
-  /** Creates (or resizes/re-adds, e.g. after canvas.clear()) the white page rects that mark each page within the larger pasteboard. Excluded from selection, history, save/export. */
-  function ensurePageRect() {
-    if (!documentOpen) return;
-    const count = pageCount();
-    pageRects = pageRects.filter(rect => canvas.getObjects().includes(rect));
-    while (pageRects.length > count * 2) canvas.remove(pageRects.pop());
-    for (let i = 0; i < count; i++) {
-      const b = pageBounds(i);
-      let rect = pageRects[i * 2], label = pageRects[i * 2 + 1];
-      if (!rect) {
-        rect = new fabric.Rect({
-          fill: '#ffffff', stroke: '#000000', strokeWidth: 1,
-          selectable: false, evented: false, hoverCursor: 'default', objectCaching: false,
-          shadow: new fabric.Shadow({ color: 'rgba(0,0,0,0.45)', blur: 30, offsetX: 0, offsetY: 12 })
-        });
-        rect.mfcIsPageBounds = true; // flag: never serialized, selected, copied, or history-tracked
-        label = new fabric.Text('', { fontSize: 22, fill: '#8a90a0', fontFamily: 'Liberation Sans',
-          selectable: false, evented: false, objectCaching: false });
-        label.mfcIsPageBounds = true;
-        pageRects[i * 2] = rect; pageRects[i * 2 + 1] = label;
-        canvas.add(rect); canvas.add(label);
-      }
-      rect.set({ left: b.left, top: b.top, width: b.width, height: b.height });
-      label.set({ left: b.left, top: b.top - 34, text: count > 1 ? 'Page ' + (i + 1) + ' of ' + count : '' });
-      rect.setCoords(); label.setCoords();
-    }
-    for (let i = pageRects.length - 1; i >= 0; i--) canvas.sendToBack(pageRects[i]);
-  }
-  function sendPagesToBack() { for (let i = pageRects.length - 1; i >= 0; i--) canvas.sendToBack(pageRects[i]); }
-
-  /** Adds a page after the last one. */
-  function addPage() {
-    if (!documentOpen) return;
-    applyDocProps({ ...docProps, pages: pageCount() + 1 });
-    pushHistory();
-    MFC_UI.refreshPageControls();
-    scrollToPage(pageCount() - 1);
-  }
-  /** Removes the last page; objects on it stay on the pasteboard (they are not exported). */
-  function removeLastPage() {
-    const count = pageCount();
-    if (!documentOpen || count < 2) { MFC_UI.toast('A figure needs at least one page.'); return false; }
-    const last = pageBounds(count - 1);
-    const onIt = layerObjects().filter(o => pageIndexForBox(o.getBoundingRect(true, true)) === count - 1);
-    if (onIt.length && !window.confirm(`Page ${count} holds ${onIt.length} object(s). Remove the page anyway? The objects stay on the pasteboard below page ${count - 1} and are not exported until you move them onto a page.`)) return false;
-    applyDocProps({ ...docProps, pages: count - 1 });
-    pushHistory();
-    MFC_UI.refreshPageControls();
-    return !!last;
-  }
-  function scrollToPage(i) {
-    const b = pageBounds(Math.max(0, Math.min(i, pageCount() - 1))), wrap = document.getElementById('canvas-wrap');
-    canvas.discardActiveObject(); canvas.requestRenderAll();
-    scrollToAnchor({ doc: { x: b.left + b.width / 2, y: b.top }, view: { x: wrap.clientWidth / 2, y: 40 } });
-  }
-
-  function updateZoomDisplay() {
-    const el = document.getElementById('zoom-display');
-    if (el) el.textContent = Math.round(zoomLevel * 100) + '%';
-  }
-  function zoomIn() { setZoom(zoomLevel * 1.2, zoomAnchor()); }
-  function zoomOut() { setZoom(zoomLevel / 1.2, zoomAnchor()); }
-  function zoomReset() { setZoom(1, zoomAnchor()); }
-
-  // The canvas element grows/shrinks with zoom inside the scrolling #canvas-wrap, so a
-  // zoom anchor is a document point plus where it should appear in the visible area;
-  // after resizing, the wrap is scrolled to put that point back there.
-  function canvasViewMetrics() {
-    const wrap = document.getElementById('canvas-wrap');
-    const wrapRect = wrap.getBoundingClientRect(), elRect = canvas.lowerCanvasEl.getBoundingClientRect();
-    return { wrap, rect: wrapRect,
-      offsetX: elRect.left - wrapRect.left - wrap.clientLeft + wrap.scrollLeft,
-      offsetY: elRect.top - wrapRect.top - wrap.clientTop + wrap.scrollTop };
-  }
-  function viewCenterAnchor() {
-    const m = canvasViewMetrics();
-    const view = { x: m.wrap.clientWidth / 2, y: m.wrap.clientHeight / 2 };
-    return { view, doc: { x: (m.wrap.scrollLeft + view.x - m.offsetX) / zoomLevel - PAGE_PAD,
-      y: (m.wrap.scrollTop + view.y - m.offsetY) / zoomLevel - PAGE_PAD } };
-  }
-  /** Selection center (brought to the middle of the view) if something is selected, otherwise the cursor (wheel) or the view center (buttons/shortcuts). */
-  function zoomAnchor(pointerEvent) {
-    if (!documentOpen) return null;
-    const active = canvas.getActiveObject();
-    const m = canvasViewMetrics();
-    if (active) {
-      const b = active.getBoundingRect(true, true);
-      return { doc: { x: b.left + b.width / 2, y: b.top + b.height / 2 },
-        view: { x: m.wrap.clientWidth / 2, y: m.wrap.clientHeight / 2 } };
-    }
-    if (pointerEvent) {
-      const p = canvas.getPointer(pointerEvent);
-      return { doc: { x: p.x, y: p.y }, view: { x: pointerEvent.clientX - m.rect.left, y: pointerEvent.clientY - m.rect.top } };
-    }
-    return viewCenterAnchor();
-  }
-  function scrollToAnchor(anchor) {
-    const m = canvasViewMetrics();
-    m.wrap.scrollLeft = m.offsetX + (anchor.doc.x + PAGE_PAD) * zoomLevel - anchor.view.x;
-    m.wrap.scrollTop = m.offsetY + (anchor.doc.y + PAGE_PAD) * zoomLevel - anchor.view.y;
-  }
-  /** Fit the selection in the visible area, centered. */
-  function zoomToSelection() {
-    const active = canvas.getActiveObject();
-    if (!active) { MFC_UI.toast('Select an object to zoom to it.'); return; }
-    const b = active.getBoundingRect(true, true), wrap = document.getElementById('canvas-wrap');
-    const z = 0.85 * Math.min(wrap.clientWidth / Math.max(1, b.width), wrap.clientHeight / Math.max(1, b.height));
-    setZoom(z, { doc: { x: b.left + b.width / 2, y: b.top + b.height / 2 }, view: { x: wrap.clientWidth / 2, y: wrap.clientHeight / 2 } });
-  }
-
-  function setZoom(z, anchor = null) {
-    zoomLevel = Math.min(20, Math.max(0.05, z));
-    if (!documentOpen) {
-      canvas.setDimensions({ width: Math.max(1, document.getElementById('canvas-wrap').clientWidth),
-        height: Math.max(1, document.getElementById('canvas-wrap').clientHeight) });
-      canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
-      canvas.requestRenderAll();
-      updateZoomDisplay();
-      return;
-    }
-    const docPx = docExtent();
-    canvas.setZoom(zoomLevel);
-    canvas.setWidth((docPx.width + PAGE_PAD * 2) * zoomLevel);
-    canvas.setHeight((docPx.height + PAGE_PAD * 2) * zoomLevel);
-    // Pan the viewport so doc-space (0,0) lands PAGE_PAD in from the canvas edge,
-    // leaving pasteboard margin on every side. The export compositor uses document
-    // coordinates directly and clips the generated SVG/PDF/TIFF to the page bounds.
-    const vpt = canvas.viewportTransform;
-    vpt[4] = PAGE_PAD * zoomLevel;
-    vpt[5] = PAGE_PAD * zoomLevel;
-    canvas.setViewportTransform(vpt);
-    if (anchor) scrollToAnchor(anchor);
-    canvas.calcOffset();
-    canvas.requestRenderAll();
-    updateZoomDisplay();
-  }
-  function getZoomLevel() { return zoomLevel; }
-
-  function applyDocProps(props) {
-    const px = docPropsToPixels(props);
-    if (!Number.isFinite(px.width + px.height) || px.width < 1 || px.height < 1 || !(props.dpi > 0))
-      throw new Error('Enter a positive width, height, and DPI.');
-    docProps = { ...props, pages: pageCount(props) };
-    documentOpen = true;
-    MFC_UI.updateDocumentState(true);
-    setZoom(zoomLevel); // recomputes canvas dimensions from the new docProps at current zoom
-    ensurePageRect();
-  }
-
-  function closeDocument() {
-    documentOpen = false;
-    pageRects.forEach(rect => canvas.remove(rect));
-    pageRects = [];
-    MFC_UI.updateDocumentState(false);
-    setZoom(1);
-  }
-
-  function docPropsToPixels(props) {
-    let w = props.width, h = props.height;
-    if (props.unit === 'cm') { w = (w / 2.54) * props.dpi; h = (h / 2.54) * props.dpi; }
-    else if (props.unit === 'in') { w = w * props.dpi; h = h * props.dpi; }
-    return { width: Math.round(w), height: Math.round(h) };
-  }
-
-  function getDocProps() { return docProps; }
-
-  /** Updates just the project name, live as the user types — separate from applyDocProps
-   * (which also resizes the canvas) so Save/Save As always use the name currently shown
-   * in the field, even if the user never clicked "Apply". Previously, typing a new name
-   * and immediately using Save As would silently save under the *old* name because
-   * docProps.name was only ever touched by the Apply button. */
-  function setDocName(name) {
-    docProps.name = (name || '').trim() || 'Untitled Figure';
-  }
-  function getCanvas() { return canvas; }
-
   // ---- image import ----
-  async function importFiles(fileList) {
+  export async function importFiles(fileList) {
     for (const file of Array.from(fileList)) {
       try {
         const isTiff = /\.tiff?$/i.test(file.name);
@@ -519,11 +158,11 @@ const MFC = (function () {
     }
   }
 
-  async function addImageToCanvas(rawImage, sourceFile) {
+  export async function addImageToCanvas(rawImage, sourceFile) {
     const scale = MFC_TIFF.workingScale(rawImage.width, rawImage.height);
     const compositeCanvas = MFC_TIFF.compositeChannels(rawImage, scale);
 
-    const id = 'img' + (nextId++);
+    const id = 'img' + takeId();
     const sourceId = await MFC_PROJECT.registerSource(sourceFile, rawImage);
     registry[id] = { rawImage, sourceId, sourceBlob: sourceFile, workingScale: scale };
 
@@ -550,7 +189,7 @@ const MFC = (function () {
   }
 
   /** Recompute the composite for a given fabric image object from its raw channel data. */
-  function recomposite(fabricImg, fullRes) {
+  export function recomposite(fabricImg, fullRes) {
     const entry = registry[fabricImg.mfcId];
     if (!entry) return;
     const scale = fullRes ? 1 : entry.workingScale;
@@ -584,7 +223,7 @@ const MFC = (function () {
     canvas.fire('object:modified', { target: canvas.getActiveObject() });
   }
 
-  function refreshChannelPanel() {
+  export function refreshChannelPanel() {
     const listEl = document.getElementById('channel-list');
     const nameEl = document.getElementById('channel-image-name');
     const images = selectedImages();
@@ -741,7 +380,7 @@ const MFC = (function () {
    * Choose the Z display (projection or slice) and time frame of the selected stacks.
    * `commit` records an undo step; without it (slider dragging) only the preview updates.
    */
-  function applyStackPlane(change, commit) {
+  export function applyStackPlane(change, commit) {
     const images = selectedImages().filter(img => registry[img.mfcId].rawImage.stack);
     if (!images.length) return;
     images.forEach(img => {
@@ -758,7 +397,7 @@ const MFC = (function () {
   }
 
   /** Manually set (or clear) the physical pixel size of the selected image(s) — the only way to calibrate scale bars for formats (JPEG/PNG/BMP) or TIFFs that carry no resolution metadata. */
-  function applyPixelSize(value) {
+  export function applyPixelSize(value) {
     const images = selectedImages();
     if (!images.length) return;
     const v = parseFloat(value);
@@ -770,7 +409,7 @@ const MFC = (function () {
     canvas.fire('object:modified', { target: canvas.getActiveObject() });
   }
 
-  function applyAlphaToggle(enabled) {
+  export function applyAlphaToggle(enabled) {
     const images = selectedImages().filter(img => registry[img.mfcId].rawImage.hasAlpha);
     if (!images.length) return;
     images.forEach(img => { registry[img.mfcId].rawImage.alphaEnabled = !!enabled; });
@@ -778,7 +417,7 @@ const MFC = (function () {
   }
 
   /** Applies the panel's current brightness/contrast values to the selected image(s)' whole composite (see compositeChannels' tone-curve pass — works the same for RGB imports and TIFF composites alike). */
-  function applyBrightnessContrast(brightness, contrast) {
+  export function applyBrightnessContrast(brightness, contrast) {
     const images = selectedImages();
     if (!images.length) return;
     const clamp = v => Math.max(-100, Math.min(100, v));
@@ -800,11 +439,11 @@ const MFC = (function () {
     document.getElementById('ch-contrast-val').value = c;
   }
 
-  function commitBrightnessContrast() {
+  export function commitBrightnessContrast() {
     canvas.fire('object:modified', { target: canvas.getActiveObject() });
   }
 
-  function resetToneCurve() {
+  export function resetToneCurve() {
     selectedImages().forEach(img => { const raw = registry[img.mfcId].rawImage; raw.brightness = 0; raw.contrast = 0; });
     applyBrightnessContrast(0, 0);
     commitBrightnessContrast();
@@ -842,13 +481,13 @@ const MFC = (function () {
   // blocks moving, scaling, rotating and skewing. Every code path derives Fabric's
   // flags from these two properties through applyLockState, including tool switches,
   // project loading, undo/redo and paste.
-  function isTransformLocked(o) {
+  export function isTransformLocked(o) {
     if (!o) return false;
     if (o.type === 'activeSelection') return o.getObjects().some(isTransformLocked);
     return !!(o.mfcLocked || o.mfcPositionLocked);
   }
   function selectionToolActive() { return currentTool === 'select' || currentTool === 'scalebar'; }
-  function applyLockState(o) {
+  export function applyLockState(o) {
     if (!o || isHelper(o)) return;
     const full = !!o.mfcLocked, fixed = full || !!o.mfcPositionLocked;
     const move = fixed || !!o.__mfcNodeEdit;
@@ -872,12 +511,12 @@ const MFC = (function () {
     MFC_UI.toast('Position/size is locked — unlock it to have it ' + what + '.');
     return true;
   }
-  function setPositionLock(o, locked) {
+  export function setPositionLock(o, locked) {
     if (locked && o.__mfcNodeEdit) exitPathEdit(o);
     o.mfcPositionLocked = !!locked;
     applyLockState(o);
   }
-  function togglePositionLockSelection() {
+  export function togglePositionLockSelection() {
     const objs = canvas.getActiveObjects();
     if (!objs.length) return;
     const lock = !objs.every(o => o.mfcPositionLocked);
@@ -901,7 +540,7 @@ const MFC = (function () {
     if (document.activeElement !== el) el.value = value;
     el.disabled = !!disabled;
   }
-  function refreshSelectionBar() {
+  export function refreshSelectionBar() {
     const label = document.getElementById('sel-label');
     if (!label) return;
     const active = canvas.getActiveObject();
@@ -943,7 +582,7 @@ const MFC = (function () {
     uncropBtn.disabled = locked;
   }
   // Kept for callers/tests written against the former right-hand size panel.
-  const refreshObjectSizePanel = refreshSelectionBar;
+  export const refreshObjectSizePanel = refreshSelectionBar;
 
   /** Whether an image currently has an active (non-full-frame) crop applied. */
   function isCropped(img) {
@@ -963,7 +602,7 @@ const MFC = (function () {
    * the currently-visible crop content anchored at the same screen position (rather
    * than jumping) by shifting left/top back by the crop offset as the frame expands.
    */
-  function uncropImage(img) {
+  export function uncropImage(img) {
     if (!isCropped(img) || refuseLocked(img, 'resized')) return;
     const entry = registry[img.mfcId];
     const fullW = Math.max(1, Math.round(entry.rawImage.width * entry.workingScale));
@@ -986,7 +625,7 @@ const MFC = (function () {
   }
 
   /** Rotate the selected object by a relative amount (e.g. ±90°), wrapped to 0-359. */
-  function rotateSelected(deltaDeg) {
+  export function rotateSelected(deltaDeg) {
     const active = canvas.getActiveObject();
     if (!active || active.type === 'activeSelection' || refuseLocked(active, 'rotated')) return;
     let a = ((active.angle || 0) + deltaDeg) % 360;
@@ -1000,7 +639,7 @@ const MFC = (function () {
     canvas.fire('object:modified', { target: active });
   }
 
-  function setObjectAngle(deg) {
+  export function setObjectAngle(deg) {
     const active = canvas.getActiveObject();
     if (!active || active.type === 'activeSelection' || refuseLocked(active, 'rotated')) { refreshSelectionBar(); return; }
     const center = active.getCenterPoint();
@@ -1013,7 +652,7 @@ const MFC = (function () {
   }
 
   /** W/H fields: text boxes resize their box only (font size untouched); everything else is scaled. */
-  function applyObjectSizeFromFields(changed = 'width') {
+  export function applyObjectSizeFromFields(changed = 'width') {
     const active = canvas.getActiveObject();
     if (!active || active.type === 'activeSelection') return;
     if (refuseLocked(active, 'resized')) { refreshSelectionBar(); return; }
@@ -1042,7 +681,7 @@ const MFC = (function () {
   }
 
   /** X/Y fields move the selection's bounding box to the typed document coordinates. */
-  function applyObjectPositionFromFields() {
+  export function applyObjectPositionFromFields() {
     const active = canvas.getActiveObject();
     if (!active) return;
     if (refuseLocked(active, 'moved')) { refreshSelectionBar(); return; }
@@ -1058,7 +697,7 @@ const MFC = (function () {
   }
 
   // ---- text panel (re-populates whenever a text box is selected/reselected) ----
-  function refreshTextPanel() {
+  export function refreshTextPanel() {
     const panel = document.getElementById('panel-text');
     const boxes = getSelectedTextboxes();
     panel.classList.toggle('hidden', !(boxes.length || currentTool === 'text'));
@@ -1085,7 +724,7 @@ const MFC = (function () {
   }
 
   /** The size the glyphs are actually drawn at: the style under the caret/selection while editing, else the box fontSize, times any not-yet-normalized scale (projects from earlier versions may still carry one). */
-  function effectiveFontSize(box) {
+  export function effectiveFontSize(box) {
     let size = box.fontSize || 24;
     if (box.isEditing && box.getSelectionStyles) {
       const style = box.getSelectionStyles(box.selectionStart, box.selectionStart + 1)[0];
@@ -1095,7 +734,7 @@ const MFC = (function () {
   }
 
   /** Folds a text box's scale into fontSize (and character styles), width and box height, leaving scale at 1. Returns whether anything changed. */
-  function normalizeTextScale(box) {
+  export function normalizeTextScale(box) {
     const sx = Math.abs(box.scaleX || 1), sy = Math.abs(box.scaleY || 1);
     if (Math.abs(sx - 1) < 1e-9 && Math.abs(sy - 1) < 1e-9) return false;
     Object.values(box.styles || {}).forEach(line => Object.values(line).forEach(style => {
@@ -1111,7 +750,7 @@ const MFC = (function () {
   }
 
   /** Resizes the text box only — the font size never changes. Height sets a minimum box height; the box still grows to fit its text. */
-  function applyTextBoxSize(prop, value) {
+  export function applyTextBoxSize(prop, value) {
     const active = canvas.getActiveObject();
     if (!active || active.type !== 'textbox' || !(value > 0)) return;
     if (refuseLocked(active, 'resized')) { refreshSelectionBar(); return; }
@@ -1124,7 +763,7 @@ const MFC = (function () {
     refreshTextPanel();
   }
 
-  function applyTextVerticalAlign(align) {
+  export function applyTextVerticalAlign(align) {
     const boxes = getSelectedTextboxes();
     if (!boxes.length) return;
     boxes.forEach(box => { box.mfcVAlign = align; box.dirty = true; });
@@ -1134,7 +773,7 @@ const MFC = (function () {
   }
 
   /** Centers the text both ways inside its box (C1). */
-  function centerTextInBox() {
+  export function centerTextInBox() {
     const boxes = getSelectedTextboxes();
     if (!boxes.length) return;
     boxes.forEach(box => { if (box.isEditing) box.exitEditing(); box.set('textAlign', 'center'); box.mfcVAlign = 'middle'; box.dirty = true; });
@@ -1178,7 +817,7 @@ const MFC = (function () {
   }
 
   /** Push numeric field values back onto the crop rectangle (called when the user types a size). */
-  function applyCropFieldsToRect() {
+  export function applyCropFieldsToRect() {
     if (!cropRect) return;
     let w = parseFloat(document.getElementById('crop-width').value);
     let h = parseFloat(document.getElementById('crop-height').value);
@@ -1195,7 +834,7 @@ const MFC = (function () {
     canvas.requestRenderAll();
   }
 
-  function setCropAspectMode(mode) {
+  export function setCropAspectMode(mode) {
     cropAspectMode = mode;
     document.getElementById('crop-mode-rect').classList.toggle('active', mode === 'rect');
     document.getElementById('crop-mode-square').classList.toggle('active', mode === 'square');
@@ -1209,7 +848,7 @@ const MFC = (function () {
   }
 
   /** Crop always applies exactly what's currently shown by the crop rectangle's handles/fields. */
-  function applyCrop() {
+  export function applyCrop() {
     if (!cropRect || !cropTargetImg) return;
     const w = cropRect.getScaledWidth();
     const h = cropRect.getScaledHeight();
@@ -1236,7 +875,7 @@ const MFC = (function () {
     canvas.fire('object:modified', { target: img });
   }
 
-  function cancelCrop() {
+  export function cancelCrop() {
     if (cropRect) canvas.remove(cropRect);
     cropRect = null; cropTargetImg = null;
     document.getElementById('panel-crop').classList.add('hidden');
@@ -1248,7 +887,7 @@ const MFC = (function () {
                                  // panel can still restyle a highlighted range after the
                                  // panel control (e.g. color swatch) steals focus.
 
-  function attachTextListeners(t) {
+  export function attachTextListeners(t) {
     t.on('selection:changed', () => {
       if (t.isEditing) lastTextSelection = { id: t.mfcId, start: t.selectionStart, end: t.selectionEnd };
       refreshTextPanel();
@@ -1364,7 +1003,7 @@ const MFC = (function () {
   }
 
   /** Selected objects matching pred: the active object itself, or the matching members of a multi-selection. */
-  function selectedObjects(pred = () => true) {
+  export function selectedObjects(pred = () => true) {
     const active = canvas && canvas.getActiveObject();
     if (!active) return [];
     return (active.type === 'activeSelection' ? active.getObjects() : [active]).filter(pred);
@@ -1379,7 +1018,7 @@ const MFC = (function () {
     return [];
   }
 
-  function applyTextBorder(prop, value) {
+  export function applyTextBorder(prop, value) {
     const boxes = getSelectedTextboxes();
     if (!boxes.length) return;
     boxes.forEach(box => {
@@ -1409,7 +1048,7 @@ const MFC = (function () {
         fill: document.getElementById('text-color').value,
         textAlign: 'left'
       });
-      t.mfcId = 'txt' + (nextId++);
+      t.mfcId = 'txt' + takeId();
       t.mfcType = 'text';
       attachTextListeners(t);
       canvas.add(t);
@@ -1431,7 +1070,7 @@ const MFC = (function () {
   let insetDrag = null; // { rect, startX, startY }
   let insetAspectMode = 'square'; // 'square' | 'rect' — defaults to square so a drawn outline
 
-  function setInsetAspectMode(mode) {
+  export function setInsetAspectMode(mode) {
     insetAspectMode = mode;
     document.getElementById('inset-mode-square').classList.toggle('active', mode === 'square');
     document.getElementById('inset-mode-rect').classList.toggle('active', mode === 'rect');
@@ -1448,7 +1087,7 @@ const MFC = (function () {
 
   // ---- exact-size insets: the size fields double as "same size as last inset" memory ----
   const INSET_PREFS_KEY = 'fluoforge-inset-size';
-  function loadInsetSizePreferences() {
+  export function loadInsetSizePreferences() {
     let prefs = null;
     try { prefs = JSON.parse(localStorage.getItem(INSET_PREFS_KEY) || 'null'); } catch (_) { /* Preferences are optional. */ }
     if (!prefs) return;
@@ -1457,7 +1096,7 @@ const MFC = (function () {
     if (prefs.height > 0) document.getElementById('inset-fixed-h').value = prefs.height;
     if (prefs.magnification > 0) document.getElementById('inset-magnification').value = prefs.magnification;
   }
-  function saveInsetSizePreferences() {
+  export function saveInsetSizePreferences() {
     const size = readInsetFixedSize();
     try { localStorage.setItem(INSET_PREFS_KEY, JSON.stringify({ fixed: document.getElementById('inset-fixed-size').checked,
       width: size.width, height: size.height, magnification: readInsetMagnification() })); } catch (_) { /* Preferences are optional. */ }
@@ -1481,7 +1120,7 @@ const MFC = (function () {
       strokeUniform: true,
       cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff'
     });
-    rect.mfcId = 'ins' + (nextId++);
+    rect.mfcId = 'ins' + takeId();
     rect.mfcType = 'insetContour';
     rect.mfcInsetSourceId = sourceImg.mfcId;
     canvas.add(rect);
@@ -1515,7 +1154,7 @@ const MFC = (function () {
   }
 
   /** Gives the selected outline exactly the typed size, keeping its center. */
-  function applyExactSizeToSelectedContour() {
+  export function applyExactSizeToSelectedContour() {
     const active = canvas.getActiveObject();
     if (!active || active.mfcType !== 'insetContour' || refuseLocked(active, 'resized')) return;
     const { width, height } = readInsetFixedSize();
@@ -1531,7 +1170,7 @@ const MFC = (function () {
 
   const INSET_FIELD_PROPS = { 'inset-stroke-color': 'stroke', 'inset-stroke-width': 'strokeWidth', 'inset-dash': 'strokeDashArray' };
   /** Live-apply the changed outline setting (or all of them) to the selected inset outline(s). */
-  function applyInsetContourStyle(field) {
+  export function applyInsetContourStyle(field) {
     const contours = selectedObjects(o => o.mfcType === 'insetContour');
     if (!contours.length) return;
     const style = readInsetContourFormValues();
@@ -1541,7 +1180,7 @@ const MFC = (function () {
     canvas.fire('object:modified', { target: canvas.getActiveObject() });
   }
 
-  function refreshInsetPanel() {
+  export function refreshInsetPanel() {
     const contours = selectedObjects(o => o.mfcType === 'insetContour');
     const active = contours[0];
     const isContour = !!active;
@@ -1576,7 +1215,7 @@ const MFC = (function () {
    * syncInsetFromContour). The duplicate's own on-screen size/position are never
    * touched by that sync — only which pixels it's showing.
    */
-  function createInsetFromContour(contourRect) {
+  export function createInsetFromContour(contourRect) {
     if (!contourRect || contourRect.mfcType !== 'insetContour') return;
     const srcImg = canvas.getObjects().find(o => o.mfcId === contourRect.mfcInsetSourceId);
     const entry = srcImg && registry[srcImg.mfcId];
@@ -1614,7 +1253,7 @@ const MFC = (function () {
     // the inset is separately editable from here on — same duplication pattern used by
     // copy/paste. Raw pixel arrays are read-only and safe to share by reference.
     const clonedRaw = { ...entry.rawImage, channels: entry.rawImage.channels.map(c => ({ ...c })) };
-    const insetId = 'img' + (nextId++);
+    const insetId = 'img' + takeId();
     registry[insetId] = { rawImage: clonedRaw, sourceId: entry.sourceId, sourceBlob: entry.sourceBlob, workingScale: entry.workingScale };
     const compositeCanvas = MFC_TIFF.compositeChannels(clonedRaw, entry.workingScale);
 
@@ -1747,7 +1386,7 @@ const MFC = (function () {
     };
   }
 
-  function setShapeKind(kind) {
+  export function setShapeKind(kind) {
     shapeKind = kind;
     document.querySelectorAll('[data-shape-kind]').forEach(b => b.classList.toggle('active', b.dataset.shapeKind === kind));
   }
@@ -1758,7 +1397,7 @@ const MFC = (function () {
 
   // Kept as a compatibility entry point for projects created before v0.21.
   // Legacy Polyline/Curve objects are converted to the unified editable node model.
-  function installCurveControls(path) {
+  export function installCurveControls(path) {
     installPathControls(path);
   }
 
@@ -1771,7 +1410,7 @@ const MFC = (function () {
         fill: style.fill, strokeUniform: true,
         cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff'
       });
-      ellipse.mfcId = 'shp' + (nextId++); ellipse.mfcType = 'shape'; ellipse.mfcShapeKind = 'ellipse';
+      ellipse.mfcId = 'shp' + takeId(); ellipse.mfcType = 'shape'; ellipse.mfcShapeKind = 'ellipse';
       canvas.add(ellipse);
       shapeDrag = { rect: ellipse, startX: pointer.x, startY: pointer.y, ellipse: true };
       return;
@@ -1782,7 +1421,7 @@ const MFC = (function () {
         fill: 'transparent', strokeUniform: true, perPixelTargetFind: false,
         cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff'
       });
-      path.mfcId = 'shp' + (nextId++); path.mfcType = 'shape'; path.mfcShapeKind = shapeKind;
+      path.mfcId = 'shp' + takeId(); path.mfcType = 'shape'; path.mfcShapeKind = shapeKind;
       installCurveControls(path);
       canvas.add(path);
       shapeDrag = { rect: path, startX: pointer.x, startY: pointer.y, kind: shapeKind };
@@ -1794,7 +1433,7 @@ const MFC = (function () {
       fill: style.fill, strokeUniform: true,
       cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff'
     });
-    rect.mfcId = 'shp' + (nextId++);
+    rect.mfcId = 'shp' + takeId();
     rect.mfcType = 'shape';
     canvas.add(rect);
     shapeDrag = { rect, startX: pointer.x, startY: pointer.y };
@@ -1904,7 +1543,7 @@ const MFC = (function () {
     setTool('select');
   }
 
-  function setShapeAspectMode(mode) {
+  export function setShapeAspectMode(mode) {
     shapeAspectMode = mode;
     document.getElementById('shape-mode-rect').classList.toggle('active', mode === 'rect');
     document.getElementById('shape-mode-square').classList.toggle('active', mode === 'square');
@@ -1916,7 +1555,7 @@ const MFC = (function () {
   function selectedShapes() { return selectedObjects(o => o.mfcType === 'shape' && o.mfcShapeKind !== 'path'); }
 
   /** Live-apply the changed stroke/fill/dash setting (or all of them) to the selected shape(s). */
-  function applyShapeStyle(field) {
+  export function applyShapeStyle(field) {
     const shapes = selectedShapes();
     if (!shapes.length) return;
     if (field === 'shape-fill-color' && !document.getElementById('shape-fill-enabled').checked) return;
@@ -1928,7 +1567,7 @@ const MFC = (function () {
     canvas.fire('object:modified', { target: canvas.getActiveObject() });
   }
 
-  function refreshShapePanel() {
+  export function refreshShapePanel() {
     const shapes = selectedShapes(), active = shapes[0];
     const isShape = !!active;
     document.getElementById('panel-shape').classList.toggle('hidden', !(isShape || currentTool === 'shape'));
@@ -1996,7 +1635,7 @@ const MFC = (function () {
     el.classList.toggle('path-status-active', active);
   }
 
-  function setPathDefaultMode(mode) {
+  export function setPathDefaultMode(mode) {
     pathDefaultMode = mode;
     document.getElementById('path-mode-straight').classList.toggle('active',mode === 'straight');
     document.getElementById('path-mode-bezier').classList.toggle('active',mode === 'bezier');
@@ -2122,7 +1761,7 @@ const MFC = (function () {
 
   function makeEditablePath(nodes,style,closed=false) {
     const path=new fabric.Path(pathCommands(nodes,closed),style);
-    path.mfcId='pth'+(nextId++);path.mfcType='shape';path.mfcShapeKind='path';
+    path.mfcId='pth'+takeId();path.mfcType='shape';path.mfcShapeKind='path';
     path.mfcPathNodes=copyNodes(nodes);path.mfcPathClosed=!!closed;
     path.mfcArrowStart=document.getElementById('path-arrow-start').value;
     path.mfcArrowEnd=document.getElementById('path-arrow-end').value;
@@ -2130,7 +1769,7 @@ const MFC = (function () {
     return path;
   }
 
-  function finishPathDrawing(closed=false) {
+  export function finishPathDrawing(closed=false) {
     if (!pathDraft) return false;
     const draft=pathDraft;pathDraft=null;pathPointer=null;clearPathHelpers();
     if (draft.nodes.length<2) { setPathStatus('Path cancelled: add at least two nodes.');canvas.requestRenderAll();return false; }
@@ -2141,13 +1780,13 @@ const MFC = (function () {
     return true;
   }
 
-  function cancelPathDrawing() {
+  export function cancelPathDrawing() {
     if (!pathDraft) return false;
     pathDraft=null;pathPointer=null;clearPathHelpers();canvas.requestRenderAll();
     setPathStatus('Unfinished path cancelled.');return true;
   }
 
-  function pathArrowGeometry(path,atStart) {
+  export function pathArrowGeometry(path,atStart) {
     const nodes=path.mfcPathNodes||[];if(nodes.length<2)return null;
     const tip=atStart?nodes[0]:nodes[nodes.length-1];
     let reference;
@@ -2277,7 +1916,7 @@ const MFC = (function () {
     });return controls;
   }
 
-  function installPathControls(path) {
+  export function installPathControls(path) {
     if(!path.mfcPathNodes&&(path.mfcShapeKind==='curve'||path.mfcShapeKind==='polyline')){
       const legacy=nodesFromFabricPath(path);path.mfcPathNodes=legacy.nodes;path.mfcPathClosed=legacy.closed;path.mfcShapeKind='path';
     }
@@ -2287,7 +1926,7 @@ const MFC = (function () {
     path.__mfcSelectedNode=0;path.hasBorders=true;installPathRendering(path);
   }
 
-  function enterPathEdit(path=canvas.getActiveObject()) {
+  export function enterPathEdit(path=canvas.getActiveObject()) {
     if(!path||path.mfcShapeKind!=='path')return false;
     if(refuseLocked(path,'reshaped'))return false;
     path.__mfcNodeEdit=true;path.__mfcSelectedNode=Math.min(path.__mfcSelectedNode||0,path.mfcPathNodes.length-1);
@@ -2295,7 +1934,7 @@ const MFC = (function () {
     canvas.setActiveObject(path);canvas.requestRenderAll();refreshPathPanel();MFC_UI.focusPanel('panel-path');setPathStatus('Node editing active. Double-click a segment to insert a node.',true);return true;
   }
 
-  function exitPathEdit(path=canvas.getActiveObject()) {
+  export function exitPathEdit(path=canvas.getActiveObject()) {
     if(!path||path.mfcShapeKind!=='path')return false;
     path.__mfcNodeEdit=false;path.controls=path.__mfcStandardControls||fabric.Object.prototype.controls;path.hasBorders=true;
     applyLockState(path);path.setCoords();canvas.requestRenderAll();refreshPathPanel();return true;
@@ -2303,7 +1942,7 @@ const MFC = (function () {
 
   function updatePathControls(path) { if(path&&path.__mfcNodeEdit)path.controls=buildNodeControls(path); }
 
-  function deleteSelectedPathNode() {
+  export function deleteSelectedPathNode() {
     const path=canvas.getActiveObject();if(!path||!path.__mfcNodeEdit)return false;
     const minimum=path.mfcPathClosed?3:2;
     if(path.mfcPathNodes.length<=minimum){MFC_UI.toast('This path needs at least '+minimum+' nodes.');return true;}
@@ -2312,7 +1951,7 @@ const MFC = (function () {
     updatePathControls(path);canvas.requestRenderAll();pushHistory();refreshPathPanel();return true;
   }
 
-  function setSelectedNodeType(type) {
+  export function setSelectedNodeType(type) {
     const path=canvas.getActiveObject();if(!path||!path.__mfcNodeEdit)return;
     const nodes=path.mfcPathNodes,index=path.__mfcSelectedNode||0,node=nodes[index];node.type=type;
     if(type==='smooth'){
@@ -2326,7 +1965,7 @@ const MFC = (function () {
     rebuildEditablePath(path,index===0?Math.min(1,nodes.length-1):0);updatePathControls(path);canvas.requestRenderAll();pushHistory();refreshPathPanel();
   }
 
-  function setSelectedIncomingSegment(curve) {
+  export function setSelectedIncomingSegment(curve) {
     const path=canvas.getActiveObject();if(!path||!path.__mfcNodeEdit)return;
     const nodes=path.mfcPathNodes,index=path.__mfcSelectedNode||0;
     if(index===0&&!path.mfcPathClosed){MFC_UI.toast('Select a node after the first one to edit its incoming segment.');return;}
@@ -2339,7 +1978,7 @@ const MFC = (function () {
 
   const PATH_FIELD_PROPS={'path-stroke-color':'stroke','path-stroke-width':'strokeWidth','path-opacity':'opacity','path-dash':'strokeDashArray',
     'path-line-cap':'strokeLineCap','path-line-join':'strokeLineJoin','path-arrow-start':'mfcArrowStart','path-arrow-end':'mfcArrowEnd'};
-  function applyPathStyle(field) {
+  export function applyPathStyle(field) {
     const paths=selectedObjects(o=>o.mfcShapeKind==='path');if(!paths.length)return;
     const style={...pathStyleFromPanel(),mfcArrowStart:document.getElementById('path-arrow-start').value,mfcArrowEnd:document.getElementById('path-arrow-end').value};
     const keys=PATH_FIELD_PROPS[field]?[PATH_FIELD_PROPS[field]]:Object.keys(style);
@@ -2347,13 +1986,13 @@ const MFC = (function () {
     canvas.requestRenderAll();canvas.fire('object:modified',{target:canvas.getActiveObject()});
   }
 
-  function togglePathClosed() {
+  export function togglePathClosed() {
     const path=canvas.getActiveObject();if(!path||path.mfcShapeKind!=='path')return;
     if(!path.mfcPathClosed&&path.mfcPathNodes.length<3){MFC_UI.toast('A closed path needs at least three nodes.');return;}
     path.mfcPathClosed=!path.mfcPathClosed;rebuildEditablePath(path,0);updatePathControls(path);canvas.requestRenderAll();pushHistory();refreshPathPanel();
   }
 
-  function refreshPathPanel() {
+  export function refreshPathPanel() {
     const panel=document.getElementById('panel-path');if(!panel)return;
     const active=canvas?selectedObjects(o=>o.mfcShapeKind==='path')[0]:null,isPath=!!active;
     panel.classList.toggle('hidden',!(isPath||currentTool==='path'));
@@ -2384,7 +2023,7 @@ const MFC = (function () {
       u*u*u*a.y+3*u*u*t*p1.y+3*u*t*t*p2.y+t*t*t*b.y);
   }
 
-  function insertPathNode(path,world) {
+  export function insertPathNode(path,world) {
     const nodes=path.mfcPathNodes,p=localCommandPoint(path,world),count=path.mfcPathClosed?nodes.length:nodes.length-1;
     let best={distance:Infinity,index:0,t:.5};
     for(let i=0;i<count;i++){const a=nodes[i],b=nodes[(i+1)%nodes.length];
@@ -2407,7 +2046,7 @@ const MFC = (function () {
     }
   }
 
-  function handlePathKey(event) {
+  export function handlePathKey(event) {
     if((event.key==='Enter')&&pathDraft){event.preventDefault();finishPathDrawing(false);return true;}
     if(event.key==='Escape'){
       if(pathDraft){event.preventDefault();cancelPathDrawing();return true;}
@@ -2465,7 +2104,7 @@ const MFC = (function () {
     box.setCoords();
   }
 
-  function applyTextStyle(prop, value) {
+  export function applyTextStyle(prop, value) {
     const boxes = getSelectedTextboxes();
     if (!boxes.length) return;
     if (prop === 'fontSize' && !(value > 0)) { refreshTextPanel(); return; }
@@ -2479,7 +2118,7 @@ const MFC = (function () {
     refreshTextPanel();
   }
 
-  function applyTextAlign(align) {
+  export function applyTextAlign(align) {
     const boxes = getSelectedTextboxes();
     if (!boxes.length) return;
     boxes.forEach(box => box.set('textAlign', align));
@@ -2489,7 +2128,7 @@ const MFC = (function () {
   }
 
   // ---- scale bar ----
-  function refreshScaleBarRefList() {
+  export function refreshScaleBarRefList() {
     const sel = document.getElementById('sb-ref-image');
     const activeImg = canvas.getActiveObject();
     const prevValue = sel.value;
@@ -2517,7 +2156,7 @@ const MFC = (function () {
     return (nativePxLen / compositeToNativeRatio) * refObj.scaleX;
   }
 
-  function buildScaleBarGroup(onScreenPxLen, thickness, color, showLabel, lengthUm, id = 'sb' + (nextId++)) {
+  function buildScaleBarGroup(onScreenPxLen, thickness, color, showLabel, lengthUm, id = 'sb' + takeId()) {
     const bar = new fabric.Rect({
       left: 0, top: 0, width: onScreenPxLen, height: thickness,
       fill: color, originX: 'left', originY: 'top'
@@ -2546,7 +2185,7 @@ const MFC = (function () {
   }
 
   /** A scale bar's settings, read back from the bar itself, so bars made by any version can be shown and edited. */
-  function scaleBarProps(bar) {
+  export function scaleBarProps(bar) {
     const [rect, label] = bar._objects || [];
     const lengthUm = bar.mfcLengthUm != null ? bar.mfcLengthUm
       : (label && parseFloat(String(label.text).replace(',', '.')) > 0 ? parseFloat(String(label.text).replace(',', '.')) : null);
@@ -2578,7 +2217,7 @@ const MFC = (function () {
    * of that image's displayed size, and "attach" it: whenever the image moves or is
    * resized, the bar is automatically repositioned and rescaled to stay calibrated.
    */
-  function placeScaleBarAtCorner(corner, marginPct) {
+  export function placeScaleBarAtCorner(corner, marginPct) {
     const refId = document.getElementById('sb-ref-image').value;
     const entry = registry[refId];
     const refObj = canvas.getObjects().find(o => o.mfcId === refId);
@@ -2603,7 +2242,7 @@ const MFC = (function () {
   }
 
   /** Add scale bars to every selected image at once, using the current form settings for each. */
-  function placeScaleBarOnSelectedImages(corner, marginPct) {
+  export function placeScaleBarOnSelectedImages(corner, marginPct) {
     const imgs = canvas.getActiveObjects().filter(o => o.mfcType === 'mfcImage');
     if (imgs.length < 2) {
       MFC_UI.toast('Select 2 or more images first to batch-apply a scale bar.');
@@ -2661,7 +2300,7 @@ const MFC = (function () {
     const ref = canvas.getObjects().find(o => o.mfcId === document.getElementById('sb-ref-image').value);
     return ref ? [ref] : [];
   }
-  function refreshScaleBarPreview() {
+  export function refreshScaleBarPreview() {
     clearScaleBarPreview();
     const status = document.getElementById('sb-preview-status');
     if (!documentOpen || currentTool !== 'scalebar') { if (status) status.textContent = ''; return; }
@@ -2699,7 +2338,7 @@ const MFC = (function () {
 
   // ---- selected scale bars: their settings are shown in the panel, and the panel edits them ----
   function selectedScaleBars() { return selectedObjects(o => o.mfcType === 'scalebar'); }
-  function refreshScaleBarPanel() {
+  export function refreshScaleBarPanel() {
     const panel = document.getElementById('panel-scalebar');
     if (!panel) return;
     const bars = selectedScaleBars();
@@ -2782,7 +2421,7 @@ const MFC = (function () {
   }
 
   /** A scale bar panel field changed: edit the selected bars, or update the preview of a new bar. */
-  function onScaleBarFieldChanged(field, committed) {
+  export function onScaleBarFieldChanged(field, committed) {
     if (committed && applyScaleBarFieldToSelection(field)) return;
     refreshScaleBarPreview();
   }
@@ -2886,7 +2525,7 @@ const MFC = (function () {
   let nudgeHistoryTimer = null;
 
   /** Moves the current selection by (dx,dy) doc-px — works for images/text/shapes/groups/multi-selection alike, since they all expose the same left/top. Snaps to nearby edges unless snap=false. Debounces the history push so holding an arrow key doesn't spam undo steps. */
-  function nudgeSelection(dx, dy, snap) {
+  export function nudgeSelection(dx, dy, snap) {
     const active = canvas.getActiveObject();
     if (!active || active === cropRect || refuseLocked(active, 'moved')) return;
     active.set({ left: active.left + dx, top: active.top + dy });
@@ -2935,9 +2574,9 @@ const MFC = (function () {
     unlock: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>',
     position: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/><circle cx="12" cy="12" r="4"/></svg>'
   };
-  function layerObjects() { return canvas.getObjects().filter(o => !isHelper(o)); }
+  export function layerObjects() { return canvas.getObjects().filter(o => !isHelper(o)); }
 
-  function refreshLayersPanel() {
+  export function refreshLayersPanel() {
     const listEl = document.getElementById('layers-list');
     if (!listEl) return;
     const objs = layerObjects();
@@ -2992,7 +2631,7 @@ const MFC = (function () {
     if (canvas.getActiveObjects().includes(o)) canvas.discardActiveObject();
   }
 
-  function toggleLayerVisibility(o) {
+  export function toggleLayerVisibility(o) {
     o.visible = o.visible === false;
     if (!o.visible) releaseFromSelection(o);
     canvas.requestRenderAll();
@@ -3000,7 +2639,7 @@ const MFC = (function () {
     refreshLayersPanel();
   }
 
-  function setAllLayersVisible(visible) {
+  export function setAllLayersVisible(visible) {
     const objs = layerObjects();
     if (!objs.length) return;
     if (!visible) canvas.discardActiveObject();
@@ -3010,7 +2649,7 @@ const MFC = (function () {
     refreshLayersPanel();
   }
 
-  function toggleLayerLock(o) {
+  export function toggleLayerLock(o) {
     o.mfcLocked = !o.mfcLocked;
     if (o.mfcLocked) releaseFromSelection(o);
     applyLockState(o);
@@ -3019,7 +2658,7 @@ const MFC = (function () {
     refreshLayersPanel();
   }
 
-  function toggleLayerPositionLock(o) {
+  export function toggleLayerPositionLock(o) {
     setPositionLock(o, !o.mfcPositionLocked);
     applySelectionLock();
     canvas.requestRenderAll();
@@ -3045,7 +2684,7 @@ const MFC = (function () {
    * list, Inset tool) can't reach them — same as every other design tool, ungroup
    * (Ctrl+Shift+G) first to edit an object's own properties.
    */
-  function groupSelection() {
+  export function groupSelection() {
     const active = canvas.getActiveObject();
     if (!active || active.type !== 'activeSelection' || active.size() < 2) {
       MFC_UI.toast('Select 2 or more objects to group.');
@@ -3054,7 +2693,7 @@ const MFC = (function () {
     // A group can be moved as a whole, which would carry position-locked members with it.
     if (refuseLocked(active, 'grouped')) return;
     const group = active.toGroup(); // Fabric's own, well-tested ActiveSelection -> Group conversion
-    group.mfcId = 'grp' + (nextId++);
+    group.mfcId = 'grp' + takeId();
     group.mfcType = 'group';
     group.set({ cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff' });
     canvas.requestRenderAll();
@@ -3063,7 +2702,7 @@ const MFC = (function () {
   }
 
   /** Inverse of groupSelection (Ctrl+Shift+G) — dissolves the group and re-selects its former children as a normal multi-selection. Each child's own mfcId/mfcType/channel-registry linkage is untouched by this, since Fabric's toActiveSelection() only reparents objects, never rewrites their properties. */
-  function ungroupSelection() {
+  export function ungroupSelection() {
     const active = canvas.getActiveObject();
     if (!active || active.type !== 'group') {
       MFC_UI.toast('Select a group to ungroup.');
@@ -3083,7 +2722,7 @@ const MFC = (function () {
       (o.mfcShapeKind === 'path' && !!o.mfcPathClosed));
   }
   /** The {shape, target} pair a "Crop to shape" would use: exactly two objects, the upper closed shape clips the other. */
-  function cropToShapePair() {
+  export function cropToShapePair() {
     const objs = canvas.getActiveObjects();
     if (objs.length !== 2) return null;
     const [lower, upper] = [...objs].sort((a, b) => canvas.getObjects().indexOf(a) - canvas.getObjects().indexOf(b));
@@ -3092,7 +2731,7 @@ const MFC = (function () {
     if (!shape || !target || target.clipPath || target.mfcType === 'scalebar') return null;
     return { shape, target };
   }
-  async function cropToShape() {
+  export async function cropToShape() {
     const pair = cropToShapePair();
     if (!pair) { MFC_UI.toast('Select one image (or object) and one closed shape — box, ellipse or closed path — to crop it to that shape.'); return false; }
     const { shape, target } = pair;
@@ -3115,13 +2754,13 @@ const MFC = (function () {
     return true;
   }
   /** Gives the clip shape back as a normal, editable shape at the same place on the canvas. */
-  async function releaseShapeCrop(target = canvas.getActiveObject()) {
+  export async function releaseShapeCrop(target = canvas.getActiveObject()) {
     if (!target || target.type === 'activeSelection' || !target.clipPath) return false;
     if (refuseLocked(target, 'uncropped')) return false;
     const clip = target.clipPath;
     const shape = await MFC_PROJECT.restoreObject(MFC_PROJECT.serializeObject(clip));
     fabric.util.applyTransformToObject(shape, fabric.util.multiplyTransformMatrices(target.calcTransformMatrix(), clip.calcOwnMatrix()));
-    if (!shape.mfcId) shape.mfcId = 'shp' + (nextId++);
+    if (!shape.mfcId) shape.mfcId = 'shp' + takeId();
     if (!shape.mfcType) shape.mfcType = 'shape';
     target.clipPath = null;
     if (target.mfcPreShapeCrop) { setImageFrame(target, target.mfcPreShapeCrop); delete target.mfcPreShapeCrop; syncAttachments(target); }
@@ -3173,7 +2812,7 @@ const MFC = (function () {
   }
 
   // ---- alignment ----
-  function align(mode) {
+  export function align(mode) {
     const objs = canvas.getActiveObjects();
     if (objs.length < 2) return;
     const bounds = objs.map(o => o.getBoundingRect(true));
@@ -3222,16 +2861,16 @@ const MFC = (function () {
 
   // Clipboard snapshots share immutable sources but restore independent view settings.
   let clipboardObj = null;
-  function copySelection() {
+  export function copySelection() {
     const objects = canvas.getActiveObjects();
     if (objects.length) clipboardObj = objects.map(o => MFC_PROJECT.serializeObject(o, true));
   }
-  async function pasteSelection() {
+  export async function pasteSelection() {
     if (!clipboardObj) return;
     const items = JSON.parse(JSON.stringify(clipboardObj)), idMap = new Map();
     const visit = (o, fn) => { fn(o); (o.objects || []).forEach(child => visit(child, fn)); if (o.clipPath) visit(o.clipPath, fn); };
     items.forEach(item => visit(item, o => {
-      if (o.mfcId) { const id = (o.mfcType || 'obj') + nextId++; idMap.set(o.mfcId, id); o.mfcId = id; }
+      if (o.mfcId) { const id = (o.mfcType || 'obj') + takeId(); idMap.set(o.mfcId, id); o.mfcId = id; }
     }));
     items.forEach(item => visit(item, o => {
       for (const key of ['mfcAttachedTo','mfcInsetSourceId','mfcInsetContourId','mfcInsetTargetId'])
@@ -3247,7 +2886,7 @@ const MFC = (function () {
     canvas.setActiveObject(pasted.length === 1 ? pasted[0] : new fabric.ActiveSelection(pasted, { canvas }));
     canvas.requestRenderAll(); pushHistory(); refreshChannelPanel(); refreshScaleBarRefList();
   }
-  async function duplicateSelection() { copySelection(); await pasteSelection(); }
+  export async function duplicateSelection() { copySelection(); await pasteSelection(); }
 
   // ---- grid layout assistant ----
   /**
@@ -3256,7 +2895,7 @@ const MFC = (function () {
    * ratio, with optional placeholder text boxes as column headers (above) and row
    * labels (to the left) for figure panels like "DAPI / GFP / Merge" x "Condition A/B/C".
    */
-  function arrangeGrid(opts) {
+  export function arrangeGrid(opts) {
     const { rows, cols, cellW, cellH, gap, headerRow, headerCol } = opts;
     let imgs = canvas.getActiveObjects().filter(o => o.mfcType === 'mfcImage');
     if (imgs.length < 2) imgs = canvas.getObjects().filter(o => o.mfcType === 'mfcImage');
@@ -3290,7 +2929,7 @@ const MFC = (function () {
           left: originX + c * (cellW + gap), top: originY - headerRowH, width: cellW,
           fontSize: 18, textAlign: 'center', fontFamily: 'Liberation Sans', fill: '#000000'
         });
-        t.mfcId = 'txt' + (nextId++); t.mfcType = 'text';
+        t.mfcId = 'txt' + takeId(); t.mfcType = 'text';
         attachTextListeners(t);
         canvas.add(t);
       }
@@ -3301,7 +2940,7 @@ const MFC = (function () {
           left: 40, top: originY + r * (cellH + gap) + cellH / 2 - 12, width: headerColW - 12,
           fontSize: 18, textAlign: 'right', fontFamily: 'Liberation Sans', fill: '#000000'
         });
-        t.mfcId = 'txt' + (nextId++); t.mfcType = 'text';
+        t.mfcId = 'txt' + takeId(); t.mfcType = 'text';
         attachTextListeners(t);
         canvas.add(t);
       }
@@ -3311,10 +2950,10 @@ const MFC = (function () {
   }
 
   // ---- tool switching ----
-  function setTool(tool) {
+  export function setTool(tool) {
     if (!documentOpen) return;
     if (tool !== 'path' && pathDraft) cancelPathDrawing();
-    currentTool = tool;
+    setCurrentTool(tool);
     // Non-selectable flags do not stop Fabric dragging an object that is already
     // active. Creation tools must release that selection before the next pointer down.
     if (['inset','shape','path','text'].includes(tool)) canvas.discardActiveObject();
@@ -3338,38 +2977,3 @@ const MFC = (function () {
     refreshInsetPanel();
     MFC_UI.focusSelection(canvas.getActiveObject(), tool);
   }
-
-  function getRegistry() { return registry; }
-  function getNextIdCounter() { return nextId; }
-  function setNextIdCounter(v) { nextId = v; }
-
-  return {
-    init, getCanvas, getDocProps, applyDocProps, closeDocument, setDocName, getAppVersion, docPropsToPixels,
-    importFiles, addImageToCanvas, recomposite, refreshChannelPanel,
-    applyPixelSize, applyAlphaToggle, applyStackPlane, applyBrightnessContrast, commitBrightnessContrast, resetToneCurve,
-    undo, redo, pushHistory, resetHistory, jumpToHistory, getHistory, refreshHistoryPanel,
-    setTool, setShapeKind, installCurveControls, installPathControls, align, copySelection, pasteSelection, duplicateSelection, nudgeSelection, refreshLayersPanel,
-    groupSelection, ungroupSelection,
-    applyCrop, cancelCrop, setCropAspectMode, applyCropFieldsToRect,
-    applyTextStyle, applyTextAlign, applyTextBoxSize, applyTextBorder, refreshTextPanel, attachTextListeners,
-    applyTextVerticalAlign, centerTextInBox, effectiveFontSize, normalizeTextScale,
-    refreshObjectSizePanel, refreshSelectionBar, applyObjectSizeFromFields, applyObjectPositionFromFields, rotateSelected, setObjectAngle, uncropImage,
-    applyLockState, isTransformLocked, togglePositionLockSelection, setPositionLock, toggleLayerLock, toggleLayerPositionLock,
-    toggleLayerVisibility, setAllLayersVisible,
-    refreshScaleBarRefList, placeScaleBarAtCorner, placeScaleBarOnSelectedImages,
-    arrangeGrid,
-    applyShapeStyle, setShapeAspectMode, refreshShapePanel,
-    setPathDefaultMode, applyPathStyle, enterPathEdit, exitPathEdit, deleteSelectedPathNode,
-    setSelectedNodeType, setSelectedIncomingSegment, togglePathClosed, refreshPathPanel,
-    finishPathDrawing, cancelPathDrawing, handlePathKey, insertPathNode, pathArrowGeometry,
-    createInsetFromContour, refreshInsetPanel, applyInsetContourStyle, setInsetAspectMode,
-    loadInsetSizePreferences, saveInsetSizePreferences, applyExactSizeToSelectedContour,
-    zoomIn, zoomOut, zoomReset, zoomToSelection, updateZoomDisplay, setZoom, getZoomLevel,
-    getRegistry, getNextIdCounter, setNextIdCounter,
-    pageCount, pageBounds, pageIndexForBox, addPage, removeLastPage, scrollToPage,
-    selectedObjects, isHelper, scaleBarProps, refreshScaleBarPanel, refreshScaleBarPreview, onScaleBarFieldChanged,
-    cropToShape, releaseShapeCrop, cropToShapePair,
-    get hasDocument() { return documentOpen; },
-    get currentTool() { return currentTool; }
-  };
-})();

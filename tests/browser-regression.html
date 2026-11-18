@@ -19,6 +19,7 @@ body{font:14px system-ui;background:#eef0f5;color:#172031;margin:16px}button{pad
 <button data-suite="zstack-regression">Z stacks and time series</button>
 <button data-suite="about-regression">About dialog and licence notices</button>
 <button data-suite="offline-regression">Offline: vendored libraries and CSP</button>
+<button data-suite="module-api-regression">ES modules and the MFC API</button>
 <pre id="result" role="status">Choose a suite. Each run uses a fresh test frame and isolated recovery storage.</pre>
 <div id="frame"></div>
 <script>
@@ -26,7 +27,7 @@ const suites={ 'dev-interface-regression':'runDevInterfaceRegressions', 'path-re
   regression:'runMfcRegressions', 'project-export-regression':'runProjectExportRegressions',
   'ui-fixes-regression':'runUiFixesRegressions', 'v024-regression':'runV024Regressions',
   'zstack-regression':'runZStackRegressions', 'about-regression':'runAboutRegressions',
-  'offline-regression':'runOfflineRegressions' };
+  'offline-regression':'runOfflineRegressions', 'module-api-regression':'runModuleApiRegressions' };
 document.querySelectorAll('button').forEach(button=>button.onclick=async()=>{
   const result=document.getElementById('result'); result.textContent='Running '+button.dataset.suite+'…';
   const frame=document.createElement('iframe');frame.src='../?test=regression-'+Date.now();document.getElementById('frame').replaceChildren(frame);

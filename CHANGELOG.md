@@ -7,6 +7,13 @@
 - **Headless tests:** `npm test` runs every regression suite in Chromium and Firefox with Playwright. It also compares the SVG, TIFF and PDF exports of a reference figure (`tests/fixtures/reference.mfcproj.zip`) with stored references.
 - **Test images:** they are generated in Node (`tests/generate-fixtures.mjs`), so the tests no longer need Python.
 - **GitHub Actions:** the tests run on every push and pull request, and `main` deploys to GitHub Pages.
+- **ES modules (P1-T3, in progress):**
+  - The editor now loads from one module entry, `js/app.js`, which publishes the same `window.MFC` API as before.
+  - So far, the shared state, undo history, pages and zoom have moved out of `canvas-app.js` into `js/core/`.
+  - The app must be served over HTTP, as the README already says. Opening `index.html` directly from disk (`file://`) no longer works, because browsers do not load modules from `file://`.
+- **New tests:**
+  - `module-api-regression` checks that `MFC` keeps exactly its 121 names and that no global name appears or disappears.
+  - The reference check now also requires the SVG export to be byte-identical to `reference.svg`, after renumbering Fabric's clip-path ids.
 - **No change to the app.**
 
 ## v0.1.1 (2026-11-18)

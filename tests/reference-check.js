@@ -3,7 +3,7 @@
  * Copyright (C) 2026 Remy Bonnavion
  */
 /* Reference exports: reopen tests/fixtures/reference.mfcproj.zip, export it again and compare with the
-   stored reference.svg (structurally), reference.tif (pixels) and reference.pdf (pixels, rendered with
+   stored reference.svg (structurally, then byte for byte), reference.tif (pixels) and reference.pdf (pixels, rendered with
    pdf.js). Runs inside the app page; tests/run-headless.mjs loads it after pdf.js. */
 
 const REFERENCE_TOLERANCE = {
@@ -94,6 +94,14 @@ async function compareSVG(actualText, expectedText) {
   return { elements, images };
 }
 
+/** Fabric numbers clip paths from one counter for the whole session (CLIPPATH_n, SVGID_n), so the same
+    figure gets different ids depending on how many exports came before. Renumber them by order of
+    appearance; every other byte must be identical. */
+function renumberFabricIds(svg) {
+  const ids = new Map();
+  return svg.replace(/\b(?:CLIPPATH|SVGID)_\d+\b/g, id => { if (!ids.has(id)) ids.set(id, 'FABRICID_' + ids.size); return ids.get(id); });
+}
+
 function decodeTiffRGBA(bytes) {
   const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
   const ifd = UTIF.decode(buffer)[0]; UTIF.decodeImage(buffer, ifd);
@@ -133,8 +141,13 @@ async function runReferenceCheck() {
   assert('The reference project contains every object type', ['mfcImage', 'inset', 'insetContour', 'scalebar', 'text', 'rect', 'ellipse', 'path', 'group']
     .every(t => types.has(t)) && objects.some(o => o.clipPath));
 
-  const svg = await compareSVG(out.svg, await (await fetch(base + 'reference.svg', { cache: 'no-store' })).text());
+  const expectedSvg = await (await fetch(base + 'reference.svg', { cache: 'no-store' })).text();
+  const svg = await compareSVG(out.svg, expectedSvg);
   assert(`SVG export matches reference.svg structurally (${svg.elements} elements, ${svg.images} embedded images)`, svg.elements > 20 && svg.images >= 4);
+  const exact = renumberFabricIds(out.svg), stored = renumberFabricIds(expectedSvg);
+  let at = 0; while (at < exact.length && exact[at] === stored[at]) at++;
+  assert(exact === stored ? `SVG export is byte-identical to reference.svg (${exact.length} bytes, Fabric clip-path ids renumbered)`
+    : `SVG export differs from reference.svg at byte ${at}: "${exact.slice(Math.max(0, at - 40), at + 40)}" expected "${stored.slice(Math.max(0, at - 40), at + 40)}"`, exact === stored);
 
   const actualTif = decodeTiffRGBA(out.tif), expectedTif = decodeTiffRGBA(await referenceBytes(base + 'reference.tif'));
   assert('TIFF export has the reference size', actualTif.width === expectedTif.width && actualTif.height === expectedTif.height);
