@@ -22,10 +22,14 @@
  */
 
 import { pushHistory } from './core/history.js';
-import { pageBounds, pageCount, sendPagesToBack } from './core/pages.js';
 import { canvas, currentTool, documentOpen, isHelper, registry, setCanvas, setCurrentTool, takeId } from './core/state.js';
 import { setZoom, zoomAnchor, zoomLevel } from './core/zoom.js';
 import { refreshChannelPanel } from './image/channels.js';
+import { align } from './layout/align.js';
+import { snapObjectPosition } from './layout/snap.js';
+import { refreshLayersPanel } from './ui/layers.js';
+import { applyLockState, isTransformLocked, refuseLocked } from './ui/locks.js';
+import { onSelectionChanged, refreshSelectionBar, selectedObjects } from './ui/selection-bar.js';
 
   fabric.Object.NUM_FRACTION_DIGITS = 8;
 
@@ -145,248 +149,6 @@ import { refreshChannelPanel } from './image/channels.js';
     pushHistory();
   }
 
-  function onSelectionChanged() {
-    const activeObject=canvas.getActiveObject();
-    canvas.getObjects().filter(object=>object.__mfcNodeEdit&&object!==activeObject).forEach(path=>{
-      path.__mfcNodeEdit=false;path.controls=path.__mfcStandardControls||fabric.Object.prototype.controls;
-      path.hasBorders=true;applyLockState(path);path.setCoords();
-    });
-    applySelectionLock();
-    refreshChannelPanel();
-    refreshSelectionBar();
-    refreshTextPanel();
-    refreshScaleBarRefList();
-    refreshScaleBarPanel();
-    refreshScaleBarPreview();
-    refreshShapePanel();
-    refreshPathPanel();
-    refreshInsetPanel();
-    refreshLayersPanel();
-    MFC_UI.focusSelection(activeObject, currentTool);
-  }
-
-  // ---- locks ----
-  // Layer lock (mfcLocked) blocks everything: the object is not selectable, not
-  // targetable by the mouse, and not editable. Position/size lock (mfcPositionLocked)
-  // keeps the object selectable and editable (channels, colors, text, styles) but
-  // blocks moving, scaling, rotating and skewing. Every code path derives Fabric's
-  // flags from these two properties through applyLockState, including tool switches,
-  // project loading, undo/redo and paste.
-  export function isTransformLocked(o) {
-    if (!o) return false;
-    if (o.type === 'activeSelection') return o.getObjects().some(isTransformLocked);
-    return !!(o.mfcLocked || o.mfcPositionLocked);
-  }
-  function selectionToolActive() { return currentTool === 'select' || currentTool === 'scalebar'; }
-  export function applyLockState(o) {
-    if (!o || isHelper(o)) return;
-    const full = !!o.mfcLocked, fixed = full || !!o.mfcPositionLocked;
-    const move = fixed || !!o.__mfcNodeEdit;
-    o.set({ lockMovementX: move, lockMovementY: move, lockScalingX: fixed, lockScalingY: fixed,
-      lockRotation: fixed, lockSkewingX: fixed, lockSkewingY: fixed, hasControls: !fixed || !!o.__mfcNodeEdit });
-    o.selectable = !full && selectionToolActive();
-    o.evented = !full;
-    if (o.type === 'textbox') o.editable = !full;
-    o.hoverCursor = fixed ? 'pointer' : null;
-  }
-  /** A multi-selection containing any locked object cannot be dragged, scaled or rotated as a whole. */
-  function applySelectionLock() {
-    const active = canvas.getActiveObject();
-    if (!active || active.type !== 'activeSelection') return;
-    const fixed = isTransformLocked(active);
-    active.set({ lockMovementX: fixed, lockMovementY: fixed, lockScalingX: fixed, lockScalingY: fixed,
-      lockRotation: fixed, lockSkewingX: fixed, lockSkewingY: fixed, hasControls: !fixed });
-  }
-  function refuseLocked(o, what = 'moved, resized or rotated') {
-    if (!isTransformLocked(o)) return false;
-    MFC_UI.toast('Position/size is locked — unlock it to have it ' + what + '.');
-    return true;
-  }
-  export function setPositionLock(o, locked) {
-    if (locked && o.__mfcNodeEdit) exitPathEdit(o);
-    o.mfcPositionLocked = !!locked;
-    applyLockState(o);
-  }
-  export function togglePositionLockSelection() {
-    const objs = canvas.getActiveObjects();
-    if (!objs.length) return;
-    const lock = !objs.every(o => o.mfcPositionLocked);
-    objs.forEach(o => setPositionLock(o, lock));
-    applySelectionLock();
-    canvas.requestRenderAll();
-    refreshSelectionBar(); refreshLayersPanel();
-    pushHistory();
-  }
-
-  // ---- selection bar (contextual sub-bar under the top bar): position, size, rotation,
-  // position lock and alignment for whatever is selected. Its height never changes. ----
-  /** Width/height a user means by "size": the box itself for text boxes and inset outlines (no stroke), the drawn extent otherwise. */
-  function objectSize(o) {
-    if (o.type === 'textbox' || o.mfcType === 'insetContour')
-      return { width: o.width * Math.abs(o.scaleX || 1), height: o.height * Math.abs(o.scaleY || 1) };
-    return { width: o.getScaledWidth(), height: o.getScaledHeight() };
-  }
-  function setFieldValue(id, value, disabled) {
-    const el = document.getElementById(id);
-    if (document.activeElement !== el) el.value = value;
-    el.disabled = !!disabled;
-  }
-  export function refreshSelectionBar() {
-    const label = document.getElementById('sel-label');
-    if (!label) return;
-    const active = canvas.getActiveObject();
-    const transform = document.getElementById('sel-transform'), alignGroup = document.getElementById('sel-align');
-    const note = document.getElementById('sel-lock-note');
-    const objs = canvas.getActiveObjects();
-    if (!active || active === cropRect) {
-      label.textContent = active && active === cropRect ? 'Crop region — use the Crop panel' : 'Nothing selected';
-      transform.classList.add('hidden'); alignGroup.classList.add('hidden'); note.classList.add('hidden');
-      return;
-    }
-    const multi = active.type === 'activeSelection';
-    const locked = isTransformLocked(active);
-    label.textContent = multi ? objs.length + ' objects selected' : layerLabel(active);
-    label.title = label.textContent;
-    transform.classList.remove('hidden');
-    alignGroup.classList.toggle('hidden', objs.length < 2);
-    const box = active.getBoundingRect(true, true), size = multi ? box : objectSize(active);
-    setFieldValue('obj-x', Math.round(box.left), locked);
-    setFieldValue('obj-y', Math.round(box.top), locked);
-    setFieldValue('obj-width', Math.round(size.width), locked || multi);
-    setFieldValue('obj-height', Math.round(size.height), locked || multi);
-    setFieldValue('obj-angle', multi ? '' : Math.round(active.angle || 0), locked || multi);
-    document.getElementById('obj-lock-aspect').disabled = locked || multi || active.type === 'textbox';
-    document.getElementById('obj-rotate-ccw').disabled = locked || multi;
-    document.getElementById('obj-rotate-cw').disabled = locked || multi;
-    const allPositionLocked = objs.length > 0 && objs.every(o => o.mfcPositionLocked);
-    const lockBtn = document.getElementById('obj-position-lock');
-    lockBtn.classList.toggle('active', allPositionLocked);
-    lockBtn.setAttribute('aria-pressed', String(allPositionLocked));
-    lockBtn.innerHTML = (allPositionLocked ? LAYER_ICONS.lock : LAYER_ICONS.unlock) + (allPositionLocked ? ' Position locked' : ' Lock position');
-    note.classList.toggle('hidden', !locked || allPositionLocked);
-    note.textContent = locked ? 'Contains position-locked objects' : '';
-    document.getElementById('obj-release-clip').classList.toggle('hidden', multi || !active.clipPath);
-    document.getElementById('obj-release-clip').disabled = locked;
-    document.getElementById('btn-crop-shape').classList.toggle('hidden', !cropToShapePair());
-    const uncropBtn = document.getElementById('obj-uncrop');
-    uncropBtn.classList.toggle('hidden', multi || !isCropped(active));
-    uncropBtn.disabled = locked;
-  }
-  // Kept for callers/tests written against the former right-hand size panel.
-  export const refreshObjectSizePanel = refreshSelectionBar;
-
-  /** Whether an image currently has an active (non-full-frame) crop applied. */
-  function isCropped(img) {
-    if (!img || img.mfcType !== 'mfcImage') return false;
-    const entry = registry[img.mfcId];
-    if (!entry) return false;
-    const fullW = Math.max(1, Math.round(entry.rawImage.width * entry.workingScale));
-    const fullH = Math.max(1, Math.round(entry.rawImage.height * entry.workingScale));
-    return (img.cropX || 0) > 0.01 || (img.cropY || 0) > 0.01 ||
-           Math.abs((img.width || 0) - fullW) > 0.5 || Math.abs((img.height || 0) - fullH) > 0.5;
-  }
-
-  /**
-   * Restores an image to its full, uncropped frame. Registry entries are never purged
-   * when an image is cropped, so the original full-resolution data is always still
-   * there — "uncrop" is just resetting the crop window back to the whole thing. Keeps
-   * the currently-visible crop content anchored at the same screen position (rather
-   * than jumping) by shifting left/top back by the crop offset as the frame expands.
-   */
-  export function uncropImage(img) {
-    if (!isCropped(img) || refuseLocked(img, 'resized')) return;
-    const entry = registry[img.mfcId];
-    const fullW = Math.max(1, Math.round(entry.rawImage.width * entry.workingScale));
-    const fullH = Math.max(1, Math.round(entry.rawImage.height * entry.workingScale));
-    const cx = img.cropX || 0, cy = img.cropY || 0;
-    const before = { cropX: cx, cropY: cy, width: img.width, height: img.height };
-    img.set({
-      left: img.left - cx * img.scaleX,
-      top: img.top - cy * img.scaleY,
-      cropX: 0, cropY: 0,
-      width: fullW, height: fullH
-    });
-    keepClipOnContent(img, before);
-    img.setCoords();
-    canvas.requestRenderAll();
-    canvas.fire('object:modified', { target: img });
-    updateScaleBarsForImage(img);
-    followSourceImage(img);
-    refreshSelectionBar();
-  }
-
-  /** Rotate the selected object by a relative amount (e.g. ±90°), wrapped to 0-359. */
-  export function rotateSelected(deltaDeg) {
-    const active = canvas.getActiveObject();
-    if (!active || active.type === 'activeSelection' || refuseLocked(active, 'rotated')) return;
-    let a = ((active.angle || 0) + deltaDeg) % 360;
-    if (a < 0) a += 360;
-    const center = active.getCenterPoint();
-    active.set('angle', a);
-    active.setPositionByOrigin(center, 'center', 'center');
-    active.setCoords();
-    canvas.requestRenderAll();
-    if (active.mfcType === 'mfcImage') syncAttachments(active);
-    canvas.fire('object:modified', { target: active });
-  }
-
-  export function setObjectAngle(deg) {
-    const active = canvas.getActiveObject();
-    if (!active || active.type === 'activeSelection' || refuseLocked(active, 'rotated')) { refreshSelectionBar(); return; }
-    const center = active.getCenterPoint();
-    active.set('angle', ((deg % 360) + 360) % 360);
-    active.setPositionByOrigin(center, 'center', 'center');
-    active.setCoords();
-    canvas.requestRenderAll();
-    if (active.mfcType === 'mfcImage') syncAttachments(active);
-    canvas.fire('object:modified', { target: active });
-  }
-
-  /** W/H fields: text boxes resize their box only (font size untouched); everything else is scaled. */
-  export function applyObjectSizeFromFields(changed = 'width') {
-    const active = canvas.getActiveObject();
-    if (!active || active.type === 'activeSelection') return;
-    if (refuseLocked(active, 'resized')) { refreshSelectionBar(); return; }
-    const w = parseFloat(document.getElementById('obj-width').value);
-    const h = parseFloat(document.getElementById('obj-height').value);
-    if (!(w > 0) || !(h > 0)) { refreshSelectionBar(); return; }
-    if (active.type === 'textbox') { applyTextBoxSize(changed, changed === 'height' ? h : w); return; }
-
-    const current = objectSize(active);
-    let targetW = w, targetH = h;
-    if (document.getElementById('obj-lock-aspect').checked) {
-      const ratio = current.width / current.height;
-      if (changed === 'height') targetW = h * ratio; else targetH = w / ratio;
-    }
-    // Keep the top-left of the bounding box where it was.
-    const before = active.getBoundingRect(true, true);
-    active.set({ scaleX: active.scaleX * targetW / current.width, scaleY: active.scaleY * targetH / current.height });
-    active.setCoords();
-    const after = active.getBoundingRect(true, true);
-    active.set({ left: active.left + before.left - after.left, top: active.top + before.top - after.top });
-    active.setCoords();
-    if (active.mfcType === 'insetContour') syncInsetFromContour(active);
-    if (active.mfcType === 'mfcImage') syncAttachments(active);
-    canvas.requestRenderAll();
-    canvas.fire('object:modified', { target: active });
-  }
-
-  /** X/Y fields move the selection's bounding box to the typed document coordinates. */
-  export function applyObjectPositionFromFields() {
-    const active = canvas.getActiveObject();
-    if (!active) return;
-    if (refuseLocked(active, 'moved')) { refreshSelectionBar(); return; }
-    const x = parseFloat(document.getElementById('obj-x').value), y = parseFloat(document.getElementById('obj-y').value);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) { refreshSelectionBar(); return; }
-    const box = active.getBoundingRect(true, true);
-    active.set({ left: active.left + x - box.left, top: active.top + y - box.top });
-    active.setCoords();
-    const moved = active.type === 'activeSelection' ? active.getObjects() : [active];
-    moved.forEach(o => { if (o.mfcType === 'mfcImage') syncAttachments(o); if (o.mfcType === 'insetContour') syncInsetFromContour(o); });
-    canvas.requestRenderAll();
-    canvas.fire('object:modified', { target: active });
-  }
-
   // ---- text panel (re-populates whenever a text box is selected/reselected) ----
   export function refreshTextPanel() {
     const panel = document.getElementById('panel-text');
@@ -474,7 +236,7 @@ import { refreshChannelPanel } from './image/channels.js';
   }
 
   // ---- crop tool ----
-  let cropRect = null, cropTargetImg = null, cropAspectMode = 'rect'; // 'rect' | 'square'
+  export let cropRect = null, cropTargetImg = null, cropAspectMode = 'rect'; // 'rect' | 'square'
   let shapeAspectMode = 'rect'; // 'rect' | 'square' — used by the shape tool
 
   function startCrop() {
@@ -691,13 +453,6 @@ import { refreshChannelPanel } from './image/channels.js';
         ctx.restore();
       }
     };
-  }
-
-  /** Selected objects matching pred: the active object itself, or the matching members of a multi-selection. */
-  export function selectedObjects(pred = () => true) {
-    const active = canvas && canvas.getActiveObject();
-    if (!active) return [];
-    return (active.type === 'activeSelection' ? active.getObjects() : [active]).filter(pred);
   }
 
   /** Every currently-selected text box — a single directly-selected one, or all text boxes within a multi-selection (non-textbox objects in a mixed selection are simply skipped). */
@@ -1018,7 +773,7 @@ import { refreshChannelPanel } from './image/channels.js';
     el.classList.add('active');
   }
 
-  function syncInsetFromContour(contour) {
+  export function syncInsetFromContour(contour) {
     const src = canvas.getObjects().find(o => o.mfcId === contour.mfcInsetSourceId);
     if (!src) return;
     const { left, top, right, bottom } = contourSourceRegion(contour, src);
@@ -1040,7 +795,7 @@ import { refreshChannelPanel } from './image/channels.js';
     canvas.requestRenderAll();
   }
 
-  function followSourceImage(src) {
+  export function followSourceImage(src) {
     const matrix = src.calcTransformMatrix();
     const d = fabric.util.qrDecompose(matrix);
     canvas.getObjects().filter(o => o.mfcType === 'insetContour' &&
@@ -1057,7 +812,7 @@ import { refreshChannelPanel } from './image/channels.js';
     canvas.requestRenderAll();
   }
 
-  function syncAttachments(img) {
+  export function syncAttachments(img) {
     updateScaleBarsForImage(img);
     followSourceImage(img);
   }
@@ -2166,245 +1921,6 @@ import { refreshChannelPanel } from './image/channels.js';
     canvas.requestRenderAll();
   }
 
-  // ---- snapping (drag-to-edges) ----
-  const SNAP_THRESHOLD_SCREEN_PX = 8; // in on-screen px, so it feels consistent at any zoom
-
-  /** Collects candidate x/y snap lines (edges + center) from the document bounds and every other object. */
-  function getSnapTargets(excludeObj) {
-    const targets = [];
-    for (let i = 0; i < pageCount(); i++) {
-      const p = pageBounds(i);
-      targets.push({ x: [p.left, p.left + p.width / 2, p.left + p.width], y: [p.top, p.top + p.height / 2, p.top + p.height] });
-    }
-    const excludedChildren = excludeObj.type === 'activeSelection' ? excludeObj.getObjects() : [];
-    canvas.getObjects().forEach(o => {
-      if (o === excludeObj || o === cropRect || isHelper(o) || excludedChildren.includes(o)) return;
-      const b = o.getBoundingRect(true);
-      targets.push({ x: [b.left, b.left + b.width / 2, b.left + b.width], y: [b.top, b.top + b.height / 2, b.top + b.height] });
-    });
-    return targets;
-  }
-
-  /** Nudges obj.left/top (in place) to align with the nearest snap target within threshold, if any. */
-  function snapObjectPosition(obj) {
-    const b = obj.getBoundingRect(true);
-    const threshold = SNAP_THRESHOLD_SCREEN_PX / zoomLevel;
-    const targets = getSnapTargets(obj);
-    const selfXs = [b.left, b.left + b.width / 2, b.left + b.width];
-    const selfYs = [b.top, b.top + b.height / 2, b.top + b.height];
-
-    let bestDx = null, bestDy = null;
-    targets.forEach(t => {
-      selfXs.forEach(sx => t.x.forEach(tx => {
-        const d = tx - sx;
-        if (Math.abs(d) <= threshold && (bestDx === null || Math.abs(d) < Math.abs(bestDx))) bestDx = d;
-      }));
-      selfYs.forEach(sy => t.y.forEach(ty => {
-        const d = ty - sy;
-        if (Math.abs(d) <= threshold && (bestDy === null || Math.abs(d) < Math.abs(bestDy))) bestDy = d;
-      }));
-    });
-
-    if (bestDx !== null) obj.left += bestDx;
-    if (bestDy !== null) obj.top += bestDy;
-    if (bestDx !== null || bestDy !== null) obj.setCoords();
-  }
-
-  // ---- keyboard nudge ----
-  const NUDGE_SMALL = 1;   // doc px
-  const NUDGE_LARGE = 10;  // doc px, with Shift held
-  let nudgeHistoryTimer = null;
-
-  /** Moves the current selection by (dx,dy) doc-px — works for images/text/shapes/groups/multi-selection alike, since they all expose the same left/top. Snaps to nearby edges unless snap=false. Debounces the history push so holding an arrow key doesn't spam undo steps. */
-  export function nudgeSelection(dx, dy, snap) {
-    const active = canvas.getActiveObject();
-    if (!active || active === cropRect || refuseLocked(active, 'moved')) return;
-    active.set({ left: active.left + dx, top: active.top + dy });
-    // Keyboard steps must pass through snap lines; snapping a 1px nudge can
-    // otherwise cancel the same movement forever. Mouse dragging still snaps.
-    if (snap && (Math.abs(dx) > SNAP_THRESHOLD_SCREEN_PX || Math.abs(dy) > SNAP_THRESHOLD_SCREEN_PX)) snapObjectPosition(active);
-    active.setCoords();
-
-    if (active.mfcType === 'mfcImage') syncAttachments(active);
-    if (active.type === 'activeSelection') {
-      active.getObjects().forEach(o => { if (o.mfcType === 'mfcImage') syncAttachments(o); });
-    }
-    if (active.mfcType === 'insetContour') syncInsetFromContour(active);
-    canvas.requestRenderAll();
-    refreshSelectionBar();
-
-    clearTimeout(nudgeHistoryTimer);
-    nudgeHistoryTimer = setTimeout(() => pushHistory(), 300);
-  }
-
-  // ---- layers panel ----
-  function layerLabel(o) {
-    const base = baseLayerLabel(o);
-    return o.clipPath ? base + ' · cropped to shape' : base;
-  }
-  function baseLayerLabel(o) {
-    if (o.mfcType === 'mfcImage') {
-      const name = o.mfcFileName || 'Image';
-      return name + (o.mfcIsInset && !/\(inset\)$/.test(name) ? ' (inset)' : '');
-    }
-    if (o.type === 'textbox') {
-      const t = (o.text || '').replace(/\n/g, ' ').trim();
-      return 'Text: "' + (t.length > 18 ? t.slice(0, 18) + '…' : t || '(empty)') + '"';
-    }
-    if (o.mfcType === 'shape') return o.mfcShapeKind === 'path' ? 'Path' : (o.mfcShapeKind ? o.mfcShapeKind[0].toUpperCase() + o.mfcShapeKind.slice(1) : 'Shape');
-    if (o.mfcType === 'scalebar') { const um = scaleBarProps(o).lengthUm; return 'Scale bar' + (um != null ? ' · ' + um + ' µm' : ''); }
-    if (o.mfcType === 'insetContour') return 'Inset outline';
-    if (o.type === 'group') return 'Group';
-    return o.type ? (o.type[0].toUpperCase() + o.type.slice(1)) : 'Object';
-  }
-
-  const LAYER_ICONS = {
-    eye: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>',
-    eyeOff: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.9 17.9A10 10 0 0 1 12 19c-7 0-11-7-11-7a18.5 18.5 0 0 1 5.1-5.9"/><path d="M9.9 4.2A9 9 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.2 3.2"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
-    lock: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
-    unlock: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>',
-    position: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/><circle cx="12" cy="12" r="4"/></svg>'
-  };
-  export function layerObjects() { return canvas.getObjects().filter(o => !isHelper(o)); }
-
-  export function refreshLayersPanel() {
-    const listEl = document.getElementById('layers-list');
-    if (!listEl) return;
-    const objs = layerObjects();
-    const activeIds = new Set((canvas.getActiveObjects ? canvas.getActiveObjects() : []).map(o => o.mfcId));
-    const scrollTop = listEl.scrollTop;
-
-    if (!objs.length) {
-      listEl.innerHTML = '<p class="hint">No objects on the canvas yet.</p>';
-      return;
-    }
-
-    // Top of the list = front-most (matches the usual layers-panel convention), so
-    // reverse the canvas's back-to-front stacking order for display.
-    listEl.innerHTML = '';
-    for (let i = objs.length - 1; i >= 0; i--) {
-      const o = objs[i];
-      const hidden = o.visible === false, locked = !!o.mfcLocked, fixed = !!o.mfcPositionLocked;
-      const row = document.createElement('div');
-      row.className = 'layer-row' + (activeIds.has(o.mfcId) ? ' active' : '') + (hidden ? ' layer-hidden' : '') + (locked ? ' layer-locked' : '');
-      row.innerHTML = `
-        <button class="layer-eye layer-icon ${hidden ? 'off' : ''}" data-state="${hidden ? 'hidden' : 'visible'}" aria-pressed="${hidden}" title="${hidden ? 'Hidden — click to show' : 'Visible — click to hide'}">${hidden ? LAYER_ICONS.eyeOff : LAYER_ICONS.eye}</button>
-        <button class="layer-lock layer-icon ${locked ? 'on' : 'off'}" data-state="${locked ? 'locked' : 'unlocked'}" aria-pressed="${locked}" title="${locked ? 'Layer locked (nothing can be changed) — click to unlock' : 'Lock layer (blocks selecting, moving and editing)'}">${locked ? LAYER_ICONS.lock : LAYER_ICONS.unlock}</button>
-        <button class="layer-position-lock layer-icon ${fixed ? 'on' : 'off'}" data-state="${fixed ? 'locked' : 'unlocked'}" aria-pressed="${fixed}" title="${fixed ? 'Position/size locked — click to unlock' : 'Lock position and size (channels and styles stay editable)'}">${LAYER_ICONS.position}</button>
-        <span class="layer-name"></span>
-        <button class="layer-up" title="Move forward">&#9650;</button>
-        <button class="layer-down" title="Move backward">&#9660;</button>
-      `;
-      const name = row.querySelector('.layer-name');
-      name.textContent = layerLabel(o); name.title = layerLabel(o);
-      name.addEventListener('click', () => selectLayer(o));
-      row.querySelector('.layer-eye').addEventListener('click', (e) => { e.stopPropagation(); toggleLayerVisibility(o); });
-      row.querySelector('.layer-lock').addEventListener('click', (e) => { e.stopPropagation(); toggleLayerLock(o); });
-      row.querySelector('.layer-position-lock').addEventListener('click', (e) => { e.stopPropagation(); toggleLayerPositionLock(o); });
-      row.querySelector('.layer-up').addEventListener('click', (e) => { e.stopPropagation(); moveLayer(o, 'up'); });
-      row.querySelector('.layer-down').addEventListener('click', (e) => { e.stopPropagation(); moveLayer(o, 'down'); });
-      listEl.appendChild(row);
-    }
-    listEl.scrollTop = scrollTop;
-  }
-
-  function selectLayer(o) {
-    if (o.mfcLocked) { MFC_UI.toast('This layer is locked — unlock it first to select it.'); return; }
-    if (o.visible === false) { MFC_UI.toast('This layer is hidden — show it first to select it.'); return; }
-    canvas.discardActiveObject();
-    canvas.setActiveObject(o);
-    canvas.requestRenderAll();
-  }
-
-  /** Drops o from the current selection (if it is part of it) — used before hiding or locking it. */
-  function releaseFromSelection(o) {
-    if (o.isEditing) o.exitEditing();
-    if (canvas.getActiveObjects().includes(o)) canvas.discardActiveObject();
-  }
-
-  export function toggleLayerVisibility(o) {
-    o.visible = o.visible === false;
-    if (!o.visible) releaseFromSelection(o);
-    canvas.requestRenderAll();
-    pushHistory();
-    refreshLayersPanel();
-  }
-
-  export function setAllLayersVisible(visible) {
-    const objs = layerObjects();
-    if (!objs.length) return;
-    if (!visible) canvas.discardActiveObject();
-    objs.forEach(o => { o.visible = visible; });
-    canvas.requestRenderAll();
-    pushHistory();
-    refreshLayersPanel();
-  }
-
-  export function toggleLayerLock(o) {
-    o.mfcLocked = !o.mfcLocked;
-    if (o.mfcLocked) releaseFromSelection(o);
-    applyLockState(o);
-    canvas.requestRenderAll();
-    pushHistory();
-    refreshLayersPanel();
-  }
-
-  export function toggleLayerPositionLock(o) {
-    setPositionLock(o, !o.mfcPositionLocked);
-    applySelectionLock();
-    canvas.requestRenderAll();
-    pushHistory();
-    refreshLayersPanel();
-    refreshSelectionBar();
-  }
-
-  /** direction: 'up' (toward front, one step) or 'down' (toward back, one step). */
-  function moveLayer(o, direction) {
-    if (direction === 'up') canvas.bringForward(o);
-    else canvas.sendBackwards(o);
-    sendPagesToBack(); // the page backgrounds must always stay behind everything
-    canvas.requestRenderAll();
-    pushHistory();
-    refreshLayersPanel();
-  }
-
-  /**
-   * Bundles the current multi-selection into a real, persistent fabric.Group (Ctrl+G).
-   * Note: while grouped, the individual images/text/shapes inside are no longer top-level
-   * canvas objects, so their type-specific panels (Channels, Text, Scale Bar reference
-   * list, Inset tool) can't reach them — same as every other design tool, ungroup
-   * (Ctrl+Shift+G) first to edit an object's own properties.
-   */
-  export function groupSelection() {
-    const active = canvas.getActiveObject();
-    if (!active || active.type !== 'activeSelection' || active.size() < 2) {
-      MFC_UI.toast('Select 2 or more objects to group.');
-      return;
-    }
-    // A group can be moved as a whole, which would carry position-locked members with it.
-    if (refuseLocked(active, 'grouped')) return;
-    const group = active.toGroup(); // Fabric's own, well-tested ActiveSelection -> Group conversion
-    group.mfcId = 'grp' + takeId();
-    group.mfcType = 'group';
-    group.set({ cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff' });
-    canvas.requestRenderAll();
-    pushHistory();
-    refreshLayersPanel();
-  }
-
-  /** Inverse of groupSelection (Ctrl+Shift+G) — dissolves the group and re-selects its former children as a normal multi-selection. Each child's own mfcId/mfcType/channel-registry linkage is untouched by this, since Fabric's toActiveSelection() only reparents objects, never rewrites their properties. */
-  export function ungroupSelection() {
-    const active = canvas.getActiveObject();
-    if (!active || active.type !== 'group') {
-      MFC_UI.toast('Select a group to ungroup.');
-      return;
-    }
-    active.toActiveSelection();
-    canvas.requestRenderAll();
-    pushHistory();
-    refreshLayersPanel();
-  }
-
   // ---- crop to shape: a closed shape becomes the clip path of an image (or any other
   // object). The clip is stored in the object's own coordinates, so it moves, scales and
   // rotates with it, and SVG/PDF export keep it as a vector clipping path. ----
@@ -2494,60 +2010,12 @@ import { refreshChannelPanel } from './image/channels.js';
   }
 
   /** Image crops move the image's local origin; shift its clip so it stays on the same pixels. */
-  function keepClipOnContent(img, before) {
+  export function keepClipOnContent(img, before) {
     if (!img.clipPath) return;
     img.clipPath.set({ left: img.clipPath.left + (before.cropX + before.width / 2) - ((img.cropX || 0) + img.width / 2),
       top: img.clipPath.top + (before.cropY + before.height / 2) - ((img.cropY || 0) + img.height / 2) });
     img.clipPath.setCoords();
     img.dirty = true;
-  }
-
-  // ---- alignment ----
-  export function align(mode) {
-    const objs = canvas.getActiveObjects();
-    if (objs.length < 2) return;
-    const bounds = objs.map(o => o.getBoundingRect(true));
-    const minX = Math.min(...bounds.map(b => b.left));
-    const maxX = Math.max(...bounds.map(b => b.left + b.width));
-    const minY = Math.min(...bounds.map(b => b.top));
-    const maxY = Math.max(...bounds.map(b => b.top + b.height));
-
-    // Locked objects still count as alignment references but are never moved.
-    objs.forEach((o, i) => {
-      const b = bounds[i];
-      if (isTransformLocked(o)) return;
-      switch (mode) {
-        case 'left': o.left += (minX - b.left); break;
-        case 'right': o.left += (maxX - (b.left + b.width)); break;
-        case 'hcenter': o.left += ((minX + maxX) / 2 - (b.left + b.width / 2)); break;
-        case 'top': o.top += (minY - b.top); break;
-        case 'bottom': o.top += (maxY - (b.top + b.height)); break;
-        case 'vcenter': o.top += ((minY + maxY) / 2 - (b.top + b.height / 2)); break;
-      }
-      o.setCoords();
-    });
-
-    if (mode === 'distH' && objs.length > 2) {
-      const sorted = objs.map((o, i) => ({ o, b: bounds[i] })).sort((a, b) => a.b.left - b.b.left);
-      const totalSpan = (sorted[sorted.length - 1].b.left + sorted[sorted.length - 1].b.width) - sorted[0].b.left;
-      const totalW = sorted.reduce((s, x) => s + x.b.width, 0);
-      const gap = (totalSpan - totalW) / (sorted.length - 1);
-      let cursor = sorted[0].b.left;
-      sorted.forEach(({ o, b }) => { if (!isTransformLocked(o)) { o.left += (cursor - b.left); o.setCoords(); } cursor += b.width + gap; });
-    }
-    if (mode === 'distV' && objs.length > 2) {
-      const sorted = objs.map((o, i) => ({ o, b: bounds[i] })).sort((a, b) => a.b.top - b.b.top);
-      const totalSpan = (sorted[sorted.length - 1].b.top + sorted[sorted.length - 1].b.height) - sorted[0].b.top;
-      const totalH = sorted.reduce((s, x) => s + x.b.height, 0);
-      const gap = (totalSpan - totalH) / (sorted.length - 1);
-      let cursor = sorted[0].b.top;
-      sorted.forEach(({ o, b }) => { if (!isTransformLocked(o)) { o.top += (cursor - b.top); o.setCoords(); } cursor += b.height + gap; });
-    }
-
-    objs.forEach(o => { if (o.mfcType === 'mfcImage') syncAttachments(o); });
-    canvas.requestRenderAll();
-    refreshSelectionBar();
-    pushHistory();
   }
 
   // Clipboard snapshots share immutable sources but restore independent view settings.
@@ -2578,67 +2046,6 @@ import { refreshChannelPanel } from './image/channels.js';
     canvas.requestRenderAll(); pushHistory(); refreshChannelPanel(); refreshScaleBarRefList();
   }
   export async function duplicateSelection() { copySelection(); await pasteSelection(); }
-
-  // ---- grid layout assistant ----
-  /**
-   * Arranges images (the current multi-selection if 2+ are selected, otherwise every
-   * image on the canvas) into a rows x cols grid, each fit-to-cell preserving aspect
-   * ratio, with optional placeholder text boxes as column headers (above) and row
-   * labels (to the left) for figure panels like "DAPI / GFP / Merge" x "Condition A/B/C".
-   */
-  export function arrangeGrid(opts) {
-    const { rows, cols, cellW, cellH, gap, headerRow, headerCol } = opts;
-    let imgs = canvas.getActiveObjects().filter(o => o.mfcType === 'mfcImage');
-    if (imgs.length < 2) imgs = canvas.getObjects().filter(o => o.mfcType === 'mfcImage');
-    const lockedCount = imgs.filter(isTransformLocked).length;
-    imgs = imgs.filter(o => !isTransformLocked(o));
-    if (lockedCount) MFC_UI.toast(lockedCount + ' locked image(s) were left in place.');
-    if (!imgs.length) { MFC_UI.toast('No unlocked images to arrange — import, select or unlock some first.'); return; }
-
-    const headerRowH = headerRow ? 44 : 0;
-    const headerColW = headerCol ? 120 : 0;
-    const originX = 40 + headerColW;
-    const originY = 40 + headerRowH;
-
-    imgs.forEach((img, idx) => {
-      if (idx >= rows * cols) return;
-      const r = Math.floor(idx / cols), c = idx % cols;
-      const s = Math.min(cellW / img.width, cellH / img.height);
-      img.set({
-        scaleX: s, scaleY: s, angle: 0,
-        left: originX + c * (cellW + gap) + (cellW - img.width * s) / 2,
-        top: originY + r * (cellH + gap) + (cellH - img.height * s) / 2
-      });
-      img.setCoords();
-      updateScaleBarsForImage(img);
-      followSourceImage(img);
-    });
-
-    if (headerRow) {
-      for (let c = 0; c < cols; c++) {
-        const t = new fabric.Textbox('Label', {
-          left: originX + c * (cellW + gap), top: originY - headerRowH, width: cellW,
-          fontSize: 18, textAlign: 'center', fontFamily: 'Liberation Sans', fill: '#000000'
-        });
-        t.mfcId = 'txt' + takeId(); t.mfcType = 'text';
-        attachTextListeners(t);
-        canvas.add(t);
-      }
-    }
-    if (headerCol) {
-      for (let r = 0; r < rows; r++) {
-        const t = new fabric.Textbox('Label', {
-          left: 40, top: originY + r * (cellH + gap) + cellH / 2 - 12, width: headerColW - 12,
-          fontSize: 18, textAlign: 'right', fontFamily: 'Liberation Sans', fill: '#000000'
-        });
-        t.mfcId = 'txt' + takeId(); t.mfcType = 'text';
-        attachTextListeners(t);
-        canvas.add(t);
-      }
-    }
-    canvas.requestRenderAll();
-    pushHistory();
-  }
 
   // ---- tool switching ----
   export function setTool(tool) {

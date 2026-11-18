@@ -9,7 +9,7 @@
 - **GitHub Actions:** the tests run on every push and pull request, and `main` deploys to GitHub Pages.
 - **ES modules (P1-T3, in progress):**
   - The editor now loads from one module entry, `js/app.js`, which publishes the same `window.MFC` API as before.
-  - So far, these have moved out of `canvas-app.js`: the shared state, undo history, pages and zoom (`js/core/`), and image import and the channel panel (`js/image/`).
+  - So far, these have moved out of `canvas-app.js`: the shared state, undo history, pages and zoom (`js/core/`); image import and the channel panel (`js/image/`); align, grid and snapping (`js/layout/`); and the layers panel, selection bar and locks (`js/ui/`).
   - The app must be served over HTTP, as the README already says. Opening `index.html` directly from disk (`file://`) no longer works, because browsers do not load modules from `file://`.
 - **New tests:**
   - `module-api-regression` checks that `MFC` keeps exactly its 121 names and that no global name appears or disappears.
