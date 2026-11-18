@@ -4,6 +4,8 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+- **Recovery drafts no longer miss a change.** When a draft was requested while the background draft save was still running (every 15 s), the request was skipped. Creating a new figure or restoring a version could then replace the figure without a draft of your latest changes. Draft saves now wait for each other, and the latest state is always saved. This also caused an occasional test failure on GitHub.
+
 ### Development
 
 - **One version number.** The version is written only in `js/core/state.js` (`MFC_VERSION`). The new `npm run release` script (`scripts/release.mjs`) copies it into the `?v=` cache-busting strings of `index.html`, `package.json` and `package-lock.json`, and dates this changelog's "Unreleased" notes. `npm test` fails if any copy differs, and names the file and line.

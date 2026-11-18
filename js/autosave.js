@@ -6,7 +6,7 @@
 const MFC_AUTOSAVE = (() => {
   const testId = new URLSearchParams(location.search).get('test');
   const DB_NAME = 'FluoForge-recovery-v1' + (testId ? '-test-' + testId.replace(/[^\w-]/g, '') : ''), LIMIT = 8;
-  let dbPromise, timer, running = false, offering = false, lastFingerprint = '', lastProjectId = null, initialized = false;
+  let dbPromise, timer, queue = Promise.resolve(), offering = false, lastFingerprint = '', lastProjectId = null, initialized = false;
   let persistRequested = false, warnedFull = false;
   const isQuotaError = error => !!error && (error.name === 'QuotaExceededError' || /quota/i.test(error.message || ''));
   function storageError(error) {
@@ -74,9 +74,16 @@ const MFC_AUTOSAVE = (() => {
     }
     await done;
   }
-  async function checkpoint() {
-    if (running || offering || !MFC.hasDocument || MFC_PROJECT.suspended || !initialized) return null;
-    running = true;
+  /** Saves a recovery draft of the current figure. A request made while another draft is being
+   *  written waits for it and then saves the state at that moment, so the latest change is never
+   *  skipped (the background timer and an explicit save can overlap). */
+  function checkpoint() {
+    const run = queue.then(writeCheckpoint);
+    queue = run.catch(() => null);
+    return run;
+  }
+  async function writeCheckpoint() {
+    if (offering || !MFC.hasDocument || MFC_PROJECT.suspended || !initialized) return null;
     try {
       const capturedAt = Date.now(), state = MFC_PROJECT.captureState(), context = MFC_PROJECT.context;
       const fp = MFC_PROJECT.fingerprint(state);
@@ -101,7 +108,6 @@ const MFC_AUTOSAVE = (() => {
       refreshStorageStatus();
       return record;
     } catch (error) { storageError(error); return null; }
-    finally { running = false; }
   }
   async function markSaved(context) {
     try {

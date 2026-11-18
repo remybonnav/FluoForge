@@ -119,6 +119,14 @@ async function runProjectExportRegressions() {
   const getAll=store=>new Promise(resolve=>{const req=db.transaction(store).objectStore(store).getAll();req.onsuccess=()=>resolve(req.result);});
   const sourceRecords=await getAll('sources');assert('autosave stores each source once',new Set(sourceRecords.map(s=>s.id)).size===sourceRecords.length);
   assert('unchanged autosave skipped',(await getAll('checkpoints')).filter(c=>c.projectId===MFC_PROJECT.context.projectId).length===1);
+  // A draft save requested while another is still writing must wait for it and save the latest state,
+  // not be skipped (the 15 s background save could otherwise swallow the save before a new figure).
+  title.set({text:'Draft while busy A'});MFC.pushHistory();
+  const busySave=MFC_AUTOSAVE.checkpoint();
+  title.set({text:'Draft while busy B'});MFC.pushHistory();
+  await MFC_AUTOSAVE.checkpoint();await busySave;
+  const newest=(await MFC_AUTOSAVE.candidates(MFC_PROJECT.context.projectId))[0];
+  assert('a draft save requested during another saves the latest state',newest&&JSON.stringify(newest.draft.state).includes('Draft while busy B'));
   for (let i=0;i<10;i++) { title.set('text','Recovery checkpoint '+i); await new Promise(r=>setTimeout(r,2)); await MFC_AUTOSAVE.checkpoint(); }
   assert('recovery retains at most eight checkpoints',(await getAll('checkpoints')).filter(c=>c.projectId===MFC_PROJECT.context.projectId).length===8);
   const put=IDBObjectStore.prototype.put;
