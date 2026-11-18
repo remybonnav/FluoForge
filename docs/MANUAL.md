@@ -278,10 +278,10 @@ Every change is a step in the **History** panel, with a readable name and its ti
 
 ## 18. Saving, versions and recovery
 
-- **Save Project** (Ctrl+S) writes a `.mfcproj.zip` file containing the editable figure and one copy of every original image, so you can reopen it later and change anything. In Chrome and Edge you pick the file once and later saves overwrite it; other browsers download a new copy each time.
+- **Save Project** (Ctrl+S) writes a `.fluoforge` file containing the editable figure and one copy of every original image, so you can reopen it later and change anything. In Chrome and Edge you pick the file once and later saves overwrite it; other browsers download a new copy each time.
 - **Save As** saves to a new file as a new version that keeps the earlier history.
 - **Versions** lists the versions stored in the project and lets you restore one.
-- **Open project** opens a `.mfcproj.zip` file. Projects made with older FluoForge versions (including the v0.18–v0.19 format) open too.
+- **Open project** opens a `.fluoforge` file. Projects saved by older FluoForge versions open too: `.mfcproj.zip` files (FluoForge up to 0.1.2) and the older `.mfcproj.json` and `.gz` formats (v0.18–v0.19). Saving such a project writes a `.fluoforge` file; a project that was opened from a file in Chrome or Edge keeps saving to that file until you use **Save As**.
 - **Recovery**: while you work, the browser keeps recovery checkpoints. If the tab is closed or crashes, FluoForge offers to recover the draft the next time it opens (only when the draft is newer than your last save). Recovery drafts are not a replacement for saving.
 - Closing or reloading the tab with unsaved changes asks for confirmation.
 

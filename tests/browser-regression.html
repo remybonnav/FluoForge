@@ -21,6 +21,7 @@ body{font:14px system-ui;background:#eef0f5;color:#172031;margin:16px}button{pad
 <button data-suite="offline-regression">Offline: vendored libraries and CSP</button>
 <button data-suite="module-api-regression">ES modules and the MFC API</button>
 <button data-suite="image-info-regression">Quiet import and Image info</button>
+<button data-suite="compat-regression">Old projects reopen; save as .fluoforge</button>
 <pre id="result" role="status">Choose a suite. Each run uses a fresh test frame and isolated recovery storage.</pre>
 <div id="frame"></div>
 <script>
@@ -29,7 +30,7 @@ const suites={ 'dev-interface-regression':'runDevInterfaceRegressions', 'path-re
   'ui-fixes-regression':'runUiFixesRegressions', 'v024-regression':'runV024Regressions',
   'zstack-regression':'runZStackRegressions', 'about-regression':'runAboutRegressions',
   'offline-regression':'runOfflineRegressions', 'module-api-regression':'runModuleApiRegressions',
-  'image-info-regression':'runImageInfoRegressions' };
+  'image-info-regression':'runImageInfoRegressions', 'compat-regression':'runCompatRegressions' };
 document.querySelectorAll('button').forEach(button=>button.onclick=async()=>{
   const result=document.getElementById('result'); result.textContent='Running '+button.dataset.suite+'…';
   const frame=document.createElement('iframe');frame.src='../?test=regression-'+Date.now();document.getElementById('frame').replaceChildren(frame);

@@ -187,6 +187,12 @@ const MFC_PROJECT = (() => {
     status('Saved ' + new Date(next.savedAt).toLocaleString());
     await MFC_AUTOSAVE.markSaved(next);
   }
+  // New projects are saved as .fluoforge (a zip whose manifest.format is "FluoForge").
+  // Opening detects zip, gzip and JSON from the content, so older names keep working.
+  const PROJECT_EXTENSION = '.fluoforge';
+  const SAVE_TYPES = [{ description: 'FluoForge project', accept: { 'application/zip': [PROJECT_EXTENSION] } }];
+  const OPEN_TYPES = [{ description: 'FluoForge project (.fluoforge, or older .mfcproj.zip, .json and .gz)',
+    accept: { 'application/zip': [PROJECT_EXTENSION, '.mfcproj.zip', '.zip'], 'application/json': ['.json'], 'application/gzip': ['.gz'] } }];
   async function saveProject(saveAs = false) {
     if (busy) return;
     if (!MFC.hasDocument) { MFC_UI.toast('Create or open a figure before saving.'); return; }
@@ -196,10 +202,9 @@ const MFC_PROJECT = (() => {
     busy = true;
     try {
       let handle = fileHandle;
-      const filename = (MFC.getDocProps().name || 'figure').replace(/[\\/:*?"<>|]/g, '_') + '.mfcproj.zip';
+      const filename = (MFC.getDocProps().name || 'figure').replace(/[\\/:*?"<>|]/g, '_') + PROJECT_EXTENSION;
       if (window.showSaveFilePicker && (!handle || saveAs)) {
-        handle = await window.showSaveFilePicker({ suggestedName: filename,
-          types: [{ description: 'FluoForge project', accept: { 'application/zip': ['.mfcproj.zip'] } }] });
+        handle = await window.showSaveFilePicker({ suggestedName: filename, types: SAVE_TYPES });
         if (saveAs && fileHandle && await handle.isSameEntry(fileHandle))
           throw new Error('Save As needs a different file. The previous project file was not changed.');
       }
@@ -322,7 +327,7 @@ const MFC_PROJECT = (() => {
   async function pickAndLoadProject() {
     try {
       if (!window.showOpenFilePicker) { document.getElementById('project-input').click(); return; }
-      const [handle] = await window.showOpenFilePicker({ types: [{ description: 'FluoForge project', accept: { 'application/zip': ['.mfcproj.zip'] } }] });
+      const [handle] = await window.showOpenFilePicker({ types: OPEN_TYPES });
       await loadProject(await handle.getFile(), handle);
     } catch (error) { if (error.name !== 'AbortError') MFC_UI.toast(error.message); }
   }

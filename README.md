@@ -67,7 +67,7 @@ Exports are named after the project (characters that are invalid in file names a
 
 Projects saved by earlier versions open in this one, including the v0.18–v0.19 format (scale bars and groups are converted; a v0.18 scale bar's length is read from its label). Closing or reloading the tab with unsaved changes asks for confirmation.
 
-Current `.mfcproj.zip` files contain `manifest.json`, one editable JSON state per saved version under `versions/`, and one copy of every distinct original import under `sources/`. Save Project updates the current version. Save As creates a child version in a newly selected file and carries the prior history forward.
+Projects are saved as `.fluoforge` files (named `.mfcproj.zip` up to v0.1.2; both open, and the format is the same zip). They contain `manifest.json`, one editable JSON state per saved version under `versions/`, and one copy of every distinct original import under `sources/`. Save Project updates the current version. Save As creates a child version in a newly selected file and carries the prior history forward.
 
 The browser also keeps bounded recovery checkpoints in IndexedDB. Recovery drafts are offered after reopening only when they are newer than the last manual save. They do not become permanent project versions until the project is saved.
 
@@ -116,6 +116,10 @@ GitHub Actions runs `npm test` on every push and pull request (`.github/workflow
   - TIFF by pixel difference;
   - PDF by pixel difference after rendering both files with pdf.js.
 - The tolerances are at the top of that file. The references are Chromium renders.
+
+**Old projects.** `tests/compat/` holds projects saved by earlier versions; they must keep opening (`compat-regression`):
+- `main-v0.22-project.mfcproj.zip`: saved by the app before the 0.1.0 reset.
+- `v0.1.0-project.mfcproj.zip`: the reference figure, built and saved by FluoForge 0.1.0, extracted from the `v0.1.0` tag. Its four CDN scripts were pointed at the vendored copies, which are byte-identical (see `assets/vendor/VERSIONS.md`).
 - After an intended export change, run `npm run make-reference` and explain the difference in the pull request.
 
 ### In a browser
