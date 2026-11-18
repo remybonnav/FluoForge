@@ -79,6 +79,45 @@ Select a path and choose **Edit nodes** to move anchors and handles. Double-clic
 
 ## Regression checks
 
+### Headless: `npm test`
+
+Node is used only for development; the app itself needs no build and no Node.
+
+```bash
+npm ci                                          # Playwright and pdf.js, development only
+npx playwright install chromium firefox         # once; add --with-deps on a fresh Linux machine
+npm test
+```
+
+`npm test` runs `tests/run-headless.mjs`, which:
+
+1. Generates the test images with `tests/generate-fixtures.mjs` (pure Node, no Python).
+2. Serves the repository on a local port.
+3. Runs every suite of the browser runner in headless Chromium and Firefox, blocking and reporting every request to another origin.
+4. Checks the exports of the reference figure (see below).
+5. Exits non-zero on any failure.
+
+Useful options, passed after `--`:
+
+- `--browser=chromium`
+- `--suite=zstack-regression`
+- `--skip-reference`
+- `--reference-only`
+
+GitHub Actions runs `npm test` on every push and pull request (`.github/workflows/test.yml`), and deploys `main` to GitHub Pages (`.github/workflows/pages.yml`).
+
+**Reference exports.**
+- `tests/fixtures/reference.mfcproj.zip` is a two-page figure that uses every object type: a multichannel TIFF, a raster image, an inset and its outline, a scale bar, text boxes, a rectangle, an ellipse, a line, a pen path with arrowheads, a group, and an image cropped to a shape.
+- Its exports are stored next to it as `reference.svg`, `reference.tif` and `reference.pdf`.
+- `tests/reference-check.js` reopens the project, exports it again and compares the results:
+  - SVG structurally: the same element tree and attributes, numbers within 0.02 px, generated ids normalised, embedded images compared by pixels;
+  - TIFF by pixel difference;
+  - PDF by pixel difference after rendering both files with pdf.js.
+- The tolerances are at the top of that file. The references are Chromium renders.
+- After an intended export change, run `npm run make-reference` and explain the difference in the pull request.
+
+### In a browser
+
 Open [the browser regression runner](tests/browser-regression.html) on the local server to run each suite with a fresh app frame and isolated test recovery storage. The interface suite covers empty startup, document creation/opening, themes, collapsible tool panels, and native mouse events for nodes, handles, and insets. It checks the node drag positions at multiple zoom levels with rotated, scaled, skewed, and flipped paths, and verifies that drawing an inset keeps its source image fixed.
 
 With the app open, run the following in the browser console:
@@ -92,11 +131,13 @@ script.onload = async () => console.log(await runMfcRegressions());
 
 The checks create small synthetic images and verify linked insets, scale bars, mixed copy and duplication, text borders, curve controls, and keyboard movement. The supplied `image1.tif` and `image2.tif` can also be imported to exercise real four-channel TIFF decoding.
 
-The publication export and project-format suite first generates a deterministic large multichannel TIFF, then runs in the browser:
+The publication export and project-format suite needs a deterministic large multichannel TIFF. `npm test` creates it; to run the suite by hand, first run:
 
 ```bash
-python3 tests/generate_fixture.py
+npm run fixtures
 ```
+
+Then, in the browser:
 
 ```js
 const script = document.createElement('script');

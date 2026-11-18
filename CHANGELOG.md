@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Development
+
+- **Headless tests:** `npm test` runs every regression suite in Chromium and Firefox with Playwright. It also compares the SVG, TIFF and PDF exports of a reference figure (`tests/fixtures/reference.mfcproj.zip`) with stored references.
+- **Test images:** they are generated in Node (`tests/generate-fixtures.mjs`), so the tests no longer need Python.
+- **GitHub Actions:** the tests run on every push and pull request, and `main` deploys to GitHub Pages.
+- **No change to the app.**
+
 ## v0.1.1 (2026-11-18)
 
 - **Works offline.**

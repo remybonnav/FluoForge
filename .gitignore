@@ -1,4 +1,6 @@
-tests/fixtures/
+tests/fixtures/large-multichannel.tif
+tests/fixtures/second.png
+node_modules/
 tests/output/
 __pycache__/
 code_log/

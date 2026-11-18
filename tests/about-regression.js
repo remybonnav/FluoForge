@@ -6,6 +6,8 @@
 async function runAboutRegressions() {
   const checks=[];
   const assert=(name,ok)=>{if(!ok)throw new Error(name);checks.push(name);};
+  // A real click gives the page focus first; the test runs in an iframe, so focus it explicitly (Firefox needs this).
+  window.focus();
   const version=MFC.getAppVersion();
   const brand=document.getElementById('brand-about');
   assert('The brand is a keyboard-focusable button',brand&&brand.tagName==='BUTTON');

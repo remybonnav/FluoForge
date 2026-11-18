@@ -23,7 +23,7 @@ If your employer has rights to your work, your employer must agree to the contri
 - FluoForge runs in the browser without a build step:
   - Serve the folder with `python3 -m http.server 8765 --bind 127.0.0.1`.
   - Open `http://127.0.0.1:8765/`.
-- Run every suite in `tests/browser-regression.html` before opening a pull request, and add checks for new behaviour.
+- Run `npm test` before opening a pull request, and add checks for new behaviour. It runs every suite headless in Chromium and Firefox, and checks the reference exports; see the README.
 - New source files start with this header, in the comment syntax of the file type:
 
   ```
