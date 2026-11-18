@@ -327,10 +327,61 @@ const MFC_TIFF = (function () {
    * { width, height, channels: [{data:Uint16Array|Uint8Array, bitDepth, min, max, color, enabled, name}],
    *   voxelSizeUm, meta, fileName }
    */
+  // ---------------------------------------------------------------------
+  // Damaged files and memory: clear messages instead of decoder internals
+  // ---------------------------------------------------------------------
+
+  /** An error that says, in plain words, that the file is damaged (the decoder's own message is kept in brackets). */
+  function damaged(name, what, cause) {
+    const error = new Error(`${name} is damaged or incomplete: ${what}.` + (cause ? ` (${cause.message || cause})` : ''));
+    error.name = 'DamagedFileError';
+    return error;
+  }
+  /** Every TIFF starts with "II" or "MM" followed by 42 (or 43 for BigTIFF). */
+  function checkTiffHeader(buf, name) {
+    const b = new Uint8Array(buf, 0, Math.min(4, buf.byteLength));
+    const little = b[0] === 0x49 && b[1] === 0x49, big = b[0] === 0x4d && b[1] === 0x4d;
+    const magic = b.length === 4 ? (little ? b[2] | (b[3] << 8) : (b[2] << 8) | b[3]) : 0;
+    if (!(little || big) || (magic !== 42 && magic !== 43)) {
+      const error = new Error(buf.byteLength ? `${name} is not a TIFF file: it does not start with a TIFF header.` : `${name} is empty.`);
+      error.name = 'NotTiffError';
+      throw error;
+    }
+  }
+  const first = v => Array.isArray(v) ? v[0] : v;
+  const formatBytes = n => n >= 2 ** 30 ? (n / 2 ** 30).toFixed(1) + ' GB' : Math.max(1, Math.round(n / 2 ** 20)) + ' MB';
+  /** Memory a tab can probably still use. Chrome reports it; elsewhere assume about 2 GB. */
+  function memoryBudgetBytes() {
+    const memory = typeof performance !== 'undefined' && performance.memory;
+    if (memory && memory.jsHeapSizeLimit) return Math.max(0, memory.jsHeapSizeLimit - memory.usedJSHeapSize);
+    if (navigator.deviceMemory) return navigator.deviceMemory * 2 ** 30 / 2;
+    return 2 * 2 ** 30;
+  }
+  /** Asks before an import that would need more memory than seems available; throws ImportCancelled if declined. */
+  function confirmMemory(name, needed, description) {
+    const budget = api.memoryBudgetBytes();
+    if (needed <= budget) return;
+    const ok = window.confirm(`${name} needs about ${formatBytes(needed)} of memory to open (${description}), ` +
+      `but only about ${formatBytes(budget)} seems to be available. Opening it may make this browser tab crash.\n\nOpen it anyway?`);
+    if (!ok) { const error = new Error(`Import of ${name} cancelled.`); error.name = 'ImportCancelled'; throw error; }
+  }
+
   async function decodeFile(file) {
     const buf = await file.arrayBuffer();
-    const ifds = UTIF.decode(buf);
-    if (!ifds || !ifds.length) throw new Error('Could not decode TIFF: ' + file.name);
+    checkTiffHeader(buf, file.name);
+    let ifds;
+    try { ifds = UTIF.decode(buf); } catch (error) { throw damaged(file.name, 'its table of images cannot be read', error); }
+    if (!ifds || !ifds.length) throw damaged(file.name, 'it contains no image');
+    // width × height × planes × bytes per sample, plus one full-resolution RGBA composite
+    let needed = 0, maxPixels = 0;
+    for (const ifd of ifds) {
+      const w = first(ifd.t256) || 0, h = first(ifd.t257) || 0, bits = first(ifd.t258) || 8, spp = first(ifd.t277) || 1;
+      needed += w * h * (bits > 8 ? 2 : 1) * spp; maxPixels = Math.max(maxPixels, w * h);
+    }
+    needed += maxPixels * 4;
+    const firstIfd = ifds[0];
+    confirmMemory(file.name, needed, `${first(firstIfd.t256)} × ${first(firstIfd.t257)} px, ${ifds.length} plane${ifds.length > 1 ? 's' : ''}, ` +
+      `${first(firstIfd.t258) || 8}-bit`);
 
     // ---- ImageDescription (tag 270) — global text header ----
     let descRaw = null;
@@ -370,11 +421,18 @@ const MFC_TIFF = (function () {
     // ---- Decode pixel data for every page/IFD (one 2D plane per page) ----
     const pagesRaw = [];
     let width = 0, height = 0;
-    for (const ifd of ifds) {
-      UTIF.decodeImage(buf, ifd, ifds);
+    for (const [pageIndex, ifd] of ifds.entries()) {
+      const page = `page ${pageIndex + 1} of ${ifds.length}`;
+      try { UTIF.decodeImage(buf, ifd, ifds); } catch (error) { throw damaged(file.name, page + ' cannot be decoded', error); }
       width = ifd.width; height = ifd.height;
       const bitsPerSample = Array.isArray(ifd.t258) ? ifd.t258[0] : (ifd.t258 || 8);
       const samplesPerPixel = ifd.t277 || 1;
+      if (!(width > 0 && height > 0)) throw damaged(file.name, page + ' has no width or height');
+      if (bitsPerSample >= 8) {
+        const expected = width * height * (bitsPerSample > 8 ? 2 : 1) * first(samplesPerPixel);
+        const got = ifd.data ? ifd.data.length : 0;
+        if (got < expected) throw damaged(file.name, `${page} has ${got} of its ${expected} bytes of pixel data (the file is probably cut short)`);
+      }
 
       let arr;
       if (bitsPerSample > 8) {
@@ -652,6 +710,8 @@ const MFC_TIFF = (function () {
         el.src = url;
       });
       const width = img.naturalWidth, height = img.naturalHeight;
+      // RGBA canvas + red, green, blue (+ alpha) planes
+      confirmMemory(file.name, width * height * 8, `${width} × ${height} px, 8-bit RGB`);
       const canvas = document.createElement('canvas');
       canvas.width = width; canvas.height = height;
       const ctx = canvas.getContext('2d');
@@ -692,9 +752,10 @@ const MFC_TIFF = (function () {
     }
   }
 
-  return {
+  const api = {
     decodeFile,
     decodeRasterImage,
+    memoryBudgetBytes, // replaceable, so the memory warning can be tested
     compositeChannels,
     workingScale,
     selectPlane,
@@ -705,4 +766,5 @@ const MFC_TIFF = (function () {
     parseImageDescription,
     parseIJMetadata // exposed for debugging in the console if needed
   };
+  return api;
 })();

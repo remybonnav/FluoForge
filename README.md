@@ -71,6 +71,10 @@ Projects are saved as `.fluoforge` files (named `.mfcproj.zip` up to v0.1.2; bot
 
 The browser also keeps bounded recovery checkpoints in IndexedDB. Recovery drafts are offered after reopening only when they are newer than the last manual save. They do not become permanent project versions until the project is saved.
 
+The project panel shows the browser storage used next to the recovery status; after the first draft FluoForge asks the browser to keep this storage (`navigator.storage.persist()`). If storage is full, drafts pause with a clear message and saving to a file keeps working.
+
+Damaged or truncated TIFFs are refused with a message saying why, and nothing is added to the figure. An import that would need more memory than the browser seems to have left asks first. Unexpected errors show a message with **Copy details** (a report for bug reports) instead of failing silently.
+
 Dashed and other uniform-width outlines are written to SVG/PDF as paths in page coordinates, without `vector-effect`, so Inkscape shows the same dash lengths as the editor and keeps them when the shape is resized. PDF export preserves supported text and annotations as vectors and composites microscopy panels from their original channel data. Use Liberation Sans, Liberation Serif, or Liberation Mono for PDF labels; these fonts are bundled and embedded. TIFF export remains flattened and uses the same full resolution panel compositor.
 
 ## Pen and editable paths

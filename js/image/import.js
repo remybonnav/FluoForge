@@ -17,8 +17,9 @@ export async function importFiles(fileList) {
       const rawImage = isTiff ? await MFC_TIFF.decodeFile(file) : await MFC_TIFF.decodeRasterImage(file);
       await addImageToCanvas(rawImage, file);
     } catch (err) {
-      console.error(err);
-      MFC_UI.toast('Failed to import ' + file.name + ': ' + err.message);
+      // Nothing was added: decoding happens before the image touches the canvas.
+      if (err.name === 'ImportCancelled') MFC_UI.toast(err.message);
+      else MFC_ERRORS.report(err, { title: 'Could not import ' + file.name });
     }
   }
 }

@@ -7,10 +7,41 @@ const MFC_AUTOSAVE = (() => {
   const testId = new URLSearchParams(location.search).get('test');
   const DB_NAME = 'FluoForge-recovery-v1' + (testId ? '-test-' + testId.replace(/[^\w-]/g, '') : ''), LIMIT = 8;
   let dbPromise, timer, running = false, offering = false, lastFingerprint = '', lastProjectId = null, initialized = false;
+  let persistRequested = false, warnedFull = false;
+  const isQuotaError = error => !!error && (error.name === 'QuotaExceededError' || /quota/i.test(error.message || ''));
   function storageError(error) {
     const el = document.getElementById('autosave-status');
-    el.textContent = 'Browser recovery unavailable: ' + error.message + '. Save your project manually.';
+    if (isQuotaError(error)) {
+      // The figure is untouched; only the recovery copy in the browser could not be written.
+      el.textContent = 'Browser storage is full, so recovery drafts cannot be kept (' + (error.message || error.name) +
+        '). Your figure is not affected: save it to a file with Save Project (Ctrl+S). To free space, remove old site data for this page in the browser settings.';
+      if (!warnedFull) {
+        warnedFull = true;
+        MFC_UI.toast('Browser storage is full: recovery drafts are paused. Save your project to a file.');
+      }
+    } else {
+      el.textContent = 'Browser recovery unavailable: ' + (error && error.message || error) + '. Save your project manually.';
+    }
     el.classList.add('storage-error');
+    refreshStorageStatus();
+  }
+  const formatBytes = n => n >= 2 ** 30 ? (n / 2 ** 30).toFixed(1) + ' GB' : n >= 2 ** 20 ? (n / 2 ** 20).toFixed(1) + ' MB' : Math.round(n / 1024) + ' kB';
+  /** "Browser storage: 12.4 MB used of 2.1 GB (persistent)", next to the recovery status. */
+  async function refreshStorageStatus() {
+    const el = document.getElementById('storage-status');
+    if (!el || !navigator.storage || !navigator.storage.estimate) return;
+    try {
+      const { usage = 0, quota = 0 } = await navigator.storage.estimate();
+      const persisted = navigator.storage.persisted ? await navigator.storage.persisted() : false;
+      el.textContent = `Browser storage: ${formatBytes(usage)} used of ${quota ? formatBytes(quota) : 'an unknown amount'}` +
+        (persisted ? ' (kept until you clear it)' : ' (the browser may clear it when space runs low)');
+    } catch (error) { el.textContent = ''; }
+  }
+  /** Once there is a draft worth keeping, ask the browser not to evict recovery data under storage pressure. */
+  function requestPersistence() {
+    if (persistRequested || !navigator.storage || !navigator.storage.persist) return;
+    persistRequested = true;
+    Promise.resolve().then(() => navigator.storage.persist()).then(refreshStorageStatus, () => {});
   }
   function openDB() {
     if (!dbPromise) dbPromise = new Promise((resolve, reject) => {
@@ -65,6 +96,9 @@ const MFC_AUTOSAVE = (() => {
       await done; lastFingerprint = fp; lastProjectId = context.projectId;
       document.getElementById('autosave-status').classList.remove('storage-error');
       document.getElementById('autosave-status').textContent = 'Recovery saved ' + new Date(record.timestamp).toLocaleTimeString();
+      warnedFull = false;
+      requestPersistence();
+      refreshStorageStatus();
       return record;
     } catch (error) { storageError(error); return null; }
     finally { running = false; }
@@ -144,8 +178,9 @@ const MFC_AUTOSAVE = (() => {
     document.addEventListener('change', schedule);
     document.addEventListener('input', schedule);
     setInterval(checkpoint, 15000); // bounded delay even while edits continue
+    refreshStorageStatus();
     document.addEventListener('visibilitychange', () => { if (document.hidden) checkpoint(); });
     await offerRecovery();
   }
-  return { init, checkpoint, markSaved, candidates, recover, discard, offerRecovery, openDB, storageError, DB_NAME };
+  return { init, checkpoint, markSaved, candidates, recover, discard, offerRecovery, openDB, storageError, refreshStorageStatus, DB_NAME };
 })();

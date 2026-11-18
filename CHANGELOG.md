@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## v0.1.4 (2026-11-18)
+
+- **Unexpected errors are shown.** A script error or an unhandled promise rejection now shows a message that stays until dismissed.
+  - **Copy details** copies a report: message, place, version, browser and stack.
+  - The figure stays editable, and a stuck "Saving…" overlay is closed. Nothing is printed to the console unless `?debug=1` is on.
+- **Damaged files are refused clearly.** Instead of a decoder error, a bad TIFF gives a message saying why, and nothing is added to the figure:
+  - "*name* is not a TIFF file";
+  - "*name* is empty";
+  - "*name* is damaged or incomplete: page 2 of 3 has 1234 of its 9437184 bytes of pixel data…".
+  - Import errors use the same message with **Copy details**.
+- **Memory warning.** Before decoding, FluoForge estimates the memory an image needs (width × height × planes × bytes per sample, plus one RGBA composite). If that is more than the browser seems to have left, it asks first. Declining imports nothing.
+- **Browser storage.**
+  - The project panel shows the storage used and available, next to the recovery status.
+  - After the first recovery draft, FluoForge asks the browser to keep its data (`navigator.storage.persist()`).
+  - A full IndexedDB gives a clear message and a one-time notice. Editing and saving to a file keep working, and drafts resume when space is back.
+- **Tests:** the new `errors-storage-regression` suite covers the error handlers, five kinds of damaged TIFF, the memory warning, a full IndexedDB and the storage line.
+
 ## v0.1.3 (2026-11-18)
 
 - **Projects are saved as `.fluoforge`.** It is the same zip format as before (`manifest.format` is `"FluoForge"`); only the file name changes. Older projects keep opening: `.mfcproj.zip`, `.mfcproj.json` and `.gz`.
