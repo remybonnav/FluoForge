@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.1 (2026-11-18)
+
+- **Works offline.**
+  - Fabric.js, UTIF.js, jsPDF and JSZip now live in `assets/vendor/` with their licence files, instead of loading from cdnjs and jsDelivr.
+  - `assets/vendor/VERSIONS.md` pins every vendored library by version, source URL and SHA-256.
+- **No third-party requests.** A strict Content-Security-Policy `<meta>` tag lets the page load only its own files.
+- **Legacy projects under the new policy.** Projects with images embedded as `data:` URLs (the v0.18-era format) are decoded directly instead of through `fetch()`, which the policy blocks. They open as before.
+- **Fabric version corrected.** The copy loaded from cdnjs under the 5.3.0 path is Fabric 5.1.0, so the vendored file and the notices now say 5.1.0. The code itself is unchanged.
+
 ## v0.1.0 (2026-11-17)
 
 ### Licence

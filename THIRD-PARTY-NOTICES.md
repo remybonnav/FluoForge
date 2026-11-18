@@ -1,24 +1,24 @@
 # Third-party notices
 
-FluoForge is licensed under AGPL-3.0-only (see [LICENSE](LICENSE)). It uses the third-party components below, which keep their own licences. Some are bundled in this repository; the others are loaded from a public CDN when the app starts.
+FluoForge is licensed under AGPL-3.0-only (see [LICENSE](LICENSE)). It uses the third-party components below, which keep their own licences. All of them are bundled in this repository; the app loads nothing from a CDN. `assets/vendor/VERSIONS.md` pins each file by SHA-256.
 
 Each licence was checked on 2026-11-17 against the component's licence file and `package.json` at the exact version used, or against its bundled licence file and file header.
 
 | Component | Version | Licence | How FluoForge gets it | Source |
 |---|---|---|---|---|
-| Fabric.js | 5.3.0 | MIT | CDN: `cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js` | https://github.com/fabricjs/fabric.js |
-| UTIF.js | 3.1.0 | MIT | CDN: `cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js` | https://github.com/photopea/UTIF.js |
-| jsPDF | 2.5.1 | MIT | CDN: `cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js` | https://github.com/parallax/jsPDF |
-| JSZip | 3.10.1 | MIT or GPL-3.0-or-later (dual licence; FluoForge uses it under MIT) | CDN: `cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js` | https://github.com/Stuk/jszip |
+| Fabric.js | 5.1.0 | MIT | Bundled: `assets/vendor/fabric.min.js` (licence: `assets/vendor/LICENSE-fabric.txt`) | https://github.com/fabricjs/fabric.js |
+| UTIF.js | 3.1.0 | MIT | Bundled: `assets/vendor/UTIF.js` (licence: `assets/vendor/LICENSE-utif.txt`) | https://github.com/photopea/UTIF.js |
+| jsPDF | 2.5.1 | MIT | Bundled: `assets/vendor/jspdf.umd.min.js` (licence: `assets/vendor/LICENSE-jspdf.txt`) | https://github.com/parallax/jsPDF |
+| JSZip | 3.10.1 | MIT or GPL-3.0-or-later (dual licence; FluoForge uses it under MIT) | Bundled: `assets/vendor/jszip.min.js` (licence: `assets/vendor/LICENSE-jszip.txt`) | https://github.com/Stuk/jszip |
 | pako | 2.1.0 | MIT AND Zlib | Bundled: `assets/vendor/pako.min.js` | https://github.com/nodeca/pako |
 | svg2pdf.js | 2.5.0, with one local fix | MIT | Bundled: `assets/vendor/svg2pdf.umd.min.js` | https://github.com/yWorks/svg2pdf.js |
 | Liberation Fonts (Sans, Serif, Mono) | 2.1.5 | SIL Open Font License 1.1 | Bundled: `assets/fonts/*.ttf` | https://github.com/liberationfonts/liberation-fonts |
 
 ## How each licence was confirmed
 
-- **Fabric.js 5.3.0**
-  - The npm `package.json` declares `"license": "MIT"`, and the package's `LICENSE` file is the MIT licence ("Copyright (c) 2008-2015 Printio (Juriy Zaytsev, Maxim Chernyak)").
-  - The CDN file's own version string reads `5.1.0`, a known quirk of this release build. The URL and package are 5.3.0.
+- **Fabric.js 5.1.0**
+  - The file cdnjs serves under `fabric.js/5.3.0/` is byte-identical to npm `fabric@5.1.0/dist/fabric.min.js` and reports version 5.1.0. That build is the one vendored.
+  - The npm `package.json` declares `"license": "MIT"`, and the package's `LICENSE` file (bundled as `LICENSE-fabric.txt`) is the MIT licence ("Copyright (c) 2008-2015 Printio (Juriy Zaytsev, Maxim Chernyak)").
 - **UTIF.js 3.1.0**
   - `package.json` declares MIT, and the `LICENSE` file is the MIT licence ("Copyright (c) 2017 Photopea").
 - **jsPDF 2.5.1**
@@ -44,10 +44,7 @@ Each licence was checked on 2026-11-17 against the component's licence file and 
 - **No incompatible licence was found.**
   - MIT, Zlib and the MIT option of JSZip are permissive and compatible with AGPL-3.0.
   - The fonts stay under the OFL 1.1 as separate works. The OFL allows bundling them with software under any licence, provided the fonts themselves are not relicensed and derivative fonts do not use the reserved name "Liberation".
-- **Licence files missing from the repository.**
-  - Fabric.js, UTIF.js, jsPDF and JSZip are loaded from a CDN and are not committed, so their licence texts are not in this repository.
-  - This is acceptable while they are only fetched from the CDN.
-  - If they are ever bundled (for example, for offline use), add their `LICENSE` files next to them.
+- **Licence files.** Every bundled library has its licence file next to it in `assets/vendor/`.
 - **JSZip is dual-licensed.** FluoForge uses the MIT option. The GPL-3.0 option is not needed.
 - **svg2pdf.js is modified locally.** The MIT licence allows this. The change is marked in the file, and the original copyright notice is kept in `assets/vendor/LICENSE-svg2pdf.txt`.
 - **Commercial licence.** All of the licences above are permissive, so these components can also be shipped under FluoForge's separate commercial licence, provided their own notices are kept.

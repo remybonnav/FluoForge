@@ -12,6 +12,11 @@ Read the **[user manual](docs/MANUAL.md)** for a step-by-step guide with screens
 
 From the project directory, run `python3 -m http.server 8765 --bind 127.0.0.1` and open `http://127.0.0.1:8765/`.
 
+FluoForge works offline and makes no third-party requests:
+
+- Every library is vendored in `assets/vendor/`, and `assets/vendor/VERSIONS.md` pins each one with its version, source URL and SHA-256.
+- A strict Content-Security-Policy in `index.html` lets the page load only files from its own site.
+
 The workspace starts empty. Choose **Create figure** or **Open project** to begin; creating a figure shows the document page and enables editing. The right inspector has collapsible sections and brings the active tool or selected object's settings to the top. **Theme** offers light lavender, light sage, dark plum, and dark slate; your choice is remembered in this browser. Color palettes include bright colors, pastels, darker shades, and grays. New shapes and paths start with a yellow stroke.
 
 ## Selection bar, locks and navigation
@@ -118,6 +123,8 @@ The UI suite (`tests/ui-fixes-regression.js`, also in the browser runner) covers
 The Z stack suite (`tests/zstack-regression.js`, browser runner) builds small ImageJ hyperstacks and checks the channel/slice/frame split, max and mean projections, the slice and frame controls, history labels, undo/redo and saved projects.
 
 The About suite (`tests/about-regression.js`, browser runner) opens the About dialog from the brand and checks the version, copyright, licence links, a source link that contains the running version, keyboard focus, Escape and Close.
+
+The offline suite (`tests/offline-regression.js`, browser runner) checks the Content-Security-Policy, that every script and stylesheet is same-origin, that no resource came from another origin, that the browser blocks a third-party image and fetch, that each vendored file matches its SHA-256 in `VERSIONS.md`, and that every licence file is bundled.
 
 The v0.24 suite (`tests/v024-regression.js`, also in the browser runner) covers opening a v0.18-format project, the live inset size readout, scale bar previews and metadata editing, multi-image channel and multi-shape edits, transform-free dashed SVG outlines, crop to shape, multi-page export, and the close warning.
 

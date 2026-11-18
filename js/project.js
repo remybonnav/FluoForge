@@ -217,6 +217,15 @@ const MFC_PROJECT = (() => {
     } catch (error) { if (error.name !== 'AbortError') { status('Save failed: ' + error.message); MFC_UI.toast(error.message); } }
     finally { busy = false; MFC_UI.hideSavingDialog(); }
   }
+  /** Legacy projects embed images as data: URLs. They are decoded here, because the page's
+   *  Content-Security-Policy (connect-src 'self') does not let fetch() read data: URLs. */
+  async function legacyImageBlob(url) {
+    const match = /^data:([^,]*?)(;base64)?,(.*)$/s.exec(url);
+    if (!match) return (await fetch(url)).blob();
+    const text = match[2] ? atob(match[3]) : match[3].replace(/%([0-9a-f]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+    const bytes = Uint8Array.from(text, ch => ch.charCodeAt(0));
+    return new Blob([bytes], { type: match[1] || 'application/octet-stream' });
+  }
   async function migrateLegacy(project, zip, savedAt) {
     const migrateObject = async old => {
       // v2 top-level entries carry mfcType only, but children nested in a saved group
@@ -229,7 +238,7 @@ const MFC_PROJECT = (() => {
       if (json.mfcType === 'mfcImage') {
         let blob;
         if (old.imageArchivePath && zip) blob = await zip.file(old.imageArchivePath).async('blob');
-        else if (old.fileBase64 || json.src) blob = await (await fetch(old.fileBase64 || json.src)).blob();
+        else if (old.fileBase64 || json.src) blob = await legacyImageBlob(old.fileBase64 || json.src);
         else throw new Error('Legacy project is missing an original image.');
         const sourceFormat = old.sourceFormat || (old.imageArchivePath || old.fileBase64 ? 'tiff' : 'raster');
         const file = new File([blob], old.fileName || json.mfcFileName || 'image.tif');

@@ -47,6 +47,8 @@ python3 -m http.server 8765 --bind 127.0.0.1
 
 Then open `http://127.0.0.1:8765/` in Chrome, Edge or Firefox. Chrome and Edge can also save a project back into the same file (see [Saving](#18-saving-versions-and-recovery)).
 
+FluoForge works offline. Every library and font it needs is included in the project folder, so it runs without an internet connection and behind an institute firewall. The page also refuses to load anything from another website: your images never leave your computer.
+
 The workspace starts empty. Click **Create figure** to start a new figure, or **Open project** to continue one you saved.
 
 ![Start screen with the Create figure and Open project buttons](images/01-start-screen.png)

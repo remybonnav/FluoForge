@@ -6,6 +6,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FluoForge — Microscopy figures</title>
 <link rel="icon" href="assets/FluoForge-app-icons/favicon.ico" sizes="any">
@@ -14,7 +15,7 @@
 <link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#07090C">
-<link rel="stylesheet" href="style.css?v=0.1.0">
+<link rel="stylesheet" href="style.css?v=0.1.1">
 </head>
 <body>
 
@@ -481,19 +482,19 @@
 <div id="toast" class="hidden"></div>
 
 <!-- ======================= LIBRARIES ======================= -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+<script src="assets/vendor/fabric.min.js"></script>
 <script src="assets/vendor/pako.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="assets/vendor/UTIF.js"></script>
+<script src="assets/vendor/jspdf.umd.min.js"></script>
+<script src="assets/vendor/jszip.min.js"></script>
 
 <!-- ======================= APP ======================= -->
-<script src="js/tiff.js?v=0.1.0"></script>
-<script src="js/canvas-app.js?v=0.1.0"></script>
+<script src="js/tiff.js?v=0.1.1"></script>
+<script src="js/canvas-app.js?v=0.1.1"></script>
 <script src="assets/vendor/svg2pdf.umd.min.js"></script>
-<script src="js/project.js?v=0.1.0"></script>
-<script src="js/autosave.js?v=0.1.0"></script>
-<script src="js/export.js?v=0.1.0"></script>
-<script src="js/main.js?v=0.1.0"></script>
+<script src="js/project.js?v=0.1.1"></script>
+<script src="js/autosave.js?v=0.1.1"></script>
+<script src="js/export.js?v=0.1.1"></script>
+<script src="js/main.js?v=0.1.1"></script>
 </body>
 </html>
