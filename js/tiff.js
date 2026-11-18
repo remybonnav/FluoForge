@@ -54,35 +54,35 @@ const MFC_TIFF = (function () {
 
   function parseImageDescription(desc) {
 
-    console.log("=================================================");
-    console.log("=== FULL TIFF IMAGE DESCRIPTION ===");
-    console.log("=================================================");
+    MFC_DEBUG.log("=================================================");
+    MFC_DEBUG.log("=== FULL TIFF IMAGE DESCRIPTION ===");
+    MFC_DEBUG.log("=================================================");
 
-    console.log("Type:", typeof desc);
-    console.log("Length:", desc ? desc.length : 0);
+    MFC_DEBUG.log("Type:", typeof desc);
+    MFC_DEBUG.log("Length:", desc ? desc.length : 0);
 
-    console.log("FULL DESCRIPTION:");
-    console.log(desc);
+    MFC_DEBUG.log("FULL DESCRIPTION:");
+    MFC_DEBUG.log(desc);
 
-    console.log("DESCRIPTION WITH ESCAPED CHARACTERS:");
-    console.log(JSON.stringify(desc));
+    MFC_DEBUG.log("DESCRIPTION WITH ESCAPED CHARACTERS:");
+    MFC_DEBUG.log(JSON.stringify(desc));
 
     if (desc) {
       const lines = desc.split(/\r?\n/);
 
-      console.log("=================================================");
-      console.log("=== DESCRIPTION LINE BY LINE ===");
-      console.log("Total lines:", lines.length);
-      console.log("=================================================");
+      MFC_DEBUG.log("=================================================");
+      MFC_DEBUG.log("=== DESCRIPTION LINE BY LINE ===");
+      MFC_DEBUG.log("Total lines:", lines.length);
+      MFC_DEBUG.log("=================================================");
 
       lines.forEach((line, index) => {
-        console.log(`Line ${index}:`, JSON.stringify(line));
+        MFC_DEBUG.log(`Line ${index}:`, JSON.stringify(line));
       });
     }
 
-    console.log("=================================================");
-    console.log("=== END FULL DESCRIPTION ===");
-    console.log("=================================================");
+    MFC_DEBUG.log("=================================================");
+    MFC_DEBUG.log("=== END FULL DESCRIPTION ===");
+    MFC_DEBUG.log("=================================================");
 
     const meta = {
       raw: desc || '',
@@ -100,7 +100,7 @@ const MFC_TIFF = (function () {
     };
 
     if (!desc) {
-      console.warn("[DEBUG] No ImageDescription found!");
+      MFC_DEBUG.warn("[DEBUG] No ImageDescription found!");
       return meta;
     }
 
@@ -129,18 +129,18 @@ const MFC_TIFF = (function () {
     // See parseIJMetadata() below. We still check for it here in case some
     // other tool/version wrote it as plain text, but expect this to miss.
     const displayRangesIndex = desc.toLowerCase().indexOf("display ranges");
-    console.log("[DEBUG] Display ranges index (in plain-text description):", displayRangesIndex);
+    MFC_DEBUG.log("[DEBUG] Display ranges index (in plain-text description):", displayRangesIndex);
     if (displayRangesIndex !== -1) {
-      console.log("[DEBUG] Display ranges FOUND as plain text!");
-      console.log(desc.substring(displayRangesIndex));
+      MFC_DEBUG.log("[DEBUG] Display ranges FOUND as plain text!");
+      MFC_DEBUG.log(desc.substring(displayRangesIndex));
     } else {
-      console.warn("[DEBUG] Display ranges NOT found as plain text — will look in IJMetadata (tag 50839) instead.");
+      MFC_DEBUG.warn("[DEBUG] Display ranges NOT found as plain text — will look in IJMetadata (tag 50839) instead.");
     }
 
-    console.log("=================================================");
-    console.log("=== PARSED IMAGEDESCRIPTION METADATA ===");
-    console.log("=================================================");
-    console.log(meta);
+    MFC_DEBUG.log("=================================================");
+    MFC_DEBUG.log("=== PARSED IMAGEDESCRIPTION METADATA ===");
+    MFC_DEBUG.log("=================================================");
+    MFC_DEBUG.log(meta);
 
     return meta;
   }
@@ -204,7 +204,7 @@ const MFC_TIFF = (function () {
 
     const magic = String.fromCharCode(rawBytes[0], rawBytes[1], rawBytes[2], rawBytes[3]);
     if (magic !== 'IJIJ') {
-      console.warn('[IJMetadata] Unexpected magic "' + magic + '" (expected "IJIJ") — skipping.');
+      MFC_DEBUG.warn('[IJMetadata] Unexpected magic "' + magic + '" (expected "IJIJ") — skipping.');
       return result;
     }
 
@@ -269,11 +269,11 @@ const MFC_TIFF = (function () {
       }
     });
 
-    console.log('[IJMetadata] Block types found:', entries.map(e => `${e.type}(${e.count})`).join(', '));
-    console.log('[IJMetadata] Decoded ranges:', result.ranges);
-    console.log('[IJMetadata] Decoded labels:', result.labels);
-    console.log('[IJMetadata] Decoded LUT count:', result.luts.length);
-    console.log('[IJMetadata] Decoded info block:', result.info);
+    MFC_DEBUG.log('[IJMetadata] Block types found:', entries.map(e => `${e.type}(${e.count})`).join(', '));
+    MFC_DEBUG.log('[IJMetadata] Decoded ranges:', result.ranges);
+    MFC_DEBUG.log('[IJMetadata] Decoded labels:', result.labels);
+    MFC_DEBUG.log('[IJMetadata] Decoded LUT count:', result.luts.length);
+    MFC_DEBUG.log('[IJMetadata] Decoded info block:', result.info);
 
     return result;
   }
@@ -292,11 +292,12 @@ const MFC_TIFF = (function () {
   }
 
   /** Extract voxel size (µm/px, XY) from standard TIFF resolution tags + description unit. */
+  /** Pixel size in µm and where it came from: { um, source } (um is null if the file has none). */
   function getVoxelSizeXY(ifd, descMeta) {
     // Tag 282 = XResolution, 283 = YResolution, 296 = ResolutionUnit (1=none,2=inch,3=cm)
     const xres = findTag(ifd, 't282');
     const resUnit = findTag(ifd, 't296');
-    let umPerPx = null;
+    let umPerPx = null, source = xres ? 'XResolution tag without a usable unit' : 'Not in the file';
 
     if (xres) {
       let resPerUnit = Array.isArray(xres) ? xres[0] : xres;
@@ -306,6 +307,7 @@ const MFC_TIFF = (function () {
       else unitMicrons = null;
       if (unitMicrons && resPerUnit) {
         umPerPx = unitMicrons / resPerUnit;
+        source = 'TIFF XResolution tag, in pixels per ' + (resUnit === 3 ? 'centimetre' : 'inch');
       }
     }
     // ImageJ convention fallback: pixel size directly as 1/XResolution when
@@ -314,9 +316,10 @@ const MFC_TIFF = (function () {
       let resPerUnit = Array.isArray(xres) ? xres[0] : xres;
       if (resPerUnit && /^(um|micron|micrometer)/i.test(descMeta.unit)) {
         umPerPx = 1 / resPerUnit;
+        source = 'TIFF XResolution tag, with unit=' + descMeta.unit + ' from the ImageJ header';
       }
     }
-    return umPerPx; // null if unknown
+    return { um: umPerPx, source };
   }
 
   /**
@@ -346,23 +349,23 @@ const MFC_TIFF = (function () {
         const metaBytes = tagToUint8Array(metaBytesRaw);
         const byteCounts = tagToNumberArray(byteCountsRaw);
         const littleEndian = tiffIsLittleEndian(buf);
-        console.log('[IJMetadata] Tags 50839/50838 found on this IFD — decoding…', { byteCounts, littleEndian });
+        MFC_DEBUG.log('[IJMetadata] Tags 50839/50838 found on this IFD — decoding…', { byteCounts, littleEndian });
         ijMeta = parseIJMetadata(metaBytes, byteCounts, littleEndian);
         break; // ImageJ only writes this once, on the first IFD
       }
     }
     if (!ijMeta.ranges.length) {
-      console.warn('[IJMetadata] No 50838/50839 tags (or no "rang" block within them) found — ' +
+      MFC_DEBUG.warn('[IJMetadata] No 50838/50839 tags (or no "rang" block within them) found — ' +
                     'falling back to global min=/max= from ImageDescription, or auto-contrast per channel.');
     }
     descMeta.perChannelRanges = ijMeta.ranges.length ? ijMeta.ranges.map(r => [r.min, r.max]) : null;
     descMeta.channelLabels = ijMeta.labels.length ? ijMeta.labels : null;
     descMeta.info = ijMeta.info;
 
-    console.log("=================================================");
-    console.log("=== FINAL COMBINED METADATA (ImageDescription + IJMetadata) ===");
-    console.log("=================================================");
-    console.log(JSON.stringify(descMeta, null, 2));
+    MFC_DEBUG.log("=================================================");
+    MFC_DEBUG.log("=== FINAL COMBINED METADATA (ImageDescription + IJMetadata) ===");
+    MFC_DEBUG.log("=================================================");
+    MFC_DEBUG.log(JSON.stringify(descMeta, null, 2));
 
     // ---- Decode pixel data for every page/IFD (one 2D plane per page) ----
     const pagesRaw = [];
@@ -405,6 +408,9 @@ const MFC_TIFF = (function () {
     // ImageJ writes hyperstacks in XYCZT order: page = t*(C*Z) + z*C + c.
     // Without ImageJ dimensions every page stays a channel (plain multipage TIFF).
     const dims = stackDimensions(descMeta, pagesRaw.length);
+    const headerPlanes = (descMeta.channels || 1) * (descMeta.slices || 1) * (descMeta.frames || 1);
+    const layoutNote = /ImageJ=/.test(descMeta.raw || '') && (descMeta.slices || 1) * (descMeta.frames || 1) > 1 && headerPlanes !== pagesRaw.length
+      ? `The ImageJ header describes ${headerPlanes} planes but the file has ${pagesRaw.length} pages, so every page is treated as a channel.` : null;
     let stack = null;
     const channelsRaw = [];
     if (dims.sizeZ * dims.sizeT > 1) {
@@ -429,14 +435,17 @@ const MFC_TIFF = (function () {
 
     // ---- Assign display ranges: explicit per-channel (IJMetadata "rang") >
     //      global min/max (ImageDescription) > auto-computed ("auto contrast") ----
+    const channelInfo = channelsRaw.map(() => ({ rangeSource: null, colorSource: 'Default colour order' }));
     channelsRaw.forEach((ch, idx) => {
       let mn, mx;
       if (descMeta.perChannelRanges && descMeta.perChannelRanges[idx]) {
         [mn, mx] = descMeta.perChannelRanges[idx];
-        console.log(`[Channel ${idx}] Using IJMetadata display range: min=${mn}, max=${mx}`);
+        MFC_DEBUG.log(`[Channel ${idx}] Using IJMetadata display range: min=${mn}, max=${mx}`);
+        channelInfo[idx].rangeSource = 'ImageJ display range (IJMetadata)';
       } else if (descMeta.globalMin != null && descMeta.globalMax != null) {
         mn = descMeta.globalMin; mx = descMeta.globalMax;
-        console.log(`[Channel ${idx}] Using global min/max from ImageDescription: min=${mn}, max=${mx}`);
+        MFC_DEBUG.log(`[Channel ${idx}] Using global min/max from ImageDescription: min=${mn}, max=${mx}`);
+        channelInfo[idx].rangeSource = 'min= and max= of the ImageJ header';
       } else {
         // auto-contrast fallback: compute actual min/max of this channel
         let lo = Infinity, hi = -Infinity;
@@ -446,12 +455,14 @@ const MFC_TIFF = (function () {
           if (v > hi) hi = v;
         }
         mn = lo; mx = hi === lo ? lo + 1 : hi;
-        console.log(`[Channel ${idx}] No metadata range found — auto-contrast computed: min=${mn}, max=${mx}`);
+        MFC_DEBUG.log(`[Channel ${idx}] No metadata range found — auto-contrast computed: min=${mn}, max=${mx}`);
+        channelInfo[idx].rangeSource = 'Auto-contrast (no range in the file)';
       }
       ch.min = mn; ch.max = mx;
     });
 
-    const voxelSizeUm = getVoxelSizeXY(ifds[0], descMeta);
+    const pixelSize = getVoxelSizeXY(ifds[0], descMeta);
+    const voxelSizeUm = pixelSize.um;
 
     // ---- Default color/name assignment — informed by IJMetadata LUTs/labels
     //      when present, falling back to the cycling preset order otherwise ----
@@ -465,9 +476,14 @@ const MFC_TIFF = (function () {
       ch.name = (labels && labels[idx]) || ('Ch ' + (idx + 1));
 
       if (lutMatch) {
-        console.log(`[Channel ${idx}] Color auto-detected from ImageJ LUT: ${lutMatch}`);
+        MFC_DEBUG.log(`[Channel ${idx}] Color auto-detected from ImageJ LUT: ${lutMatch}`);
+        channelInfo[idx].colorSource = 'ImageJ LUT';
       }
     });
+
+    // What the import found, for the Image info dialog (not saved in projects).
+    descMeta.decodeInfo = { pages: pagesRaw.length, pixelSizeUm: voxelSizeUm || null, pixelSizeSource: pixelSize.source,
+      channels: channelInfo, layoutNote };
 
     const result = {
       fileName: file.name,
@@ -488,7 +504,7 @@ const MFC_TIFF = (function () {
     const sizeC = meta.channels || 1, sizeZ = meta.slices || 1, sizeT = meta.frames || 1;
     if (sizeZ * sizeT === 1) return plain;
     if (sizeC * sizeZ * sizeT !== pageCount) {
-      console.warn(`[TIFF] ImageJ header says ${sizeC} channels x ${sizeZ} slices x ${sizeT} frames ` +
+      MFC_DEBUG.warn(`[TIFF] ImageJ header says ${sizeC} channels x ${sizeZ} slices x ${sizeT} frames ` +
         `but the file has ${pageCount} pages; treating every page as a channel.`);
       return plain;
     }
@@ -665,7 +681,8 @@ const MFC_TIFF = (function () {
           { data: bData, bitDepth: 8, min: 0, max: 255, color: 'blue', enabled: true, name: 'Blue' }
         ],
         voxelSizeUm: null, // JPEG/PNG/BMP never carry physical pixel size — settable manually in the channel panel
-        meta: {},
+        meta: { decodeInfo: { pages: 1, pixelSizeUm: null, pixelSizeSource: 'Not in the file (PNG, JPEG and BMP have no physical pixel size)',
+          channels: [0, 1, 2].map(() => ({ rangeSource: 'Full 8-bit range', colorSource: 'RGB channel' })), layoutNote: null } },
         sourceFormat: 'raster',
         hasAlpha, alphaData, alphaEnabled: true,
         brightness: 0, contrast: 0

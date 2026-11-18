@@ -102,6 +102,7 @@ Select an image to show its channels in the **Channels** panel (see the screensh
 Below the channels:
 
 - **Pixel size (µm/px)**: read from the TIFF when available. Type a value to calibrate an image that has none; scale bars need it.
+- **Image info**: opens a dialog with what FluoForge found in the selected image's file: format, dimensions, bit depth, channels (colour, display range and where that range came from), Z slices, time frames and Z step, pixel size and where it came from (the file or typed by hand), and the raw ImageJ header. Press Escape or **Close** to close it.
 - **Preserve transparency (alpha)**: only for PNGs with transparent areas.
 - **Brightness / Contrast**: a tone curve applied to the whole composite. **Reset** sets both to 0.
 
@@ -334,7 +335,8 @@ Images are always re-composited from the original channel data at full resolutio
 
 ## 22. Tips and troubleshooting
 
-- **A stack opens as many channels.** The file has no ImageJ hyperstack header (or its header does not match the number of pages). In Fiji, use *Image ▸ Hyperstacks ▸ Stack to Hyperstack* and save as TIFF.
+- **A stack opens as many channels.** The file has no ImageJ hyperstack header (or its header does not match the number of pages). **Image info** shows the header and says when it does not match. In Fiji, use *Image ▸ Hyperstacks ▸ Stack to Hyperstack* and save as TIFF.
+- **Checking what was read from a file.** Select the image and click **Image info** in the Channels panel. For more detail, open FluoForge with `?debug=1` at the end of the address (or run `localStorage.fluoforgeDebug = '1'` in the browser console and reload): the TIFF reader then prints everything it decodes to the console. Importing is silent otherwise.
 - **No scale bar can be added.** The image has no pixel size. Type it in the Channels panel (**Pixel size (µm/px)**).
 - **Comparing conditions.** Select all panels of one channel and set the same *min / max*: the multi-image edit copies only the value you change.
 - **PDF text looks different.** Only the Liberation fonts are embedded in PDF; switch labels to Liberation Sans, Serif or Mono.

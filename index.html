@@ -15,7 +15,7 @@
 <link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#07090C">
-<link rel="stylesheet" href="style.css?v=0.1.1">
+<link rel="stylesheet" href="style.css?v=0.1.2">
 </head>
 <body>
 
@@ -219,6 +219,7 @@
         <hr style="border-color:var(--border);margin:10px 0;">
         <label>Pixel size (µm/px) <input type="number" id="ch-pixelsize" step="any" min="0" placeholder="unset"></label>
         <p class="hint" id="ch-pixelsize-hint"></p>
+        <button type="button" id="btn-image-info" aria-haspopup="dialog" title="Image info: dimensions, bit depth, channels, Z and T, pixel size and its source, and the file's ImageJ header">Image info</button>
       </div>
 
       <div id="channel-alpha" class="hidden">
@@ -489,12 +490,13 @@
 <script src="assets/vendor/jszip.min.js"></script>
 
 <!-- ======================= APP ======================= -->
-<script src="js/tiff.js?v=0.1.1"></script>
-<script type="module" src="js/app.js?v=0.1.1"></script>
+<script src="js/debug.js?v=0.1.2"></script>
+<script src="js/tiff.js?v=0.1.2"></script>
+<script type="module" src="js/app.js?v=0.1.2"></script>
 <script defer src="assets/vendor/svg2pdf.umd.min.js"></script>
-<script defer src="js/project.js?v=0.1.1"></script>
-<script defer src="js/autosave.js?v=0.1.1"></script>
-<script defer src="js/export.js?v=0.1.1"></script>
-<script defer src="js/main.js?v=0.1.1"></script>
+<script defer src="js/project.js?v=0.1.2"></script>
+<script defer src="js/autosave.js?v=0.1.2"></script>
+<script defer src="js/export.js?v=0.1.2"></script>
+<script defer src="js/main.js?v=0.1.2"></script>
 </body>
 </html>

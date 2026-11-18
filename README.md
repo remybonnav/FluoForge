@@ -39,6 +39,8 @@ With the Scale bar tool active, the bar the buttons would add is previewed (insi
 
 ImageJ hyperstacks (TIFFs saved by ImageJ/Fiji with `slices=` and/or `frames=` in their header) open as their real channels, not one channel per plane: a 4-channel, 5-slice stack shows 4 channels. The Channels panel then shows the stack size and a **Z display** choice: **Maximum intensity projection** (the default), **Mean intensity projection** or **Single slice** with a slice slider. Time series get a **frame** slider. Contrast, colors and channel toggles apply to whatever plane is shown. The choice is per image (an inset keeps its own), works on several selected stacks at once, appears in the History panel, is saved with the project and is used for export. TIFFs without an ImageJ header, or whose header does not match the page count, still open with one channel per page.
 
+**Image info** (Channels panel) shows what was read from the selected image's file: dimensions, bit depth, channels, Z and T, pixel size and its source, and the raw ImageJ header. Importing prints nothing to the browser console; open the app with `?debug=1` (or set `localStorage.fluoforgeDebug = '1'`) to see the TIFF reader's detailed log.
+
 ## Editing several objects at once
 
 With several images selected, the Channels panel edits all of them: turning a channel on or off, its color, min/max, brightness, contrast and pixel size are applied to the same channel number on each image, and only the setting you change is copied. The Shape, Pen/Path, Inset outline, Text and Scale bar panels work the same way for several selected objects of their kind.

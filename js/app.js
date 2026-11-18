@@ -42,6 +42,7 @@ import { onScaleBarFieldChanged, placeScaleBarAtCorner, placeScaleBarOnSelectedI
 import { applyShapeStyle, installCurveControls, refreshShapePanel, setShapeAspectMode, setShapeKind } from './tools/shape.js';
 import { applyTextAlign, applyTextBorder, applyTextBoxSize, applyTextStyle, applyTextVerticalAlign, attachTextListeners, centerTextInBox, effectiveFontSize, normalizeTextScale, refreshTextPanel } from './tools/text.js';
 import { setTool } from './tools/tool-switch.js';
+import './ui/image-info.js'; // wires the Image info button of the Channels panel
 import { groupSelection, refreshLayersPanel, setAllLayersVisible, toggleLayerLock, toggleLayerPositionLock, toggleLayerVisibility, ungroupSelection } from './ui/layers.js';
 import { applyLockState, isTransformLocked, setPositionLock, togglePositionLockSelection } from './ui/locks.js';
 import { applyObjectPositionFromFields, applyObjectSizeFromFields, refreshObjectSizePanel, refreshSelectionBar, rotateSelected, selectedObjects, setObjectAngle, uncropImage } from './ui/selection-bar.js';

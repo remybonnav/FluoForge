@@ -44,7 +44,8 @@ async function runModuleApiRegressions() {
   assert('Every API name except the two getters is a function'+(notFunctions.length?' (not functions: '+notFunctions.join(', ')+')':''),!notFunctions.length);
   assert('hasDocument and currentTool are read-only getters',GETTERS.every(n=>{const d=Object.getOwnPropertyDescriptor(MFC,n);return d&&d.get&&!d.set;})&&
     typeof MFC.hasDocument==='boolean'&&typeof MFC.currentTool==='string');
-  assert('The app version is unchanged by the split',MFC.getAppVersion()==='0.1.1');
+  const entryVersion=(modules[0].match(/[?&]v=([^&]+)/)||[])[1];
+  assert('The app version matches the cache-busting version of the module entry',MFC.getAppVersion()===entryVersion);
 
   // Module code lives in module scope: compare the page's globals with those of a blank frame.
   const blank=document.createElement('iframe');document.body.append(blank);
