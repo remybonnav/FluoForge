@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Remy Bonnavion
 /* Headless test runner (`npm test`).
-   1. Generates the test images (tests/generate-fixtures.mjs).
-   2. Serves the repository on a local port.
-   3. Runs every suite of tests/browser-regression.html in Chromium and Firefox, with every
+   1. Checks that the version is the same everywhere and tests the release script and the docs'
+      links (tests/release-regression.mjs, in Node).
+   2. Generates the test images (tests/generate-fixtures.mjs).
+   3. Serves the repository on a local port.
+   4. Runs every suite of tests/browser-regression.html in Chromium and Firefox, with every
       request to another origin blocked and reported.
-   4. In Chromium, reopens tests/fixtures/reference.mfcproj.zip and compares its SVG, TIFF and
+   5. In Chromium, reopens tests/fixtures/reference.mfcproj.zip and compares its SVG, TIFF and
       PDF exports with the stored references (tests/reference-check.js).
    Exits non-zero on any failure.
 
@@ -17,6 +19,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname, sep } from 'node:path';
 import { chromium, firefox } from 'playwright';
 import { generateFixtures } from './generate-fixtures.mjs';
+import { runReleaseRegressions } from './release-regression.mjs';
+import { check as checkVersion, describeMismatch } from '../scripts/release.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = Object.fromEntries(process.argv.slice(2).map(a => { const [k, v] = a.replace(/^--/, '').split('='); return [k, v ?? true]; }));
@@ -115,12 +119,28 @@ async function referenceStep(origin, results) {
   return log;
 }
 
+/** Node step: one version everywhere (`npm run release -- --check`), the release script's tests and the docs' links. */
+function releaseStep(results) {
+  const started = Date.now();
+  try {
+    const version = checkVersion(ROOT);
+    if (version.wrong.length) throw new Error(describeMismatch(version));
+    const checks = runReleaseRegressions();
+    results.push({ browser: 'node', suite: 'release-regression', pass: true, checks: checks.length, seconds: (Date.now() - started) / 1000 });
+    console.log(`PASS  node     ${'release-regression'.padEnd(28)} ${checks.length} checks (version ${version.version})`);
+  } catch (error) {
+    results.push({ browser: 'node', suite: 'release-regression', pass: false, checks: 0, detail: error.message, seconds: (Date.now() - started) / 1000 });
+    console.log(`FAIL  node     release-regression\n      ${error.message.replace(/\n/g, '\n      ')}`);
+  }
+}
+
 const server = await startServer();
 const origin = 'http://127.0.0.1:' + server.address().port;
 let exitCode = 0;
 try {
   generateFixtures();
   const results = [], logs = [];
+  if (!args['make-reference'] && !args.suite && !args['reference-only']) releaseStep(results);
   if (args['make-reference']) logs.push(await referenceStep(origin, results));
   else {
     const browsers = [chromium, firefox].filter(b => !args.browser || b.name() === args.browser);

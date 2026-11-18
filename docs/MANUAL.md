@@ -75,7 +75,7 @@ Everything except the name can be changed later in [Document properties](#15-pag
 - **Top bar, second row**: **Import Image**, **New figure**, **Document**, **Save Project**, **Save As**, **Versions**, **Open project**, **Export** and the **Theme** menu.
 - **Selection bar** (under the top bar): what is selected, its exact position, size and rotation, and the actions that apply to it. See [section 7](#7-selecting-moving-aligning-and-locking).
 - **Canvas**: the white page(s) on a checkered pasteboard. Objects left on the pasteboard are kept in the project but are not exported.
-- **Inspector** (right): collapsible panels for Document Properties, Layers, History, Channels and the active tool. Click a panel header to collapse or expand it; the **−** button collapses all of them. Selecting objects never opens, closes or moves a panel.
+- **Inspector** (right): collapsible panels for Document Properties, Layers, History, Channels and the active tool. Click a panel header to collapse or expand it; the **−** button collapses all of them. Which panels are collapsed is remembered. Selecting objects never opens, closes or moves a panel.
 
 **Zoom**: the − and + buttons (or the `-`, `+` and `0` keys) zoom around the selected object, or around the centre of the view when nothing is selected. Ctrl + mouse wheel zooms around the selection or the cursor. **1:1** returns to 100 %, and **Fit selection** (Shift+2) fits the selection in the view.
 
@@ -152,7 +152,9 @@ With two or more objects selected, the bar adds **Align** (left, centre, right, 
 - **Lock position** (selection bar, or the crosshair icon in the Layers panel): the object cannot be moved, resized or rotated, but its channels, colours, text and style stay editable. Use it once the layout is final.
 - **Layer lock** (padlock icon in the Layers panel): the object cannot be selected, edited or deleted at all.
 
-Align, distribute and the grid leave locked objects where they are, and a selection containing a locked object cannot be dragged or grouped. Both locks are saved with the project.
+Align, distribute and the grid leave locked objects where they are, and a selection containing a locked object cannot be dragged or grouped. Both locks are saved with the project and survive undo and redo.
+
+**Editing several objects of one kind.** The Channels, Shape, Pen / Path, Inset outline, Text and Scale bar panels edit every selected object of their kind at once, and only the setting you change is copied.
 
 ## 8. Cropping an image
 
@@ -173,7 +175,7 @@ Scale bars use the image's pixel size, so they stay correct when the panel is re
 
 ![Scale bar preview (50 µm = 94.5 px) on the two Merge panels, with the Scale Bar panel](images/05-scalebar.jpg)
 
-An attached bar follows its image when you move, resize or crop it. Selecting an existing bar (with any tool) shows its length, its image and that image's pixel size; changing a field then edits the selected bar(s).
+An attached bar follows its image when you move, resize or crop it. Selecting an existing bar (with any tool) shows its length in µm, its image, that image's pixel size and the bar's length in image and page pixels; changing a field then edits the selected bar(s). The Layers panel and the selection bar also show each bar's length.
 
 ## 10. Insets
 
@@ -196,6 +198,8 @@ Choose **Shape** (`R`), pick **Box**, **Ellipse** or **Line**, and drag on the c
 ![A dashed white circle drawn around a cell in inset C, with the Shape panel](images/07-shapes.jpg)
 
 The coloured frames around insets B and C are boxes drawn with this tool, in the same colours as the outlines.
+
+New shapes and paths start with a yellow stroke. The colour pickers offer bright colours, pastels, darker shades and greys, plus the pure ImageJ channel colours (red, green, blue, magenta, cyan and yellow), so outlines can match a channel exactly.
 
 ## 12. Pen and paths (arrows, outlines)
 
@@ -280,10 +284,11 @@ Every change is a step in the **History** panel, with a readable name and its ti
 
 - **Save Project** (Ctrl+S) writes a `.fluoforge` file containing the editable figure and one copy of every original image, so you can reopen it later and change anything. In Chrome and Edge you pick the file once and later saves overwrite it; other browsers download a new copy each time.
 - **Save As** saves to a new file as a new version that keeps the earlier history.
+- **What is in the file**: a `.fluoforge` file is a zip with `manifest.json`, one editable state per saved version under `versions/`, and one copy of every distinct original image under `sources/`. **Save Project** updates the current version; **Save As** adds a child version.
 - **Versions** lists the versions stored in the project and lets you restore one.
-- **Open project** opens a `.fluoforge` file. Projects saved by older FluoForge versions open too: `.mfcproj.zip` files (FluoForge up to 0.1.2) and the older `.mfcproj.json` and `.gz` formats (v0.18–v0.19). Saving such a project writes a `.fluoforge` file; a project that was opened from a file in Chrome or Edge keeps saving to that file until you use **Save As**.
+- **Open project** opens a `.fluoforge` file. Projects saved by older FluoForge versions open too: `.mfcproj.zip` files (FluoForge up to 0.1.2) and the older `.mfcproj.json` and `.gz` formats (v0.18–v0.19). Saving such a project writes a `.fluoforge` file; a project that was opened from a file in Chrome or Edge keeps saving to that file until you use **Save As**. In v0.18–v0.19 projects, scale bars and groups are converted, and a scale bar's length is read from its label.
 - **Storage**: below the recovery status, FluoForge shows how much browser storage it uses and how much is available. After the first recovery draft it asks the browser to keep this data (Firefox may ask you for permission; allowing it stops the browser from clearing drafts when space runs low). If the browser storage is full, the recovery status says so and drafts pause; your figure is not affected, so save it to a file. Drafts resume when space is freed.
-- **Recovery**: while you work, the browser keeps recovery checkpoints. If the tab is closed or crashes, FluoForge offers to recover the draft the next time it opens (only when the draft is newer than your last save). Recovery drafts are not a replacement for saving.
+- **Recovery**: while you work, the browser keeps recovery checkpoints. If the tab is closed or crashes, FluoForge offers to recover the draft the next time it opens (only when the draft is newer than your last save). Recovery drafts are not a replacement for saving, and they do not become project versions until you save.
 - Closing or reloading the tab with unsaved changes asks for confirmation.
 
 ## 19. Exporting the figure
@@ -298,7 +303,7 @@ Every change is a step in the **History** panel, with a readable name and its ti
 | **SVG** | One file per page. Text, shapes, paths, arrows, scale bars and clip paths stay as vectors; each image is embedded (cropped) at the output resolution, never enlarged beyond its source pixels. | Final touches in Inkscape or Illustrator. |
 | **PDF** | One PDF with one page per figure page; vectors stay vectors and the Liberation fonts are embedded. | Submission and sharing. |
 
-Images are always re-composited from the original channel data at full resolution, never from the screen preview. Dashed outlines keep their dash lengths in Inkscape and when resized. Export files are named after the project, and multi-page SVG/TIFF exports add `_page-1`, `_page-2`, … Objects on the pasteboard (outside a page) are not exported.
+Images are always re-composited from the original channel data at full resolution, never from the screen preview. Dashed outlines keep their dash lengths in Inkscape and when resized. Export files are named after the project (characters that are not allowed in file names are replaced), and multi-page SVG/TIFF exports add `_page-1`, `_page-2`, … Objects on the pasteboard (outside a page) are not exported.
 
 ## 20. Themes
 

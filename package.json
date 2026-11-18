@@ -11,7 +11,8 @@
     "test": "node tests/run-headless.mjs",
     "fixtures": "node tests/generate-fixtures.mjs",
     "make-reference": "node tests/run-headless.mjs --make-reference",
-    "install-browsers": "playwright install chromium firefox"
+    "install-browsers": "playwright install chromium firefox",
+    "release": "node scripts/release.mjs"
   },
   "devDependencies": {
     "pdfjs-dist": "3.11.174",

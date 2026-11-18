@@ -1,6 +1,17 @@
 # Changelog
 
+Each release lists what changed for users first, then development changes. New notes go under "Unreleased"; `npm run release -- <version>` dates them (see [CONTRIBUTING.md](CONTRIBUTING.md#releasing)).
+
 ## Unreleased
+
+### Development
+
+- **One version number.** The version is written only in `js/core/state.js` (`MFC_VERSION`). The new `npm run release` script (`scripts/release.mjs`) copies it into the `?v=` cache-busting strings of `index.html`, `package.json` and `package-lock.json`, and dates this changelog's "Unreleased" notes. `npm test` fails if any copy differs, and names the file and line.
+- **Documentation split.**
+  - The README now keeps only the pitch, a screenshot, the live link and a quick start.
+  - The test instructions moved to `CONTRIBUTING.md`, with a table of every test suite and the release steps.
+  - The feature details that were only in the README moved to `docs/MANUAL.md`.
+- **Tests:** the new `tests/release-regression.mjs` (run by `npm test`) checks the release script on a copy of the repository and checks that every link in the README, CONTRIBUTING, CHANGELOG and the manual leads to an existing file and heading.
 
 ## v0.1.4 (2026-11-18)
 
@@ -75,3 +86,10 @@
   - a link to the source code of the running version;
   - links to the commercial licence and the third-party notices.
 - The version restarts at 0.1.0 for the new repository.
+
+## Before v0.1.0
+
+FluoForge was developed in an earlier repository (versions up to v0.24) before the history was restarted at 0.1.0 on 2026-11-17; that history is not part of this repository. Projects saved by those versions keep opening:
+
+- `.mfcproj.zip` projects (the v0.22 format), covered by `tests/compat/main-v0.22-project.mfcproj.zip`;
+- `.mfcproj.json` and gzip projects from v0.18–v0.19, covered by the synthetic projects in `tests/v024-regression.js` and `tests/project-export-regression.js`.
