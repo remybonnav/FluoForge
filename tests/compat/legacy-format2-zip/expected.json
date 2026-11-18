@@ -1,0 +1,68 @@
+{
+  "fixture": "legacy-format2-zip",
+  "project": "project.mfcproj.zip",
+  "recordedBy": {
+    "appVersion": "0.1.5",
+    "commit": "working tree",
+    "how": "opened project.mfcproj.zip"
+  },
+  "summary": {
+    "docProps": {
+      "name": "Legacy",
+      "width": 800,
+      "height": 600,
+      "unit": "px",
+      "dpi": 300
+    },
+    "pages": 1,
+    "objectCount": 1,
+    "objects": [
+      {
+        "type": "image",
+        "mfcType": "mfcImage",
+        "mfcId": "legacyImg",
+        "left": 30,
+        "top": 40,
+        "width": 100,
+        "height": 90,
+        "scaleX": 2,
+        "scaleY": 2,
+        "angle": 10,
+        "flipX": false,
+        "flipY": false,
+        "originX": "left",
+        "originY": "top",
+        "opacity": 1,
+        "visible": true,
+        "fill": "rgb(0,0,0)",
+        "strokeWidth": 0,
+        "mfcFileName": "second.png",
+        "cropX": 20,
+        "cropY": 10,
+        "channels": [
+          {
+            "enabled": true,
+            "color": "red",
+            "min": 0,
+            "max": 255
+          },
+          {
+            "enabled": true,
+            "color": "green",
+            "min": 0,
+            "max": 255
+          },
+          {
+            "enabled": true,
+            "color": "blue",
+            "min": 0,
+            "max": 255
+          }
+        ],
+        "voxelSizeUm": 0.5,
+        "brightness": 0,
+        "contrast": 0
+      }
+    ]
+  }
+}

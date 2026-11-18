@@ -4,7 +4,19 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.5 (2026-11-18)
+
+- **Old projects open in every new version, and this is now tested.** Every project saved by FluoForge 0.1.0 or later, and the older `.mfcproj.json`, gzip and `.mfcproj.zip` formats, must open, look the same and export the same in every later version.
+- **Your original is kept.** The first time you save a project that had to be converted from an older format, the version you opened stays in the file unchanged, and the converted figure is saved as a new version next to it (**Versions** lists both).
+- **Projects from a newer FluoForge open.** This version loads what it understands and says "Saved by FluoForge v…; some content may not display". When you save, what it did not understand is kept unchanged. Export refuses with a clear message rather than leave anything out.
+- **Damaged images inside a project are detected.** Each image in a project is named after its SHA-256 checksum; a copy whose bytes no longer match is refused with a message naming the image.
+
 ### Development
+
+- **Project format documented:** `docs/PROJECT-FORMAT.md` describes `manifest.json`, `versions/` and `sources/`, every object type and its saved fields, and every format change with its date and version.
+- **Migrations:** `state.schema` is the format version. Each format change adds one pure migration in `js/migrations/` (`schema-<n>-to-<n+1>.js`), and opening, restoring a version and recovering a draft run the chain up to the current schema. The legacy loaders now produce schema 0, and their two remaining fixes (a v0.18 scale bar's length from its label, inset outlines in source pixels) are `schema-0-to-1.js`.
+- **Fixture library:** `tests/compat/` holds the reference figure saved by every release from v0.1.0 (built by that release with `npm run compat-fixture`), and the legacy formats, each with an `expected.json` and its SVG export. The rewritten `compat-regression` suite checks all of them.
+- **Format lock:** `tests/compat/format-lock.json` records `serializeObject`, `restoreObject` and `captureState`. Changing one fails `npm test` until a migration is added or the lock is updated with an explanation.
 
 - **One version number.** The version is written only in `js/core/state.js` (`MFC_VERSION`). The new `npm run release` script (`scripts/release.mjs`) copies it into the `?v=` cache-busting strings of `index.html`, `package.json` and `package-lock.json`, and dates this changelog's "Unreleased" notes. `npm test` fails if any copy differs, and names the file and line.
 - **Documentation split.**
