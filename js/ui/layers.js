@@ -4,10 +4,10 @@
  */
 /* Layers panel: one row per object with visibility, both locks and order, plus grouping and ungrouping. */
 
-import { scaleBarProps } from '../canvas-app.js';
 import { pushHistory } from '../core/history.js';
 import { sendPagesToBack } from '../core/pages.js';
 import { canvas, isHelper, takeId } from '../core/state.js';
+import { scaleBarProps } from '../tools/scalebar.js';
 import { applyLockState, applySelectionLock, refuseLocked, setPositionLock } from './locks.js';
 import { refreshSelectionBar } from './selection-bar.js';
 

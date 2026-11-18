@@ -4,9 +4,11 @@
  */
 /* Grid layout assistant: arranges images in rows and columns, with optional header and label text boxes. */
 
-import { attachTextListeners, followSourceImage, updateScaleBarsForImage } from '../canvas-app.js';
 import { pushHistory } from '../core/history.js';
 import { canvas, takeId } from '../core/state.js';
+import { followSourceImage } from '../tools/inset.js';
+import { updateScaleBarsForImage } from '../tools/scalebar.js';
+import { attachTextListeners } from '../tools/text.js';
 import { isTransformLocked } from '../ui/locks.js';
 
 // ---- grid layout assistant ----

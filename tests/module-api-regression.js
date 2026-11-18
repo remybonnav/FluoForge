@@ -55,5 +55,31 @@ async function runModuleApiRegressions() {
     ` (new: ${leaked.join(', ')||'none'}; gone: ${gone.join(', ')||'none'})`:''),!leaked.length&&!gone.length);
   assert('The classic scripts still define their APIs',typeof MFC_TIFF==='object'&&typeof MFC_PROJECT==='object'&&
     typeof MFC_EXPORT==='object'&&typeof MFC_AUTOSAVE==='object'&&typeof MFC_UI==='object');
+
+  // Every module reachable from js/app.js stays small (the split's goal: no file above about 600 lines).
+  const sizes=new Map(), queue=['js/app.js'];
+  while(queue.length){
+    const path=queue.shift(); if(sizes.has(path))continue;
+    const response=await fetch(path,{cache:'no-store'});
+    assert('Module '+path+' loads',response.ok);
+    const text=await response.text(); sizes.set(path,text.split('\n').length-(text.endsWith('\n')?1:0));
+    for(const m of text.matchAll(/^import\s[^'"]*['"]([^'"]+)['"];/gm))
+      queue.push(new URL(m[1],new URL(path,location.href)).pathname.replace(/^\//,''));
+  }
+  const longest=[...sizes].sort((a,b)=>b[1]-a[1])[0];
+  assert(`The ${sizes.size} modules imported from js/app.js are each at most 600 lines (longest: ${longest[0]}, ${longest[1]})`,
+    sizes.size>=20&&longest[1]<=600);
+  assert('canvas-app.js is no longer part of the module graph',![...sizes.keys()].some(p=>/canvas-app/.test(p)));
+
+  // One file per tool, each with the same small interface that tools/tool-switch.js uses.
+  const TOOLS=['crop','text','shape','path','inset','scalebar'];
+  for(const name of TOOLS){
+    const tool=await import(new URL('js/tools/'+name+'.js',location.href).href);
+    assert(`tools/${name}.js exports activate, deactivate and refreshPanel`,
+      ['activate','deactivate','refreshPanel'].every(k=>typeof tool[k]==='function'));
+  }
+  // The dynamic import above reuses the instances the app already loaded: same state, not a second copy.
+  const state=await import(new URL('js/core/state.js',location.href).href);
+  assert('A module imported again is the same instance the editor uses',state.getCanvas()===MFC.getCanvas()&&state.getRegistry()===MFC.getRegistry());
   return {checks};
 }

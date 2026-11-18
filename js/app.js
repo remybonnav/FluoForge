@@ -4,8 +4,28 @@
  */
 /* app.js: the module entry point. It publishes the editor's public API as `window.MFC`, the same
    object, with the same names, that the classic scripts (main.js, project.js, export.js…) and the tests use. */
+/*
+ * Editor layout (formerly one file, canvas-app.js):
+ *   core/    state, canvas set-up and events, undo history, pages, zoom, clipboard
+ *   image/   import and the channel panel
+ *   tools/   one file per tool (crop, text, shape, path, inset, scalebar) and tool switching
+ *   layout/  align, grid, snapping and nudge
+ *   ui/      layers panel, selection bar, locks
+ *
+ * Design decisions (per the brief's open questions):
+ *  - Aspect ratio is LOCKED BY DEFAULT on resize; hold Shift while
+ *    dragging a corner handle to resize freely (unlocked).
+ *  - Channel count is unlimited / dynamic, driven entirely by the number
+ *    of pages found in the imported TIFF.
+ *  - Large images: the on-canvas composite is capped at 2048px on the
+ *    long edge for interactive performance (see tiff.js MAX_WORKING_DIM).
+ *    Raw 16-bit channel arrays are kept in memory and re-composited at
+ *    full resolution at export time, so exports are never downsampled.
+ * -----------------------------------------------------------------------
+ */
 
-import { applyCrop, applyCropFieldsToRect, applyExactSizeToSelectedContour, applyInsetContourStyle, applyPathStyle, applyShapeStyle, applyTextAlign, applyTextBorder, applyTextBoxSize, applyTextStyle, applyTextVerticalAlign, attachTextListeners, cancelCrop, cancelPathDrawing, centerTextInBox, copySelection, createInsetFromContour, cropToShape, cropToShapePair, deleteSelectedPathNode, duplicateSelection, effectiveFontSize, enterPathEdit, exitPathEdit, finishPathDrawing, handlePathKey, init, insertPathNode, installCurveControls, installPathControls, loadInsetSizePreferences, normalizeTextScale, onScaleBarFieldChanged, pasteSelection, pathArrowGeometry, placeScaleBarAtCorner, placeScaleBarOnSelectedImages, refreshInsetPanel, refreshPathPanel, refreshScaleBarPanel, refreshScaleBarPreview, refreshScaleBarRefList, refreshShapePanel, refreshTextPanel, releaseShapeCrop, saveInsetSizePreferences, scaleBarProps, setCropAspectMode, setInsetAspectMode, setPathDefaultMode, setSelectedIncomingSegment, setSelectedNodeType, setShapeAspectMode, setShapeKind, setTool, togglePathClosed } from './canvas-app.js';
+import { init } from './core/canvas-events.js';
+import { copySelection, duplicateSelection, pasteSelection } from './core/clipboard.js';
 import { getHistory, jumpToHistory, pushHistory, redo, refreshHistoryPanel, resetHistory, undo } from './core/history.js';
 import { addPage, applyDocProps, closeDocument, docPropsToPixels, pageBounds, pageCount, pageIndexForBox, removeLastPage, scrollToPage } from './core/pages.js';
 import { currentTool, documentOpen, getAppVersion, getCanvas, getDocProps, getNextIdCounter, getRegistry, isHelper, setDocName, setNextIdCounter } from './core/state.js';
@@ -15,6 +35,13 @@ import { addImageToCanvas, importFiles, recomposite } from './image/import.js';
 import { align } from './layout/align.js';
 import { arrangeGrid } from './layout/grid.js';
 import { nudgeSelection } from './layout/snap.js';
+import { applyCrop, applyCropFieldsToRect, cancelCrop, cropToShape, cropToShapePair, releaseShapeCrop, setCropAspectMode } from './tools/crop.js';
+import { applyExactSizeToSelectedContour, applyInsetContourStyle, createInsetFromContour, loadInsetSizePreferences, refreshInsetPanel, saveInsetSizePreferences, setInsetAspectMode } from './tools/inset.js';
+import { applyPathStyle, cancelPathDrawing, deleteSelectedPathNode, enterPathEdit, exitPathEdit, finishPathDrawing, handlePathKey, insertPathNode, installPathControls, pathArrowGeometry, refreshPathPanel, setPathDefaultMode, setSelectedIncomingSegment, setSelectedNodeType, togglePathClosed } from './tools/path.js';
+import { onScaleBarFieldChanged, placeScaleBarAtCorner, placeScaleBarOnSelectedImages, refreshScaleBarPanel, refreshScaleBarPreview, refreshScaleBarRefList, scaleBarProps } from './tools/scalebar.js';
+import { applyShapeStyle, installCurveControls, refreshShapePanel, setShapeAspectMode, setShapeKind } from './tools/shape.js';
+import { applyTextAlign, applyTextBorder, applyTextBoxSize, applyTextStyle, applyTextVerticalAlign, attachTextListeners, centerTextInBox, effectiveFontSize, normalizeTextScale, refreshTextPanel } from './tools/text.js';
+import { setTool } from './tools/tool-switch.js';
 import { groupSelection, refreshLayersPanel, setAllLayersVisible, toggleLayerLock, toggleLayerPositionLock, toggleLayerVisibility, ungroupSelection } from './ui/layers.js';
 import { applyLockState, isTransformLocked, setPositionLock, togglePositionLockSelection } from './ui/locks.js';
 import { applyObjectPositionFromFields, applyObjectSizeFromFields, refreshObjectSizePanel, refreshSelectionBar, rotateSelected, selectedObjects, setObjectAngle, uncropImage } from './ui/selection-bar.js';

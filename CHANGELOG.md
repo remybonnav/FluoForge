@@ -7,12 +7,13 @@
 - **Headless tests:** `npm test` runs every regression suite in Chromium and Firefox with Playwright. It also compares the SVG, TIFF and PDF exports of a reference figure (`tests/fixtures/reference.mfcproj.zip`) with stored references.
 - **Test images:** they are generated in Node (`tests/generate-fixtures.mjs`), so the tests no longer need Python.
 - **GitHub Actions:** the tests run on every push and pull request, and `main` deploys to GitHub Pages.
-- **ES modules (P1-T3, in progress):**
+- **ES modules (P1-T3):**
   - The editor now loads from one module entry, `js/app.js`, which publishes the same `window.MFC` API as before.
-  - So far, these have moved out of `canvas-app.js`: the shared state, undo history, pages and zoom (`js/core/`); image import and the channel panel (`js/image/`); align, grid and snapping (`js/layout/`); and the layers panel, selection bar and locks (`js/ui/`).
+  - `canvas-app.js` (3,375 lines) is split into 21 modules: `js/core/` (state, canvas events, history, pages, zoom, clipboard), `js/image/` (import, channels), `js/tools/` (crop, text, shape, path, inset, scale bar, tool switching), `js/layout/` (align, grid, snap) and `js/ui/` (layers, selection bar, locks). None is longer than 600 lines.
+  - Each tool exports `activate`, `deactivate` and `refreshPanel`, which tool switching calls in the same order as before.
   - The app must be served over HTTP, as the README already says. Opening `index.html` directly from disk (`file://`) no longer works, because browsers do not load modules from `file://`.
 - **New tests:**
-  - `module-api-regression` checks that `MFC` keeps exactly its 121 names and that no global name appears or disappears.
+  - `module-api-regression` checks that `MFC` keeps exactly its 121 names, that no global name appears or disappears, that no module is longer than 600 lines, and that every tool exports `activate`, `deactivate` and `refreshPanel`.
   - The reference check now also requires the SVG export to be byte-identical to `reference.svg`, after renumbering Fabric's clip-path ids.
 - **No change to the app.**
 

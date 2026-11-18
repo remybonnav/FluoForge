@@ -4,9 +4,14 @@
  */
 /* Selection: what happens when the selection changes, the selected objects, and the selection bar (position, size, rotation, crop reset). */
 
-import { applyTextBoxSize, cropRect, cropToShapePair, followSourceImage, keepClipOnContent, refreshInsetPanel, refreshPathPanel, refreshScaleBarPanel, refreshScaleBarPreview, refreshScaleBarRefList, refreshShapePanel, refreshTextPanel, syncAttachments, syncInsetFromContour, updateScaleBarsForImage } from '../canvas-app.js';
 import { canvas, currentTool, registry } from '../core/state.js';
 import { refreshChannelPanel } from '../image/channels.js';
+import { cropRect, cropToShapePair, keepClipOnContent } from '../tools/crop.js';
+import { followSourceImage, refreshInsetPanel, syncAttachments, syncInsetFromContour } from '../tools/inset.js';
+import { refreshPathPanel } from '../tools/path.js';
+import { refreshScaleBarPanel, refreshScaleBarPreview, refreshScaleBarRefList, updateScaleBarsForImage } from '../tools/scalebar.js';
+import { refreshShapePanel } from '../tools/shape.js';
+import { applyTextBoxSize, refreshTextPanel } from '../tools/text.js';
 import { LAYER_ICONS, layerLabel, refreshLayersPanel } from './layers.js';
 import { applyLockState, applySelectionLock, isTransformLocked, refuseLocked } from './locks.js';
 

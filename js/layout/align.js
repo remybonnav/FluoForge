@@ -4,9 +4,9 @@
  */
 /* Align and distribute the selected objects. */
 
-import { syncAttachments } from '../canvas-app.js';
 import { pushHistory } from '../core/history.js';
 import { canvas } from '../core/state.js';
+import { syncAttachments } from '../tools/inset.js';
 import { isTransformLocked } from '../ui/locks.js';
 import { refreshSelectionBar } from '../ui/selection-bar.js';
 

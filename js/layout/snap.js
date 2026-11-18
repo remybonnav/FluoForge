@@ -4,11 +4,12 @@
  */
 /* Snapping to page and object edges and centres while dragging, and keyboard nudging. */
 
-import { cropRect, syncAttachments, syncInsetFromContour } from '../canvas-app.js';
 import { pushHistory } from '../core/history.js';
 import { pageBounds, pageCount } from '../core/pages.js';
 import { canvas, isHelper } from '../core/state.js';
 import { zoomLevel } from '../core/zoom.js';
+import { cropRect } from '../tools/crop.js';
+import { syncAttachments, syncInsetFromContour } from '../tools/inset.js';
 import { refuseLocked } from '../ui/locks.js';
 import { refreshSelectionBar } from '../ui/selection-bar.js';
 

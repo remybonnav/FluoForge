@@ -4,9 +4,9 @@
  */
 /* Locks: the layer lock (nothing can be changed) and the position/size lock (moving, scaling and rotating blocked), and the Fabric flags derived from them. */
 
-import { exitPathEdit } from '../canvas-app.js';
 import { pushHistory } from '../core/history.js';
 import { canvas, currentTool, isHelper } from '../core/state.js';
+import { exitPathEdit } from '../tools/path.js';
 import { refreshLayersPanel } from './layers.js';
 import { refreshSelectionBar } from './selection-bar.js';
 

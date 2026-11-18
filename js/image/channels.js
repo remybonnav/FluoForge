@@ -4,9 +4,9 @@
  */
 /* Channel panel: channel colours, display ranges and visibility, Z and time controls, pixel size, alpha and the tone curve (brightness and contrast). */
 
-import { updateScaleBarsForImage } from '../canvas-app.js';
 import { canvas, registry } from '../core/state.js';
 import { recomposite } from './import.js';
+import { updateScaleBarsForImage } from '../tools/scalebar.js';
 import { selectedObjects } from '../ui/selection-bar.js';
 
 // ---- channel panel ----

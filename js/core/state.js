@@ -39,3 +39,13 @@ export function getCanvas() { return canvas; }
 export function getRegistry() { return registry; }
 export function getNextIdCounter() { return nextId; }
 export function setNextIdCounter(v) { nextId = v; }
+
+fabric.Object.NUM_FRACTION_DIGITS = 8;
+
+export const DASH_PRESETS = {
+  solid: null,
+  dashed: [12, 8],
+  dotted: [2, 5],
+  dashdot: [12, 5, 2, 5],
+  longdash: [22, 10]
+};

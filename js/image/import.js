@@ -4,10 +4,10 @@
  */
 /* Image import: decodes TIFF and raster files, adds them to the canvas as images, and recomposites an image from its raw channels. */
 
-import { refreshScaleBarRefList } from '../canvas-app.js';
 import { pushHistory } from '../core/history.js';
 import { canvas, registry, takeId } from '../core/state.js';
 import { refreshChannelPanel } from './channels.js';
+import { refreshScaleBarRefList } from '../tools/scalebar.js';
 
 // ---- image import ----
 export async function importFiles(fileList) {
