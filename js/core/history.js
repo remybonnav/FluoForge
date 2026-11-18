@@ -3,6 +3,7 @@
  * Copyright (C) 2026 Remy Bonnavion
  */
 /* Undo and redo: one captured state per step, a label worked out from the previous step, and the History panel. */
+
 import { documentOpen } from './state.js';
 
 // Undo, versions and recovery use one recursive serializer, without image bytes.

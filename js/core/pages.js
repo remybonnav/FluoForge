@@ -3,6 +3,7 @@
  * Copyright (C) 2026 Remy Bonnavion
  */
 /* Pages: every page has the document size, stacked vertically on one canvas; document properties and their pixel size. */
+
 import { layerObjects } from '../canvas-app.js';
 import { pushHistory } from './history.js';
 import { canvas, docProps, documentOpen, setDocProps, setDocumentOpen } from './state.js';

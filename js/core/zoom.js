@@ -3,6 +3,7 @@
  * Copyright (C) 2026 Remy Bonnavion
  */
 /* Zoom: canvas size and viewport for a zoom level, zoom anchors (selection, cursor or view centre) and scrolling. */
+
 import { docExtent } from './pages.js';
 import { canvas, documentOpen } from './state.js';
 
