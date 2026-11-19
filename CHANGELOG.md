@@ -13,7 +13,7 @@ Each release lists what changed for users first, then development changes. New n
 
 ### Development
 
-- `js/image/composite-core.js`: `planeHistogram`, `autoRange`, `sliderLimits`, `logBins`; the worker answers `histogram` messages; `MFC_TIFF.histogram(plane)` caches one per displayed plane. `js/image/display-settings.js`: copy, paste and the image context menu.
+- `js/image/composite-core.js`: `planeHistogram`, `autoRange`, `sliderLimits`, `logBins`; the worker answers `histogram` messages; `MFC_TIFF.histogram(plane)` caches one per displayed plane; the channel panel asks with `{ background: true }`, which waits until pending composites are done. `js/image/display-settings.js`: copy, paste and the image context menu.
 - Channels remember the range found on import (`fileMin`, `fileMax`). It is not saved: a project decodes its source again on opening, so the project format is unchanged.
 - **Tests:** the new `histogram-display-regression` suite, with Auto checked against values from ImageJ 1.54p.
 

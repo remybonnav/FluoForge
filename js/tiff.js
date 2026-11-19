@@ -679,27 +679,35 @@ const MFC_TIFF = (function () {
   /**
    * Histogram of a displayed plane (composite-core planeHistogram), computed in a worker and kept
    * for as long as the plane exists, so redrawing the channel panel costs nothing.
+   * `background: true` (the channel panel's drawing) waits until no composite is pending, so it
+   * never competes with the image being shown; any other call (Auto, tests) starts it at once.
    */
   const histograms = new WeakMap();
-  function histogram(data) {
-    if (!data || typeof data !== 'object') return Promise.resolve(null);
-    if (!histograms.has(data)) {
-      const compute = async () => {
-        const workers = getPool();
-        if (workers.length) {
-          // A copy goes to the worker: the plane itself stays shared by the channel and its stack.
-          const plane = data.slice();
-          const reply = await ask(workers[0], { type: 'histogram', plane }, [plane.buffer]);
-          if (reply.error) throw new Error(reply.error);
-          if (!reply.broken) { stats.workerHistograms++; return reply.histogram; }
-        }
-        return (await loadCore()).planeHistogram(data);
-      };
-      const pending = track(compute());
-      pending.catch(() => histograms.delete(data));
-      histograms.set(data, pending);
+  async function computeHistogram(data) {
+    const workers = getPool();
+    if (workers.length) {
+      // A copy goes to the worker: the plane itself stays shared by the channel and its stack.
+      const plane = data.slice();
+      const reply = await ask(workers[0], { type: 'histogram', plane }, [plane.buffer]);
+      if (reply.error) throw new Error(reply.error);
+      if (!reply.broken) { stats.workerHistograms++; return reply.histogram; }
     }
-    return histograms.get(data);
+    return (await loadCore()).planeHistogram(data);
+  }
+  function histogram(data, { background = false } = {}) {
+    if (!data || typeof data !== 'object') return Promise.resolve(null);
+    let entry = histograms.get(data);
+    if (!entry) {
+      let begin;
+      const started = new Promise(resolve => { begin = resolve; });
+      entry = { begin, promise: started.then(() => track(computeHistogram(data))) };
+      entry.promise.catch(() => histograms.delete(data));
+      histograms.set(data, entry);
+      // Not tracked while it waits, so whenIdle() does not wait for it.
+      whenIdle().then(() => setTimeout(entry.begin, 0));
+    }
+    if (!background) entry.begin();
+    return entry.promise;
   }
 
   /** Output size of a composite: `scale` of the region, or an explicit target size. */

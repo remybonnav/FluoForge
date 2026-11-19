@@ -78,6 +78,22 @@ async function runHistogramDisplayRegressions() {
   const hw = await p1;
   assert('The histogram is computed in the worker, once per displayed plane', MFC_TIFF.workerActive && MFC_TIFF.stats.workerHistograms === before + 1 && p1 === p2 &&
     hw.counts[4095] === core.planeHistogram(smooth).counts[4095] && hw.max === 4095);
+  {
+    // The channel panel asks in the background: that waits for the composite being made.
+    const S = 1024, planes = [0, 1].map(c => Uint16Array.from({ length: S * S }, (_, i) => (i * (c + 5)) & 0xfff));
+    const big = { width: S, height: S, brightness: 0, contrast: 0, channels: planes.map((data, c) => ({ data, enabled: true, bitDepth: 16, min: 0, max: 4095, color: c ? 'green' : 'magenta' })) };
+    const order = [];
+    const composite = MFC_TIFF.track(MFC_TIFF.composite(big, 1)).then(() => order.push('composite'));
+    const background = MFC_TIFF.histogram(planes[0], { background: true }).then(() => order.push('background histogram'));
+    await Promise.all([composite, background]);
+    assert('A background histogram (the panel\'s) starts only after the pending composite', order.join() === 'composite,background histogram', order.join());
+    let started = false;
+    const waiting = MFC_TIFF.histogram(planes[1], { background: true }).then(() => { started = true; });
+    const now = MFC_TIFF.histogram(planes[1]);
+    assert('Asking for the same plane without background (Auto) starts it at once and shares the result', (await now) === (await MFC_TIFF.histogram(planes[1], { background: true })));
+    await waiting;
+    assert('…and the waiting request gets it too', started);
+  }
   assert('…without touching the plane itself (it stays shared with the stack)', smooth.length === N && smooth[1] === 100 + Math.floor(3900 * (7919 / 30011) ** 2));
 
   // ---- acceptance: a 12-bit camera image in a 16-bit file ----

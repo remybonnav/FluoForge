@@ -170,7 +170,7 @@ export function refreshChannelPanel() {
       drawHistogram(row, hist, limits, ch);
     }
     applyLimits();
-    MFC_TIFF.histogram(ch.data).then(h => { if (h && row.isConnected) { hist = h; applyLimits(); } }).catch(() => {});
+    MFC_TIFF.histogram(ch.data, { background: true }).then(h => { if (h && row.isConnected) { hist = h; applyLimits(); } }).catch(() => {});
 
     toggle.addEventListener('change', (e) => {
       peers.forEach(p => { p.enabled = e.target.checked; });
