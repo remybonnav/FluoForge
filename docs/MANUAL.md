@@ -107,6 +107,13 @@ Select an image to show its channels in the **Channels** panel (see the screensh
   Use the arrow keys to move, Enter to choose and Escape to close. Channels are added together, as in an ImageJ composite.
 - **▮ (calibration bar)**: adds a calibration bar for this channel next to the image (see below).
 - **min / max**: the display range (as in ImageJ's *Brightness & Contrast*). Values below *min* are black; values at or above *max* are full colour. Drag the slider or type a number and press Enter.
+  - Behind the two sliders is the **histogram** of the plane on screen (the current Z slice or projection), on a log scale so a few bright pixels still show. The shaded part is the display range.
+  - The sliders cover the range of the data: 0 to 255 for 8-bit images; for 16-bit files, the bits the data actually uses, so a 12-bit camera image gets 0 to 4095. You can still type any value the file can hold.
+- **Auto**: sets *min* and *max* as ImageJ's *Auto* button and *Enhance Contrast* (saturated 0.35 %) do: 0.175 % of the pixels become black and 0.175 % full colour, so a few hot pixels do not squash the image. It gives the same values as ImageJ.
+- **Full range**: shows the whole range of the data type, for example 0 to 4095 for 12-bit data.
+- **Reset to file**: goes back to the range stored in the file (ImageJ's display range), or the one FluoForge chose on import when the file has none.
+
+  Each of the three buttons is one undo step and applies to every selected image, each using its own pixels.
 - **gamma** (0.1 to 5, default 1): bends the display between *min* and *max*. Above 1 the dim parts get darker, below 1 they get brighter. Like *min* and *max*, it only changes how the channel is shown, never the data; report it in your figure legend when it is not 1.
 - **invert**: shows the channel inverted, bright as dark (like *Invert LUT* in Fiji).
 
@@ -118,6 +125,8 @@ Below the channels:
 - **Image info**: opens a dialog with what FluoForge found in the selected image's file: format, dimensions, bit depth, channels (colour, display range and where that range came from), Z slices, time frames and Z step, pixel size and where it came from (the file or typed by hand), and the raw ImageJ header. Press Escape or **Close** to close it.
 - **Preserve transparency (alpha)**: only for PNGs with transparent areas.
 - **Brightness / Contrast**: a tone curve applied to the whole composite. **Reset** sets both to 0.
+
+**Copying display settings.** To give other images exactly the look of one image, select that image and click **Copy display** in the selection bar (or right-click it and choose **Copy display settings**). Then select the other images and click **Paste display** (or right-click → **Paste display settings**). Each channel gets the copied LUT, *min*, *max*, gamma, invert and on/off, matched by number: channel 1 to channel 1, and so on. Brightness and contrast are copied too; channel names are not. When the images have different numbers of channels, the extra channels are left as they were. A paste is one undo step. With the keyboard, select an image and press the Menu key or Shift+F10 to open the same menu.
 
 **Editing several images at once.** With several images selected, the panel edits all of them: a change to channel 2's colour, for example, is applied to channel 2 of every selected image. Only the setting you change is copied; the other settings stay as they were. Use this to give every panel of a figure the same display range, which keeps intensities comparable between conditions.
 
@@ -347,6 +356,7 @@ Images are always re-composited from the original channel data at full resolutio
 | Ctrl+D | Duplicate |
 | Ctrl+C / Ctrl+V | Copy / paste |
 | Ctrl+G / Ctrl+Shift+G | Group / ungroup |
+| Menu key or Shift+F10 | Image menu (copy and paste display settings) |
 | Ctrl+S | Save project |
 | Delete or Backspace | Delete the selection (locked objects are kept) |
 | Shift (while drawing) | Square / circle; 45° for paths and rotation |

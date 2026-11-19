@@ -281,3 +281,96 @@ export function compositeImage(job, resample = data => resamplePlane(data, job.s
   const height = job.rows ? job.rows[1] - job.rows[0] : job.dstH;
   return compositeRGBA({ width: job.dstW, height, channels, brightness: job.brightness || 0, contrast: job.contrast || 0, alpha, coverage });
 }
+
+// ---- Histograms and display ranges (P2-T3) ----
+
+/** Number of bins for a float plane's histogram (integer planes get one bin per value). */
+export const FLOAT_BINS = 4096;
+
+/**
+ * Histogram of one raw plane. Integer planes (Uint8Array, Uint16Array) get one bin per possible
+ * value, so percentiles are exact: { counts, lo: 0, binWidth: 1 }. Float planes get FLOAT_BINS
+ * bins over their data range; NaN and infinite values are left out.
+ * Also returns { min, max, n } of the counted values (n = 0 for an empty or all-NaN plane).
+ */
+export function planeHistogram(plane) {
+  if (plane instanceof Uint8Array || plane instanceof Uint16Array) {
+    const counts = new Uint32Array(plane instanceof Uint8Array ? 256 : 65536);
+    for (let i = 0; i < plane.length; i++) counts[plane[i]]++;
+    let min = 0, max = counts.length - 1;
+    while (min < counts.length && !counts[min]) min++;
+    while (max >= 0 && !counts[max]) max--;
+    return plane.length ? { counts, lo: 0, binWidth: 1, min, max, n: plane.length, integer: true }
+      : { counts, lo: 0, binWidth: 1, min: 0, max: 0, n: 0, integer: true };
+  }
+  let min = Infinity, max = -Infinity, n = 0;
+  for (let i = 0; i < plane.length; i++) { const v = plane[i]; if (Number.isFinite(v)) { n++; if (v < min) min = v; if (v > max) max = v; } }
+  const counts = new Uint32Array(FLOAT_BINS);
+  if (!n) return { counts, lo: 0, binWidth: 1, min: 0, max: 0, n: 0, integer: false };
+  const binWidth = max > min ? (max - min) / FLOAT_BINS : 1;
+  for (let i = 0; i < plane.length; i++) {
+    const v = plane[i];
+    if (Number.isFinite(v)) counts[Math.min(FLOAT_BINS - 1, Math.floor((v - min) / binWidth))]++;
+  }
+  return { counts, lo: min, binWidth, min, max, n, integer: false };
+}
+
+/**
+ * Display range that saturates `saturated` percent of the pixels, as ImageJ's Process > Enhance
+ * Contrast (and the B&C "Auto" default, saturated=0.35) computes it in ContrastEnhancer: half of
+ * it at each end, threshold = n * saturated / 200 pixels, and the first bin from each end whose
+ * running count exceeds the threshold. Falls back to the data range when that gives min == max.
+ * Checked against ImageJ 1.54p on 8- and 16-bit planes (tests/histogram-display-regression.js).
+ */
+export function autoRange(hist, saturated = 0.35) {
+  const { counts, lo, binWidth, n } = hist;
+  if (!n) return null;
+  const threshold = Math.floor(n * saturated / 200);
+  let i = -1, count = 0;
+  do { i++; count += counts[i]; } while (count <= threshold && i < counts.length - 1);
+  const hmin = i;
+  i = counts.length; count = 0;
+  do { i--; count += counts[i]; } while (count <= threshold && i > 0);
+  const hmax = i;
+  let min = lo + hmin * binWidth, max = lo + hmax * binWidth;
+  if (hmax < hmin || min === max) { min = hist.min; max = hist.max; }
+  if (max <= min) max = min + (hist.integer ? 1 : Math.max(binWidth, 1e-6));
+  return { min, max };
+}
+
+/**
+ * Limits of a channel's min and max sliders. Integer data: the range of its bit depth, narrowed to
+ * the bits the data actually uses, so 12-bit camera data stored in 16-bit files gets 0..4095
+ * (8, 10, 12, 14 or 16 bits; `values` are other values that must fit, such as the current range).
+ * Float data: the data range.
+ */
+export function sliderLimits(hist, bitDepth, values = []) {
+  if (hist && !hist.integer) {
+    const lo = Math.min(hist.min, ...values), hi = Math.max(hist.max, ...values);
+    return { lo, hi: hi > lo ? hi : lo + 1, integer: false };
+  }
+  if (!(bitDepth > 8)) return { lo: 0, hi: 255, integer: true };
+  const top = Math.max(hist ? hist.max : 65535, ...values);
+  const bits = [10, 12, 14, 16].find(b => top <= 2 ** b - 1) || 16;
+  return { lo: 0, hi: 2 ** bits - 1, integer: true };
+}
+
+/**
+ * Display histogram for drawing: `bins` bars over [lo, hi], each the log of 1 + its count,
+ * scaled so the tallest bar is 1 (an empty plane gives all zeros).
+ */
+export function logBins(hist, lo, hi, bins) {
+  const out = new Float32Array(bins), sums = new Float64Array(bins);
+  const { counts, binWidth } = hist;
+  const span = hi - lo || 1;
+  for (let i = 0; i < counts.length; i++) {
+    if (!counts[i]) continue;
+    const v = hist.lo + i * binWidth;
+    if (v < lo || v > hi) continue;
+    sums[Math.min(bins - 1, Math.floor((v - lo) / span * bins))] += counts[i];
+  }
+  let top = 0;
+  for (let b = 0; b < bins; b++) { out[b] = Math.log1p(sums[b]); if (out[b] > top) top = out[b]; }
+  if (top) for (let b = 0; b < bins; b++) out[b] /= top;
+  return out;
+}

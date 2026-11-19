@@ -25,6 +25,7 @@ body{font:14px system-ui;background:#eef0f5;color:#172031;margin:16px}button{pad
 <button data-suite="errors-storage-regression">Errors, damaged files and storage</button>
 <button data-suite="compositor-regression">Compositor: LUTs, gamma, resizing, worker</button>
 <button data-suite="lut-calibration-regression">LUT library and calibration bar</button>
+<button data-suite="histogram-display-regression">Histogram, auto contrast, copy display settings</button>
 <pre id="result" role="status">Choose a suite. Each run uses a fresh test frame and isolated recovery storage.</pre>
 <div id="frame"></div>
 <script>
@@ -35,7 +36,7 @@ const suites={ 'dev-interface-regression':'runDevInterfaceRegressions', 'path-re
   'offline-regression':'runOfflineRegressions', 'module-api-regression':'runModuleApiRegressions',
   'image-info-regression':'runImageInfoRegressions', 'compat-regression':'runCompatRegressions',
   'errors-storage-regression':'runErrorsStorageRegressions', 'compositor-regression':'runCompositorRegressions',
-  'lut-calibration-regression':'runLutCalibrationRegressions' };
+  'lut-calibration-regression':'runLutCalibrationRegressions', 'histogram-display-regression':'runHistogramDisplayRegressions' };
 document.querySelectorAll('button').forEach(button=>button.onclick=async()=>{
   const result=document.getElementById('result'); result.textContent='Running '+button.dataset.suite+'…';
   const frame=document.createElement('iframe');frame.src='../?test=regression-'+Date.now();document.getElementById('frame').replaceChildren(frame);

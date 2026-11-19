@@ -14,6 +14,7 @@ import { refreshShapePanel } from '../tools/shape.js';
 import { applyTextBoxSize, refreshTextPanel } from '../tools/text.js';
 import { LAYER_ICONS, layerLabel, refreshLayersPanel } from './layers.js';
 import { applyLockState, applySelectionLock, isTransformLocked, refuseLocked } from './locks.js';
+import { refreshDisplayButtons } from '../image/display-settings.js';
 
 export function onSelectionChanged() {
   const activeObject=canvas.getActiveObject();
@@ -51,6 +52,7 @@ export function setFieldValue(id, value, disabled) {
 export function refreshSelectionBar() {
   const label = document.getElementById('sel-label');
   if (!label) return;
+  refreshDisplayButtons();
   const active = canvas.getActiveObject();
   const transform = document.getElementById('sel-transform'), alignGroup = document.getElementById('sel-align');
   const note = document.getElementById('sel-lock-note');

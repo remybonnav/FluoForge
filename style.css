@@ -225,6 +225,23 @@ body:not(.document-open) #side-panel>.panel{display:none;}
 .range-row input[type=range]{flex:1;width:auto;}
 .range-row .rv-input{width:52px;text-align:right;color:var(--text);font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 4px;}
 .range-row .rv-input:focus{border-color:var(--accent);outline:none;}
+/* Histogram (log scale) behind the min and max sliders, with the display range shaded (P2-T3). */
+.ch-ranges{position:relative;}
+.ch-ranges .range-row{position:relative;z-index:1;}
+.ch-ranges .hint{width:24px;flex-shrink:0;}
+.ch-ranges input[type=range]{background:transparent;}
+.ch-hist{position:absolute;left:30px;right:58px;top:1px;bottom:1px;width:calc(100% - 88px);height:calc(100% - 2px);pointer-events:none;
+  border-radius:3px;background:var(--bg2);border:1px solid var(--border);box-sizing:border-box;}
+.ch-hist .ch-hist-bars{fill:var(--text-dim);opacity:.45;}
+.ch-hist .ch-hist-range{fill:var(--accent);opacity:.18;}
+.ch-range-buttons{display:flex;gap:4px;margin:3px 0 2px 30px;}
+.ch-range-buttons button{flex:1;padding:2px 4px;font-size:11px;}
+/* The image context menu (right click on an image, or Menu / Shift+F10). */
+.context-menu{position:fixed;z-index:60;display:flex;flex-direction:column;min-width:200px;padding:4px;background:var(--panel);color:var(--text);
+  border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px #0004;}
+.context-menu .context-item{text-align:left;background:transparent;border:1px solid transparent;border-radius:5px;padding:6px 10px;font-size:12px;color:var(--text);cursor:pointer;}
+.context-menu .context-item:hover:not(:disabled),.context-menu .context-item:focus-visible{background:var(--accent-dim);border-color:var(--accent);outline:none;}
+.context-menu .context-item:disabled{color:var(--text-dim);cursor:default;opacity:.7;}
 .ch-display-row{margin-top:2px;}
 .ch-display-row .ch-gamma{width:58px;}
 .ch-invert-label{display:inline-flex;align-items:center;gap:4px;margin-left:auto;font-size:11px;color:var(--text-dim);cursor:pointer;}

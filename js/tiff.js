@@ -510,6 +510,7 @@ const MFC_TIFF = (function () {
         channelInfo[idx].rangeSource = 'Auto-contrast (no range in the file)';
       }
       ch.min = mn; ch.max = mx;
+      ch.fileMin = mn; ch.fileMax = mx; // for "Reset to file"; not saved (a project decodes its source again)
     });
 
     const pixelSize = getVoxelSizeXY(ifds[0], descMeta);
@@ -652,7 +653,7 @@ const MFC_TIFF = (function () {
     return pool;
   }
   const ask = (worker, message, transfer = []) => new Promise(resolve => { const id = nextMessage++; replies.set(id, resolve); worker.postMessage({ ...message, id }, transfer); });
-  const stats = { planesSent: 0, workerComposites: 0, mainThreadComposites: 0 };
+  const stats = { planesSent: 0, workerComposites: 0, mainThreadComposites: 0, workerHistograms: 0 };
 
   // Everything in flight, so tests (and anything that must read the result) can wait for it.
   let busy = 0, idleWaiters = [];
@@ -673,6 +674,32 @@ const MFC_TIFF = (function () {
       if (!reply.broken) return reply.plane;
     }
     return (await loadCore()).projectPlanes(zs, mode);
+  }
+
+  /**
+   * Histogram of a displayed plane (composite-core planeHistogram), computed in a worker and kept
+   * for as long as the plane exists, so redrawing the channel panel costs nothing.
+   */
+  const histograms = new WeakMap();
+  function histogram(data) {
+    if (!data || typeof data !== 'object') return Promise.resolve(null);
+    if (!histograms.has(data)) {
+      const compute = async () => {
+        const workers = getPool();
+        if (workers.length) {
+          // A copy goes to the worker: the plane itself stays shared by the channel and its stack.
+          const plane = data.slice();
+          const reply = await ask(workers[0], { type: 'histogram', plane }, [plane.buffer]);
+          if (reply.error) throw new Error(reply.error);
+          if (!reply.broken) { stats.workerHistograms++; return reply.histogram; }
+        }
+        return (await loadCore()).planeHistogram(data);
+      };
+      const pending = track(compute());
+      pending.catch(() => histograms.delete(data));
+      histograms.set(data, pending);
+    }
+    return histograms.get(data);
   }
 
   /** Output size of a composite: `scale` of the region, or an explicit target size. */
@@ -801,9 +828,9 @@ const MFC_TIFF = (function () {
         fileName: file.name,
         width, height,
         channels: [
-          { data: rData, bitDepth: 8, min: 0, max: 255, color: 'red', enabled: true, name: 'Red' },
-          { data: gData, bitDepth: 8, min: 0, max: 255, color: 'green', enabled: true, name: 'Green' },
-          { data: bData, bitDepth: 8, min: 0, max: 255, color: 'blue', enabled: true, name: 'Blue' }
+          { data: rData, bitDepth: 8, min: 0, max: 255, fileMin: 0, fileMax: 255, color: 'red', enabled: true, name: 'Red' },
+          { data: gData, bitDepth: 8, min: 0, max: 255, fileMin: 0, fileMax: 255, color: 'green', enabled: true, name: 'Green' },
+          { data: bData, bitDepth: 8, min: 0, max: 255, fileMin: 0, fileMax: 255, color: 'blue', enabled: true, name: 'Blue' }
         ],
         voxelSizeUm: null, // JPEG/PNG/BMP never carry physical pixel size — settable manually in the channel panel
         meta: { decodeInfo: { pages: 1, pixelSizeUm: null, pixelSizeSource: 'Not in the file (PNG, JPEG and BMP have no physical pixel size)',
@@ -823,6 +850,7 @@ const MFC_TIFF = (function () {
     memoryBudgetBytes, // replaceable, so the memory warning can be tested
     composite,
     compositeSize,
+    histogram,
     whenIdle,
     track,
     useWorker: true, // set to false to composite on the main thread (tests, debugging)

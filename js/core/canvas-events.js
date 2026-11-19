@@ -18,6 +18,7 @@ import { setTool } from '../tools/tool-switch.js';
 import { refreshLayersPanel } from '../ui/layers.js';
 import { isTransformLocked } from '../ui/locks.js';
 import { onSelectionChanged, refreshSelectionBar } from '../ui/selection-bar.js';
+import { installImageMenu } from '../image/display-settings.js';
 
 // ---- init ----
 export function init() {
@@ -26,6 +27,7 @@ export function init() {
     selection: true
   }));
   setZoom(1);
+  installImageMenu();
 
   canvas.on('object:modified', (e) => {
     const obj = e.target;

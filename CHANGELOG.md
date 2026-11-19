@@ -4,6 +4,19 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.8 (2026-11-19)
+
+- **Histogram behind the min and max sliders.** Each channel shows the histogram of the plane on screen, on a log scale, with the display range shaded. It is computed in the background.
+- **Auto, Full range and Reset to file.** Three buttons under each channel's sliders. **Auto** sets the range as ImageJ's Auto and Enhance Contrast (saturated 0.35 %) do, and gives the same values. **Full range** shows the whole range of the data. **Reset to file** goes back to the range stored in the file. Each is one undo step and works on several selected images.
+- **Sliders follow the data.** For 16-bit files they cover the bits the data uses (0 to 4095 for 12-bit camera images, instead of 0 to 65535); float images will use their data range.
+- **Copy and paste display settings.** **Copy display** and **Paste display** in the selection bar, and a new right-click menu on images (also Menu key or Shift+F10), copy every channel's LUT, range, gamma, invert and on/off, plus brightness and contrast, from one image to others, channel by number, in one undo step.
+
+### Development
+
+- `js/image/composite-core.js`: `planeHistogram`, `autoRange`, `sliderLimits`, `logBins`; the worker answers `histogram` messages; `MFC_TIFF.histogram(plane)` caches one per displayed plane. `js/image/display-settings.js`: copy, paste and the image context menu.
+- Channels remember the range found on import (`fileMin`, `fileMax`). It is not saved: a project decodes its source again on opening, so the project format is unchanged.
+- **Tests:** the new `histogram-display-regression` suite, with Auto checked against values from ImageJ 1.54p.
+
 ## v0.1.7 (2026-11-19)
 
 - **LUT library.** Besides the 8 single colours, channels can use viridis, cividis, magma and inferno (perceptually uniform and colour-blind safe), Fire (as in ImageJ) and inverted grey. All are generated in code.

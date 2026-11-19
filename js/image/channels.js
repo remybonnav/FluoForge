@@ -10,12 +10,36 @@ import { updateScaleBarsForImage } from '../tools/scalebar.js';
 import { selectedObjects } from '../ui/selection-bar.js';
 import { LUT_GROUPS, LUT_LABELS, FILE_LUT, channelLUT, lutGradient } from './luts.js';
 import { addCalibrationBar } from '../tools/calibration-bar.js';
+import { autoRange, logBins, sliderLimits } from './composite-core.js';
 
 // ---- channel panel ----
 // With several images selected, the panel shows the first one and every edit is
 // applied to that same setting on each selected image (channel N of each image);
 // other settings of the other images are left as they were.
 const gammaOf = ch => (Number.isFinite(ch.gamma) && ch.gamma > 0 ? ch.gamma : 1);
+const HIST_BINS = 128;
+const isFloatData = data => data instanceof Float32Array || data instanceof Float64Array;
+/** What a channel's min and max may be: the data type's range for integers (min < max by 1). */
+const typeRange = ch => (isFloatData(ch.data) ? { lo: -Infinity, hi: Infinity, gap: 1e-6 } : { lo: 0, hi: ch.bitDepth > 8 ? 65535 : 255, gap: 1 });
+const rangeValues = ch => [ch.min, ch.max, ch.fileMin, ch.fileMax].filter(Number.isFinite);
+
+/** The log-scale histogram behind a channel's sliders, with the display range shaded. */
+function drawHistogram(row, hist, limits, ch) {
+  const svg = row.querySelector('.ch-hist');
+  if (!svg) return;
+  const span = limits.hi - limits.lo || 1;
+  const x0 = Math.max(0, Math.min(1, (ch.min - limits.lo) / span)), x1 = Math.max(0, Math.min(1, (ch.max - limits.lo) / span));
+  const shade = svg.querySelector('.ch-hist-range');
+  shade.setAttribute('x', String(x0 * HIST_BINS)); shade.setAttribute('width', String(Math.max(0, x1 - x0) * HIST_BINS));
+  if (!hist) { svg.dataset.state = 'pending'; return; }
+  const key = limits.lo + '|' + limits.hi;
+  if (svg.dataset.key === key) return;
+  svg.dataset.key = key; svg.dataset.state = 'ready';
+  const bars = logBins(hist, limits.lo, limits.hi, HIST_BINS);
+  let d = 'M0 1';
+  for (let b = 0; b < HIST_BINS; b++) { const y = (1 - bars[b]).toFixed(3); d += `V${y}H${b + 1}`; }
+  svg.querySelector('.ch-hist-bars').setAttribute('d', d + 'V1Z');
+}
 export function selectedImages() { return selectedObjects(o => o.mfcType === 'mfcImage' && registry[o.mfcId]); }
 export function commitImages(images) {
   images.forEach(img => recomposite(img));
@@ -85,15 +109,25 @@ export function refreshChannelPanel() {
           <button type="button" class="ch-lut" aria-haspopup="true" aria-expanded="false"><span class="lut-swatch"></span><span class="lut-name"></span></button>
           <button type="button" class="ch-calbar icon-btn" title="Add a calibration bar for this channel: a gradient with its min and max, next to the image. It follows the channel's range and LUT.">▮</button>
         </div>
-        <div class="range-row">
-          <span class="hint">min</span>
-          <input type="range" class="ch-min" min="0" max="65535" value="${ch.min}">
-          <input type="number" class="rv-input ch-min-val" min="0" max="65535" value="${Math.round(ch.min)}">
+        <div class="ch-ranges">
+          <svg class="ch-hist" viewBox="0 0 ${HIST_BINS} 1" preserveAspectRatio="none" aria-hidden="true">
+            <rect class="ch-hist-range" x="0" y="0" width="0" height="1"></rect><path class="ch-hist-bars" d=""></path>
+          </svg>
+          <div class="range-row">
+            <span class="hint">min</span>
+            <input type="range" class="ch-min" min="0" max="65535" value="${ch.min}">
+            <input type="number" class="rv-input ch-min-val" min="0" max="65535" value="${Math.round(ch.min)}">
+          </div>
+          <div class="range-row">
+            <span class="hint">max</span>
+            <input type="range" class="ch-max" min="0" max="65535" value="${ch.max}">
+            <input type="number" class="rv-input ch-max-val" min="0" max="65535" value="${Math.round(ch.max)}">
+          </div>
         </div>
-        <div class="range-row">
-          <span class="hint">max</span>
-          <input type="range" class="ch-max" min="0" max="65535" value="${ch.max}">
-          <input type="number" class="rv-input ch-max-val" min="0" max="65535" value="${Math.round(ch.max)}">
+        <div class="ch-range-buttons">
+          <button type="button" class="ch-auto" title="Auto contrast, as ImageJ's Auto and Enhance Contrast (saturated 0.35 %): saturate 0.175 % of the pixels at each end of the displayed plane">Auto</button>
+          <button type="button" class="ch-full" title="Show the full range of the data type (for example 0–4095 for 12-bit data)">Full range</button>
+          <button type="button" class="ch-reset" title="Go back to the display range stored in the file">Reset to file</button>
         </div>
         <div class="range-row ch-display-row">
           <label class="hint" for="ch-gamma-${idx}">gamma</label>
@@ -112,10 +146,31 @@ export function refreshChannelPanel() {
     showLut(lutButton, ch, peers.length > 1 && !peers.every(p => p.color === ch.color && p.lut === ch.lut));
     listEl.appendChild(row);
 
-    const rangeCeil = ch.bitDepth > 8 ? 65535 : 255;
     const minSlider = row.querySelector('.ch-min'), maxSlider = row.querySelector('.ch-max');
     const minInput = row.querySelector('.ch-min-val'), maxInput = row.querySelector('.ch-max-val');
-    [minSlider, maxSlider, minInput, maxInput].forEach(el => el.max = rangeCeil);
+    minSlider.setAttribute('aria-label', 'Display minimum of ' + ch.name);
+    maxSlider.setAttribute('aria-label', 'Display maximum of ' + ch.name);
+    minSlider.title = 'Display minimum: values at or below it show as the darkest colour of the LUT. The raw data is not changed.';
+    maxSlider.title = 'Display maximum: values at or above it show as the brightest colour of the LUT. The raw data is not changed.';
+    const isFloat = isFloatData(ch.data);
+    // Typed values may use the whole data type; the sliders follow the data (see applyLimits).
+    const typeCeil = isFloat ? null : ch.bitDepth > 8 ? 65535 : 255;
+    [minInput, maxInput].forEach(el => { if (isFloat) { el.removeAttribute('min'); el.removeAttribute('max'); el.step = 'any'; } else el.max = typeCeil; });
+    let hist = null, limits = sliderLimits(null, isFloat ? 32 : ch.bitDepth, rangeValues(ch));
+    const hasFile = peers.some(p => Number.isFinite(p.fileMin) && Number.isFinite(p.fileMax));
+    const resetBtn = row.querySelector('.ch-reset');
+    resetBtn.disabled = !hasFile;
+    if (!hasFile) resetBtn.title = 'This image has no display range from its file';
+    const fmt = v => (isFloat ? String(+v.toPrecision(4)) : String(Math.round(v)));
+    function applyLimits() {
+      limits = sliderLimits(hist, isFloat ? 32 : ch.bitDepth, rangeValues(ch));
+      const step = limits.integer ? 1 : (limits.hi - limits.lo) / 1000;
+      for (const slider of [minSlider, maxSlider]) { slider.min = limits.lo; slider.max = limits.hi; slider.step = step; }
+      minSlider.value = ch.min; maxSlider.value = ch.max;
+      drawHistogram(row, hist, limits, ch);
+    }
+    applyLimits();
+    MFC_TIFF.histogram(ch.data).then(h => { if (h && row.isConnected) { hist = h; applyLimits(); } }).catch(() => {});
 
     toggle.addEventListener('change', (e) => {
       peers.forEach(p => { p.enabled = e.target.checked; });
@@ -133,16 +188,33 @@ export function refreshChannelPanel() {
     // range) always applies no matter which control the user touched.
     function commitMin(v) {
       if (!isFinite(v)) v = ch.min; // invalid input handled gracefully: keep previous value
-      peers.forEach(p => { p.min = Math.min(Math.max(v, 0), p.max - 1); });
-      minSlider.value = ch.min;
-      minInput.value = Math.round(ch.min);
+      peers.forEach(p => { const t = typeRange(p); p.min = Math.min(Math.max(v, t.lo), p.max - t.gap); });
+      showRange();
     }
     function commitMax(v) {
       if (!isFinite(v)) v = ch.max;
-      peers.forEach(p => { p.max = Math.max(Math.min(v, p.bitDepth > 8 ? 65535 : 255), p.min + 1); });
-      maxSlider.value = ch.max;
-      maxInput.value = Math.round(ch.max);
+      peers.forEach(p => { const t = typeRange(p); p.max = Math.max(Math.min(v, t.hi), p.min + t.gap); });
+      showRange();
     }
+    function showRange() {
+      minInput.value = fmt(ch.min); maxInput.value = fmt(ch.max);
+      if (ch.min < limits.lo || ch.max > limits.hi) applyLimits();
+      else { minSlider.value = ch.min; maxSlider.value = ch.max; drawHistogram(row, hist, limits, ch); }
+    }
+    minInput.value = fmt(ch.min); maxInput.value = fmt(ch.max);
+    // Auto, Full range and Reset to file: each selected image gets its own range (Auto and Full
+    // range from its own displayed plane), as one History step.
+    const setRanges = async compute => {
+      const ranges = await Promise.all(peers.map(async p => compute(p, await MFC_TIFF.histogram(p.data))));
+      peers.forEach((p, i) => { const r = ranges[i]; if (r && r.max > r.min) { p.min = r.min; p.max = r.max; } });
+      if (!row.isConnected) { commitImages(images); return; }
+      showRange();
+      commitImages(images);
+    };
+    const run = compute => MFC_TIFF.track(setRanges(compute)).catch(error => MFC_ERRORS.report(error, { title: 'Could not set the display range' }));
+    row.querySelector('.ch-auto').addEventListener('click', () => run((p, h) => h && autoRange(h)));
+    row.querySelector('.ch-full').addEventListener('click', () => run((p, h) => { const l = sliderLimits(h, isFloatData(p.data) ? 32 : p.bitDepth); return { min: l.lo, max: l.hi }; }));
+    resetBtn.addEventListener('click', () => run(p => (Number.isFinite(p.fileMin) && Number.isFinite(p.fileMax) ? { min: p.fileMin, max: p.fileMax } : null)));
     const recompositeAll = () => images.forEach(img => recomposite(img));
 
     minSlider.addEventListener('input', (e) => { commitMin(parseFloat(e.target.value)); recompositeAll(); });

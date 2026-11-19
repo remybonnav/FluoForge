@@ -10,9 +10,10 @@
                                       plane is cached here. Replies { id, rgba } (transferred), or
                                       { id, miss: [keys] } when a plane without data is not cached.
      { id, type: 'project', zs, mode } replies { id, plane } (transferred): a Z projection.
+     { id, type: 'histogram', plane }  replies { id, histogram } (counts transferred): planeHistogram().
    Resampled planes of preview jobs (job.cache) are kept, least recently used first out, up to
    CACHE_BYTES, so a change of display settings sends no pixel data at all. */
-import { compositeImage, resamplePlane, projectPlanes } from './composite-core.js';
+import { compositeImage, resamplePlane, projectPlanes, planeHistogram } from './composite-core.js';
 
 const CACHE_BYTES = 384 * 1024 * 1024;
 const cache = new Map();
@@ -57,6 +58,9 @@ self.onmessage = ({ data: message }) => {
     } else if (message.type === 'project') {
       const plane = projectPlanes(message.zs, message.mode);
       self.postMessage({ id: message.id, plane }, [plane.buffer]);
+    } else if (message.type === 'histogram') {
+      const histogram = planeHistogram(message.plane);
+      self.postMessage({ id: message.id, histogram }, [histogram.counts.buffer]);
     } else if (message.type === 'forget') {
       for (const key of [...cache.keys()]) if (message.keys.some(k => key.startsWith(k + '|'))) {
         const v = cache.get(key); cache.delete(key); cachedBytes -= v.data.byteLength + (v.coverage ? v.coverage.byteLength : 0);

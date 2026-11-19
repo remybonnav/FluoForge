@@ -15,7 +15,7 @@
 <link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#07090C">
-<link rel="stylesheet" href="style.css?v=0.1.7">
+<link rel="stylesheet" href="style.css?v=0.1.8">
 </head>
 <body>
 
@@ -112,6 +112,10 @@
     <button data-align="distV" title="Distribute vertically">&#8645; V</button>
     <button id="btn-group" title="Group selected objects (Ctrl+G)">&#8862; Group</button>
     <button id="btn-crop-shape" class="hidden" title="Crop the selected image (or object) to the selected closed shape: box, ellipse or closed path">&#9986; Crop to shape</button>
+  </div>
+  <div id="sel-display" class="sel-group hidden">
+    <button id="obj-copy-display" title="Copy the display settings of the selected image: each channel's LUT, min, max, gamma, invert and on/off, and its brightness and contrast">Copy display</button>
+    <button id="obj-paste-display" disabled title="Paste display settings: copy them from an image first">Paste display</button>
   </div>
   <span id="sel-lock-note" class="sel-lock-note hidden"></span>
 </div>
@@ -491,14 +495,14 @@
 <script src="assets/vendor/jszip.min.js"></script>
 
 <!-- ======================= APP ======================= -->
-<script src="js/debug.js?v=0.1.7"></script>
-<script src="js/errors.js?v=0.1.7"></script>
-<script src="js/tiff.js?v=0.1.7"></script>
-<script type="module" src="js/app.js?v=0.1.7"></script>
+<script src="js/debug.js?v=0.1.8"></script>
+<script src="js/errors.js?v=0.1.8"></script>
+<script src="js/tiff.js?v=0.1.8"></script>
+<script type="module" src="js/app.js?v=0.1.8"></script>
 <script defer src="assets/vendor/svg2pdf.umd.min.js"></script>
-<script defer src="js/project.js?v=0.1.7"></script>
-<script defer src="js/autosave.js?v=0.1.7"></script>
-<script defer src="js/export.js?v=0.1.7"></script>
-<script defer src="js/main.js?v=0.1.7"></script>
+<script defer src="js/project.js?v=0.1.8"></script>
+<script defer src="js/autosave.js?v=0.1.8"></script>
+<script defer src="js/export.js?v=0.1.8"></script>
+<script defer src="js/main.js?v=0.1.8"></script>
 </body>
 </html>
