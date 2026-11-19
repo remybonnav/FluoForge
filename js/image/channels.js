@@ -8,6 +8,8 @@ import { canvas, registry } from '../core/state.js';
 import { recomposite } from './import.js';
 import { updateScaleBarsForImage } from '../tools/scalebar.js';
 import { selectedObjects } from '../ui/selection-bar.js';
+import { LUT_GROUPS, LUT_LABELS, FILE_LUT, channelLUT, lutGradient } from './luts.js';
+import { addCalibrationBar } from '../tools/calibration-bar.js';
 
 // ---- channel panel ----
 // With several images selected, the panel shows the first one and every edit is
@@ -21,6 +23,7 @@ export function commitImages(images) {
 }
 
 export function refreshChannelPanel() {
+  closeLutPicker(false);
   const listEl = document.getElementById('channel-list');
   const nameEl = document.getElementById('channel-image-name');
   const images = selectedImages();
@@ -74,15 +77,13 @@ export function refreshChannelPanel() {
     // The same channel number on every selected image that has one.
     const peers = raws.map(r => r.channels[idx]).filter(Boolean);
 
-    const colorOptions = Object.keys(MFC_TIFF.COLOR_PRESETS)
-      .map(c => `<option value="${c}" ${c === ch.color ? 'selected' : ''}>${c}</option>`).join('');
 
     row.innerHTML = `
         <div class="row-top">
           <input type="checkbox" class="ch-toggle" ${ch.enabled ? 'checked' : ''}>
           <span class="ch-name"></span>
-          <span class="swatch" style="background:${swatchColor(ch.color)}"></span>
-          <select class="ch-color">${colorOptions}</select>
+          <button type="button" class="ch-lut" aria-haspopup="true" aria-expanded="false"><span class="lut-swatch"></span><span class="lut-name"></span></button>
+          <button type="button" class="ch-calbar icon-btn" title="Add a calibration bar for this channel: a gradient with its min and max, next to the image. It follows the channel's range and LUT.">▮</button>
         </div>
         <div class="range-row">
           <span class="hint">min</span>
@@ -107,7 +108,8 @@ export function refreshChannelPanel() {
     const gammaInput = row.querySelector('.ch-gamma'), invertBox = row.querySelector('.ch-invert');
     if (peers.length > 1 && !peers.every(p => gammaOf(p) === gammaOf(ch))) gammaInput.title += ' The selected images use different values.';
     invertBox.indeterminate = !peers.every(p => !!p.invert === !!ch.invert);
-    if (peers.length > 1 && !peers.every(p => p.color === ch.color)) row.querySelector('.ch-color').title = 'Colors differ between the selected images';
+    const lutButton = row.querySelector('.ch-lut');
+    showLut(lutButton, ch, peers.length > 1 && !peers.every(p => p.color === ch.color && p.lut === ch.lut));
     listEl.appendChild(row);
 
     const rangeCeil = ch.bitDepth > 8 ? 65535 : 255;
@@ -119,11 +121,12 @@ export function refreshChannelPanel() {
       peers.forEach(p => { p.enabled = e.target.checked; });
       commitImages(images);
     });
-    row.querySelector('.ch-color').addEventListener('change', (e) => {
-      peers.forEach(p => { p.color = e.target.value; });
-      row.querySelector('.swatch').style.background = swatchColor(e.target.value);
+    lutButton.addEventListener('click', () => openLutPicker(lutButton, ch, (color, lut) => {
+      peers.forEach(p => { p.color = color; if (color === FILE_LUT) p.lut = lut; });
+      showLut(lutButton, ch, false);
       commitImages(images);
-    });
+    }));
+    row.querySelector('.ch-calbar').addEventListener('click', () => addCalibrationBar(images, idx));
 
     // Slider <-> number input stay in sync in both directions; both funnel through
     // commitMin/commitMax so range validation (min < max, clamped to each channel's
@@ -267,7 +270,72 @@ export function resetToneCurve() {
   commitBrightnessContrast();
 }
 
-export function swatchColor(name) {
-  const [r, g, b] = MFC_TIFF.COLOR_PRESETS[name];
-  return `rgb(${r * 255},${g * 255},${b * 255})`;
+/** The LUT button of a channel row: its gradient and name. */
+function showLut(button, ch, mixed) {
+  const name = LUT_LABELS[ch.color] || ch.color;
+  button.querySelector('.lut-swatch').style.background = lutGradient(channelLUT(ch.color, ch.lut));
+  button.querySelector('.lut-name').textContent = mixed ? 'Mixed' : name;
+  button.title = 'Colour table (LUT) of ' + (ch.name || 'this channel') + ': ' + (mixed ? 'differs between the selected images' : name) + '. Click (or Enter) to choose another.';
+}
+
+let openPicker = null;
+/** Closes the LUT popover, if one is open, and gives the focus back to its button. */
+export function closeLutPicker(returnFocus = true) {
+  if (!openPicker) return;
+  const { box, button, onOutside } = openPicker;
+  openPicker = null;
+  document.removeEventListener('pointerdown', onOutside, true);
+  box.remove();
+  button.setAttribute('aria-expanded', 'false');
+  if (returnFocus) button.focus();
+}
+
+/**
+ * The LUT popover: gradient swatches grouped as in LUT_GROUPS, plus "From file" when the channel
+ * has a LUT read from its file. Arrow keys move, Enter or Space choose, Escape closes.
+ */
+function openLutPicker(button, ch, choose) {
+  if (openPicker && openPicker.button === button) { closeLutPicker(); return; }
+  closeLutPicker(false);
+  const box = document.createElement('div');
+  box.className = 'lut-popover'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Choose a colour table (LUT)');
+  const groups = LUT_GROUPS.map(g => ({ name: g.name, luts: g.luts.map(name => ({ name, lut: channelLUT(name) })) }));
+  // The file's own LUT stays available after another LUT was chosen.
+  if (typeof ch.lut === 'string' && ch.lut) groups.push({ name: 'From the image file', luts: [{ name: FILE_LUT, lut: channelLUT(FILE_LUT, ch.lut), bytes: ch.lut }] });
+  const options = [];
+  for (const group of groups) {
+    const title = document.createElement('div'); title.className = 'lut-group-title'; title.textContent = group.name;
+    const list = document.createElement('div'); list.className = 'lut-group'; list.setAttribute('role', 'group'); list.setAttribute('aria-label', group.name);
+    for (const item of group.luts) {
+      const option = document.createElement('button');
+      option.type = 'button'; option.className = 'lut-option'; option.dataset.lut = item.name;
+      option.setAttribute('aria-pressed', String(item.name === ch.color));
+      option.title = LUT_LABELS[item.name] + (item.name === FILE_LUT ? ': the LUT stored in the image file' : '');
+      const swatch = document.createElement('span'); swatch.className = 'lut-swatch'; swatch.style.background = lutGradient(item.lut);
+      const label = document.createElement('span'); label.textContent = LUT_LABELS[item.name];
+      option.append(swatch, label);
+      option.addEventListener('click', () => { closeLutPicker(); choose(item.name, item.bytes || null); });
+      list.append(option); options.push(option);
+    }
+    box.append(title, list);
+  }
+  box.addEventListener('keydown', e => {
+    const at = options.indexOf(document.activeElement);
+    const move = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+    if (move) { e.preventDefault(); options[(at + move + options.length) % options.length].focus(); }
+    else if (e.key === 'Home') { e.preventDefault(); options[0].focus(); }
+    else if (e.key === 'End') { e.preventDefault(); options[options.length - 1].focus(); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeLutPicker(); }
+    else if (e.key === 'Tab') closeLutPicker(false);
+  });
+  document.body.append(box);
+  const r = button.getBoundingClientRect();
+  box.style.left = Math.max(8, Math.min(window.innerWidth - box.offsetWidth - 8, r.right - box.offsetWidth)) + 'px';
+  const below = r.bottom + box.offsetHeight + 4 < window.innerHeight ? r.bottom + 4 : r.top - box.offsetHeight - 4;
+  box.style.top = Math.max(8, Math.min(window.innerHeight - box.offsetHeight - 8, below)) + 'px'; // always inside the window
+  const onOutside = e => { if (!box.contains(e.target) && e.target !== button && !button.contains(e.target)) closeLutPicker(false); };
+  document.addEventListener('pointerdown', onOutside, true);
+  openPicker = { box, button, onOutside };
+  button.setAttribute('aria-expanded', 'true');
+  (options.find(o => o.dataset.lut === ch.color) || options[0]).focus();
 }

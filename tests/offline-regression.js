@@ -42,7 +42,7 @@ async function runOfflineRegressions() {
     const digest=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(b=>b.toString(16).padStart(2,'0')).join('');
     assert('SHA-256 of '+pin.path+' matches VERSIONS.md',digest===pin.hash);
   }
-  for(const name of ['fabric','utif','jspdf','jszip','pako','svg2pdf']){
+  for(const name of ['fabric','utif','jspdf','jszip','pako','svg2pdf','matplotlib','mpl-colormaps']){
     const response=await fetch('assets/vendor/LICENSE-'+name+'.txt',{cache:'no-store'});
     assert('Licence file for '+name+' is bundled',response.ok&&(await response.text()).length>200);
   }

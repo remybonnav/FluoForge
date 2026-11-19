@@ -98,10 +98,19 @@ How the displayed colours are made follows Fiji and QuPath: each channel's value
 Select an image to show its channels in the **Channels** panel (see the screenshot in [section 2](#2-the-workspace)). For each channel:
 
 - **Checkbox**: shows or hides the channel. Single-channel panels are made by duplicating an image and leaving one channel on.
-- **Colour menu**: grey, red, green, blue, cyan, magenta, yellow or orange. Channels are added together, as in an ImageJ composite.
+- **Colour (LUT)**: the button shows the channel's colour table as a gradient. Click it (or press Enter) to choose another, grouped as:
+  - **Colour-blind safe**: viridis, cividis, magma and inferno, readable by everyone and in greyscale print;
+  - **Classic**: grey, red, green, blue, cyan, magenta, yellow and orange;
+  - **Intensity**: Fire and inverted grey;
+  - **From file**: shown when the image file carries an ImageJ LUT that matches none of these. Its exact table is kept in the project, and it stays available after you try another LUT.
+
+  Use the arrow keys to move, Enter to choose and Escape to close. Channels are added together, as in an ImageJ composite.
+- **▮ (calibration bar)**: adds a calibration bar for this channel next to the image (see below).
 - **min / max**: the display range (as in ImageJ's *Brightness & Contrast*). Values below *min* are black; values at or above *max* are full colour. Drag the slider or type a number and press Enter.
 - **gamma** (0.1 to 5, default 1): bends the display between *min* and *max*. Above 1 the dim parts get darker, below 1 they get brighter. Like *min* and *max*, it only changes how the channel is shown, never the data; report it in your figure legend when it is not 1.
 - **invert**: shows the channel inverted, bright as dark (like *Invert LUT* in Fiji).
+
+**Calibration bar.** The ▮ button on a channel adds a bar showing that channel's colour table from its *min* (bottom) to its *max* (top), with the two values as labels. It stays linked to the channel: change the range, the LUT, the gamma or invert, and the bar follows. Move and resize it like any object; it is saved with the project and exported with the frame and labels as vectors and the gradient as a small image. Add one whenever the colours stand for intensities (viridis, Fire…), so readers can read the values.
 
 Below the channels:
 

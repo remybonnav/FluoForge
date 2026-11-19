@@ -278,19 +278,6 @@ const MFC_TIFF = (function () {
     return result;
   }
 
-  /** Best-effort match of a raw 768-byte (R,G,B x256) LUT to one of our flat COLOR_PRESETS. */
-  function matchLutToPreset(lut) {
-    if (!lut || lut.length < 768) return null;
-    const r = lut[255], g = lut[511], b = lut[767]; // value at full intensity (index 255 of each channel)
-    for (const name of Object.keys(COLOR_PRESETS)) {
-      const [pr, pg, pb] = COLOR_PRESETS[name];
-      if (Math.abs(r - pr * 255) < 10 && Math.abs(g - pg * 255) < 10 && Math.abs(b - pb * 255) < 10) {
-        return name;
-      }
-    }
-    return null; // arbitrary/gradient LUT (e.g. "Fire") — caller falls back to 'grey'
-  }
-
   /** Extract voxel size (µm/px, XY) from standard TIFF resolution tags + description unit. */
   /** Pixel size in µm and where it came from: { um, source } (um is null if the file has none). */
   function getVoxelSizeXY(ifd, descMeta) {
@@ -531,9 +518,14 @@ const MFC_TIFF = (function () {
     // ---- Default color/name assignment — informed by IJMetadata LUTs/labels
     //      when present, falling back to the cycling preset order otherwise ----
     const defaultOrder = ['grey', 'red', 'green', 'blue', 'cyan', 'magenta', 'yellow', 'orange'];
+    const luts = ijMeta.luts.length ? await loadLuts() : null;
     channelsRaw.forEach((ch, idx) => {
-      const lutMatch = ijMeta.luts[idx] ? matchLutToPreset(ijMeta.luts[idx]) : null;
+      // An ImageJ LUT is matched against the whole library; one that matches nothing is kept as it
+      // is ("From file") rather than replaced by a default colour.
+      const fileLut = ijMeta.luts[idx] && ijMeta.luts[idx].length >= 768 ? luts.fromImageJ(ijMeta.luts[idx]) : null;
+      const lutMatch = fileLut ? luts.matchLUT(fileLut) || luts.FILE_LUT : null;
       ch.color = lutMatch || (channelsRaw.length === 1 ? 'grey' : defaultOrder[idx % defaultOrder.length]);
+      if (lutMatch === luts?.FILE_LUT) ch.lut = luts.bytesToBase64(fileLut);
       ch.enabled = true;
       // Hyperstack labels belong to individual planes, not channels.
       const labels = stack ? null : descMeta.channelLabels;
@@ -541,7 +533,7 @@ const MFC_TIFF = (function () {
 
       if (lutMatch) {
         MFC_DEBUG.log(`[Channel ${idx}] Color auto-detected from ImageJ LUT: ${lutMatch}`);
-        channelInfo[idx].colorSource = 'ImageJ LUT';
+        channelInfo[idx].colorSource = lutMatch === luts.FILE_LUT ? 'ImageJ LUT (matches no LUT in FluoForge; kept as "From file")' : 'ImageJ LUT';
       }
     });
 
@@ -632,6 +624,8 @@ const MFC_TIFF = (function () {
   const POOL_SIZE = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1));
   const replies = new Map();
   const loadCore = () => (corePromise ||= import(CORE_URL));
+  let lutsPromise = null;
+  const loadLuts = () => (lutsPromise ||= import(new URL('image/luts.js', SCRIPT_URL).href));
   const planeKeys = new WeakMap();
   let nextPlaneKey = 1;
   const keyOf = data => { let key = planeKeys.get(data); if (!key) { key = 'p' + nextPlaneKey++; planeKeys.set(data, key); } return key; };
@@ -698,7 +692,7 @@ const MFC_TIFF = (function () {
     const planeOf = data => ({ key: keyOf(data), data });
     const job = { srcW: imgData.width, srcH: imgData.height, region: area, dstW: width, dstH: height, cache,
       brightness: imgData.brightness || 0, contrast: imgData.contrast || 0,
-      channels: imgData.channels.map(ch => ({ ...planeOf(ch.data), enabled: !!ch.enabled, color: ch.color, min: ch.min, max: ch.max,
+      channels: imgData.channels.map(ch => ({ ...planeOf(ch.data), enabled: !!ch.enabled, color: ch.color, lut: ch.color === 'file' ? ch.lut || null : null, min: ch.min, max: ch.max,
         gamma: Number.isFinite(ch.gamma) && ch.gamma > 0 ? ch.gamma : 1, invert: !!ch.invert,
         bitDepth: ch.bitDepth || (ch.data && ch.data.BYTES_PER_ELEMENT > 1 ? 16 : 8) })),
       alpha: imgData.hasAlpha && imgData.alphaEnabled !== false && imgData.alphaData ? planeOf(imgData.alphaData) : null };

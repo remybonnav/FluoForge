@@ -159,9 +159,9 @@ async function runUiFixesRegressions() {
   const entryA=MFC.getRegistry()[imgA.mfcId];
   MFC.applyBrightnessContrast(20,10);
   assert('Position lock still allows brightness/contrast',entryA.rawImage.brightness===20);
-  const colorSelect=document.querySelector('#channel-list .ch-color');
-  if(colorSelect){colorSelect.value='magenta';colorSelect.dispatchEvent(new Event('change',{bubbles:true}));}
-  assert('Position lock still allows channel colors',!colorSelect||entryA.rawImage.channels[0].color==='magenta');
+  const lutButton=document.querySelector('#channel-list .ch-lut');
+  if(lutButton){lutButton.click();document.querySelector('.lut-popover .lut-option[data-lut="magenta"]').click();}
+  assert('Position lock still allows channel colors',!lutButton||entryA.rawImage.channels[0].color==='magenta');
   canvas.setActiveObject(new fabric.ActiveSelection([imgA,imgB],{canvas}));canvas.renderAll();
   const multi=canvas.getActiveObject();
   assert('A multi-selection containing a locked object is locked',multi.lockMovementX&&!multi.hasControls);

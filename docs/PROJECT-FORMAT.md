@@ -51,7 +51,7 @@ Each `versions/<id>.json` is one figure state. States hold no pixels: images ref
 
 | Field | Meaning |
 |---|---|
-| `schema` | The state format (section 6). Currently `2`. |
+| `schema` | The state format (section 6). Currently `3`. |
 | `documentOpen` | `false` only for an empty workspace. |
 | `docProps` | The page: `name`, `width`, `height`, `unit` (`"px"`, `"cm"` or `"in"`), `dpi` and `pages` (missing in projects from before multi-page figures, which have one page). |
 | `nextId` | The counter for new object ids. |
@@ -82,7 +82,7 @@ Fields used by every type:
 | `width`, `height`, `cropX`, `cropY` | The visible region, in working pixels. |
 | `workingScale` | Working pixels per source pixel (below 1 for images over 2048 px, which are previewed at reduced size). |
 | `mfcRawWidth`, `mfcRawHeight` | The source size in pixels. |
-| `display.channels[]` | Per channel: `enabled`, `color` (`grey`, `red`, `green`, `blue`, `cyan`, `magenta`, `yellow`, `orange`), `min`, `max` (display range in raw values), `name`, and since schema 2 `gamma` (display gamma, 0.1 to 5, default 1) and `invert` (inverted display, default false). |
+| `display.channels[]` | Per channel: `enabled`, `color`, `min`, `max` (display range in raw values), `name`; since schema 2 `gamma` (display gamma, 0.1 to 5, default 1) and `invert` (inverted display, default false); since schema 3 `lut`. `color` is one of the 8 single colours (`grey`, `red`, `green`, `blue`, `cyan`, `magenta`, `yellow`, `orange`), since schema 3 also `viridis`, `cividis`, `magma`, `inferno`, `fire`, `grey-inverted`, or `file`. `lut` holds the 768 bytes (256 × R, G, B interleaved, base64) of a LUT read from the image file that matches none of the library; it is kept whichever `color` is shown, and used when `color` is `file`. |
 | `display.brightness`, `display.contrast` | The tone curve on the composite (0 = none). |
 | `display.alphaEnabled` | Keep PNG transparency. |
 | `display.voxelSizeUm` | Pixel size in µm (null when unknown). |
@@ -128,6 +128,14 @@ Fabric text fields (`text`, `styles` for per-character styling, `fontFamily`, `f
 | `mfcPathClosed` | Closed path. |
 | `mfcArrowStart`, `mfcArrowEnd` | Arrowheads. |
 
+### Calibration bar: `type: "group"`, `mfcType: "calibrationBar"` (schema 3)
+
+| Field | Meaning |
+|---|---|
+| `mfcCalImageId`, `mfcCalChannel` | The image and the channel (index) it shows. |
+| `mfcCalWidth`, `mfcCalHeight`, `mfcCalFontSize`, `mfcCalGap`, `mfcCalColor`, `mfcCalStrokeWidth` | The bar's size, the labels' size and distance, and the colour of the frame and labels. |
+| `objects` | The gradient (an `image`, 1 × 256 px, the max at the top), the frame (`rect`) and the max and min labels (`text`). They are rebuilt from the channel whenever its display changes; when the image is gone, the bar keeps its last state. |
+
 ### Group: `type: "group"`, `mfcType: "group"`
 
 `objects` holds the children, saved the same way, in group coordinates. Children of a scale bar or a group may be plain Fabric objects without `mfcType`.
@@ -154,7 +162,8 @@ Schemas:
 |---|---|
 | 0 | What the legacy loaders produce from a project in manifest version 1 or 2 (section 7). It is never written to a new file, except as the kept original of a converted legacy project. |
 | 1 | The state format written from before 0.1.0 to 0.1.5. |
-| 2 | The current state format (section 3), since 0.1.6: image channels also store `gamma` and `invert`. `schema-1-to-2.js` adds gamma 1 and invert false, which is how schema-1 figures were always drawn. |
+| 2 | 0.1.6: image channels also store `gamma` and `invert`. `schema-1-to-2.js` adds gamma 1 and invert false, which is how schema-1 figures were always drawn. |
+| 3 | The current state format, since 0.1.7: the LUT library's names in `color`, a file's LUT in `lut`, and calibration bars. All additions, so `schema-2-to-3.js` only changes the number. |
 
 ## 7. Legacy formats
 
@@ -183,6 +192,7 @@ A project whose `manifest.version` or `schema` is higher than this version knows
 | before 2026-11-17 | by v0.22 | Manifest version 3 with `versions/`, `sources/` and states of schema 1. |
 | 2026-11-17 | 0.1.0 | Repository restarted; format 3, schema 1 unchanged. Files named `.mfcproj.zip`. |
 | 2026-11-18 | 0.1.3 | New projects are named `.fluoforge`. The content is unchanged. |
+| 2026-11-19 | 0.1.7 | Schema 3: channel colours may name any LUT of the library or `file`, with a file's own LUT kept in `lut`; new object type `calibrationBar` (`schema-2-to-3.js`). 0.1.5 and 0.1.6 open such a project with "some content may not display": a channel in a new LUT is shown in grey, and the bar keeps its last colours and labels. |
 | 2026-11-19 | 0.1.6 | Schema 2: each image channel stores a display `gamma` and an `invert` flag (`schema-1-to-2.js`). 0.1.5 opens such a project with "some content may not display"; 0.1.0 to 0.1.4 do not check the schema and open it without a notice. All of them ignore gamma and invert. |
 | 2026-11-18 | 0.1.5 | No change to what is written. Schema 0 is defined for the legacy loaders' output and migrated by `schema-0-to-1.js`; sources are checked against their SHA-256 when opened; the first save of a migrated project keeps its original version; projects from a newer format open and keep what they do not understand. |
 

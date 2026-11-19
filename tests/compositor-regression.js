@@ -271,7 +271,7 @@ async function runCompositorRegressions() {
     assert('The panel shows the image with gamma and invert applied', compare(shown, expected).diff === 0 && compare(shown, pixels(legacyComposite(MFC.getRegistry()[imgA.mfcId].rawImage, 1))).diff > 0);
     const state = MFC_PROJECT.captureState();
     const saved = state.objects.filter(o => o.mfcType === 'mfcImage').map(o => o.display.channels[0]);
-    assert('Gamma and invert are saved with the project (schema 2)', state.schema === 2 && saved.every(c => c.gamma === 2.25 && c.invert === true));
+    assert('Gamma and invert are saved with the project (schema 2 or later)', state.schema >= 2 && saved.every(c => c.gamma === 2.25 && c.invert === true));
     await MFC.undo(); await MFC_TIFF.whenIdle();
     assert('Undo restores the previous invert', MFC.getRegistry()[canvas.getObjects().find(o => o.mfcType === 'mfcImage').mfcId].rawImage.channels[0].invert === false);
     await MFC_PROJECT.restoreState(state, { resetHistory: false }); await MFC_TIFF.whenIdle();

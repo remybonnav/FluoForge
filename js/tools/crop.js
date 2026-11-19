@@ -128,7 +128,7 @@ export function cropToShapePair() {
   const [lower, upper] = [...objs].sort((a, b) => canvas.getObjects().indexOf(a) - canvas.getObjects().indexOf(b));
   const shape = isClosedShape(upper) ? upper : isClosedShape(lower) ? lower : null;
   const target = shape === upper ? lower : upper;
-  if (!shape || !target || target.clipPath || target.mfcType === 'scalebar') return null;
+  if (!shape || !target || target.clipPath || target.mfcType === 'scalebar' || target.mfcType === 'calibrationBar') return null;
   return { shape, target };
 }
 export async function cropToShape() {

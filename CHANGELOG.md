@@ -4,6 +4,20 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.7 (2026-11-19)
+
+- **LUT library.** Besides the 8 single colours, channels can use viridis, cividis, magma and inferno (perceptually uniform and colour-blind safe), Fire (as in ImageJ) and inverted grey. All are generated in code.
+- **LUT picker.** The colour menu is now a popover of gradient swatches grouped as "Colour-blind safe", "Classic" and "Intensity". It works with the keyboard (arrows, Enter, Escape) and applies to every selected image.
+- **LUTs from ImageJ files.** A LUT in an ImageJ TIFF is now compared in full with the library, so Fire or viridis are recognised (Fire used to open as grey). A LUT that matches nothing is kept with the project and offered as "From file"; Image info says so.
+- **Calibration bar.** A new ▮ button on each channel adds a bar showing that channel's colour table from its min to its max, with both values as labels. It follows the channel's range, LUT, gamma and invert, and is saved, undone and exported like any object (frame and labels as vectors, the gradient as a small image).
+- **Project format 3.** Projects store the new LUT names, a file's own LUT and calibration bars; older projects open unchanged.
+
+### Development
+
+- `js/image/luts.js`: the LUT library (matplotlib 3.9.2 tables for viridis, magma, inferno and cividis; ImageJ's Fire control points); the compositor reads every table from it. `js/tools/calibration-bar.js`: the calibration bar.
+- Licences: `assets/vendor/LICENSE-mpl-colormaps.txt` (CC0) and `LICENSE-matplotlib.txt`, listed in THIRD-PARTY-NOTICES.md.
+- **Tests:** the new `lut-calibration-regression` suite; `migrations-regression` tests `schema-2-to-3.js`; the colour checks in `v024-regression` and `ui-fixes-regression` now use the popover.
+
 ## v0.1.6 (2026-11-19)
 
 - **Gamma and invert per channel.** Each channel in the Channels panel has a **gamma** field (0.1 to 5, default 1) and an **invert** box. Like *min* and *max* they change only the display, never the data; they apply to every selected image, appear in the History panel and are saved with the project.

@@ -6,7 +6,7 @@
    The file format is described in docs/PROJECT-FORMAT.md. */
 const MFC_PROJECT = (() => {
   const FORMAT = 3;   // manifest.version
-  const SCHEMA = 2;   // state.schema written by captureState; equals CURRENT_SCHEMA in js/migrations/index.js
+  const SCHEMA = 3;   // state.schema written by captureState; equals CURRENT_SCHEMA in js/migrations/index.js
   // Migrations are ES modules (pure functions on JSON), loaded the first time a project is opened.
   const MIGRATIONS_URL = new URL('migrations/index.js', document.currentScript?.src || new URL('js/', document.baseURI)).href;
   let migrations = null;
@@ -67,7 +67,8 @@ const MFC_PROJECT = (() => {
       if (obj.filters?.length) json.filters = obj.filters.map(filter => filter.toObject());
       const raw = entry.rawImage;
       json.display = { channels: raw.channels.map(c => ({ enabled: c.enabled, color: c.color, min: c.min, max: c.max, name: c.name,
-          gamma: Number.isFinite(c.gamma) && c.gamma > 0 ? c.gamma : 1, invert: !!c.invert })),
+          gamma: Number.isFinite(c.gamma) && c.gamma > 0 ? c.gamma : 1, invert: !!c.invert,
+          ...(typeof c.lut === 'string' && c.lut ? { lut: c.lut } : {}) })),
         brightness: raw.brightness || 0, contrast: raw.contrast || 0,
         alphaEnabled: raw.alphaEnabled !== false, voxelSizeUm: raw.voxelSizeUm ?? null };
       if (raw.stack) Object.assign(json.display, { zMode: raw.zMode, zIndex: raw.zIndex, tIndex: raw.tIndex });

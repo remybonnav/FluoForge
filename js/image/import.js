@@ -8,6 +8,7 @@ import { pushHistory } from '../core/history.js';
 import { canvas, registry, takeId } from '../core/state.js';
 import { refreshChannelPanel } from './channels.js';
 import { refreshScaleBarRefList } from '../tools/scalebar.js';
+import { updateCalibrationBarsForImage } from '../tools/calibration-bar.js';
 
 // ---- image import ----
 export async function importFiles(fileList) {
@@ -65,6 +66,8 @@ const nextFrame = callback => (document.hidden ? setTimeout(callback, 0) : reque
 /** Recompute the composite for a given fabric image object from its raw channel data (in the next frame). */
 export function recomposite(fabricImg, fullRes) {
   if (!registry[fabricImg.mfcId]) return;
+  // Calibration bars follow at once (they are small), so the history step that follows has them.
+  updateCalibrationBarsForImage(fabricImg);
   scheduled.set(fabricImg, !!fullRes);
   if (!frame) {
     MFC_TIFF.track(new Promise(resolve => { frameDone = resolve; }));

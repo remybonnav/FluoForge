@@ -13,6 +13,9 @@ Each licence was checked on 2026-11-17 against the component's licence file and 
 | pako | 2.1.0 | MIT AND Zlib | Bundled: `assets/vendor/pako.min.js` | https://github.com/nodeca/pako |
 | svg2pdf.js | 2.5.0, with one local fix | MIT | Bundled: `assets/vendor/svg2pdf.umd.min.js` | https://github.com/yWorks/svg2pdf.js |
 | Liberation Fonts (Sans, Serif, Mono) | 2.1.5 | SIL Open Font License 1.1 | Bundled: `assets/fonts/*.ttf` | https://github.com/liberationfonts/liberation-fonts |
+| viridis, magma, inferno colour maps | matplotlib 3.9.2 tables | CC0 1.0 (public domain) | Data in `js/image/luts.js` (licence: `assets/vendor/LICENSE-mpl-colormaps.txt`) | https://github.com/BIDS/colormap |
+| cividis colour map | matplotlib 3.9.2 table | Matplotlib License (PSF-style, permissive) | Data in `js/image/luts.js` (licence: `assets/vendor/LICENSE-matplotlib.txt`) | https://github.com/matplotlib/matplotlib |
+| Fire LUT | ImageJ 1.x | Public domain | 32 control points in `js/image/luts.js` | https://github.com/imagej/ImageJ |
 
 ## How each licence was confirmed
 
@@ -39,10 +42,17 @@ Each licence was checked on 2026-11-17 against the component's licence file and 
   - `assets/fonts/LICENSE.txt` gives the SIL Open Font License 1.1, with copyright held by Google Corporation (Arimo, Tinos, Cousine) and Red Hat, Inc. (Reserved Font Name "Liberation").
   - Exports embed the fonts in SVG and PDF files.
 
+- **viridis, magma, inferno and cividis** (checked on 2026-11-19)
+  - The tables were taken from matplotlib 3.9.2, `lib/matplotlib/_cm_listed.py`. Each value (0 to 1) was multiplied by 255 and rounded to a byte. That is the only change, and it is the summary of changes the Matplotlib License asks for.
+  - viridis, magma and inferno were created by Nathaniel Smith and Stéfan van der Walt and released under CC0 (`LICENSE.txt` of the BIDS/colormap repository, bundled as `LICENSE-mpl-colormaps.txt`).
+  - cividis (Nuñez, Anderton and Renslow, PLoS ONE 2018) is distributed with matplotlib under the Matplotlib License, bundled as `LICENSE-matplotlib.txt` with its notice "Copyright (c) 2012- Matplotlib Development Team; All Rights Reserved".
+- **Fire** (checked on 2026-11-19)
+  - The 32 control points are those of `ij/plugin/LutLoader.java` in ImageJ 1.x, interpolated to 256 entries the same way. ImageJ 1.x is in the public domain.
+
 ## Compatibility with AGPL-3.0 and items to watch
 
 - **No incompatible licence was found.**
-  - MIT, Zlib and the MIT option of JSZip are permissive and compatible with AGPL-3.0.
+  - MIT, Zlib and the MIT option of JSZip are permissive and compatible with AGPL-3.0. So are CC0, the public domain (ImageJ) and the Matplotlib License, which only asks that its notice be kept and changes summarised.
   - The fonts stay under the OFL 1.1 as separate works. The OFL allows bundling them with software under any licence, provided the fonts themselves are not relicensed and derivative fonts do not use the reserved name "Liberation".
 - **Licence files.** Every bundled library has its licence file next to it in `assets/vendor/`.
 - **JSZip is dual-licensed.** FluoForge uses the MIT option. The GPL-3.0 option is not needed.

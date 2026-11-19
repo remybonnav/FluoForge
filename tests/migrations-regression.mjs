@@ -131,7 +131,14 @@ export async function runMigrationRegressions() {
   assert('1→2: the other channel settings and objects are unchanged',
     JSON.stringify(channelsOf('a').map(({ gamma, invert, ...rest }) => rest)) === JSON.stringify(v1.objects[0].display.channels) &&
     JSON.stringify(v2.objects[3]) === JSON.stringify(v1.objects[3]) && JSON.stringify(v2.docProps) === JSON.stringify(v1.docProps));
-  assert('0→2: a legacy state runs both migrations', migrateState(legacy).applied.join() === 'schema-0-to-1.js,schema-1-to-2.js' && migrateState(legacy).state.schema === 2);
+  assert(`0→${CURRENT_SCHEMA}: a legacy state runs every migration in order`, migrateState(legacy).applied.join() === MIGRATIONS.map(m => m.file).join() && migrateState(legacy).state.schema === CURRENT_SCHEMA);
+
+  // --- schema-2-to-3.js alone ---------------------------------------------------------------
+  const { migrate: m23 } = await import(pathToFileURL(join(ROOT, 'js/migrations/schema-2-to-3.js')).href);
+  const v2state = deepFrozen({ ...v2, futureLike: { kept: 1 } });
+  const v3 = m23(v2state);
+  assert('2→3: only the schema number changes (new LUT names, file LUTs and calibration bars are additions)',
+    v3.schema === 3 && v2state.schema === 2 && JSON.stringify({ ...v3, schema: 2 }) === JSON.stringify(v2state));
 
   assert('Migrations use no browser objects', !/\b(window|document|fabric|MFC\w*)\b/.test(files.map(f => readFileSync(join(ROOT, 'js/migrations', f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')).join('\n')));
 

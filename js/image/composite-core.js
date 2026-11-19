@@ -18,33 +18,11 @@
    display mapping, which is why a resampled plane can be cached and reused while the display
    settings change. */
 
-/** The 8 colour presets, as weights of red, green and blue. */
-export const PRESETS = {
-  grey:    [1, 1, 1],
-  red:     [1, 0, 0],
-  green:   [0, 1, 0],
-  blue:    [0, 0, 1],
-  cyan:    [0, 1, 1],
-  magenta: [1, 0, 1],
-  yellow:  [1, 1, 0],
-  orange:  [1, 0.5, 0]
-};
+import { PRESETS, namedLUT, channelLUT } from './luts.js';
+export { PRESETS };
 
-const lutCache = new Map();
-
-/** A preset as a 256 x 3 LUT: entry i is (R, G, B) at index i, interleaved, rounded like a canvas pixel. */
-export function presetLUT(name) {
-  const key = PRESETS[name] ? name : 'grey';
-  if (lutCache.has(key)) return lutCache.get(key);
-  const [wr, wg, wb] = PRESETS[key];
-  const lut = new Uint8Array(768), round = new Uint8ClampedArray(3);
-  for (let i = 0; i < 256; i++) {
-    round[0] = i * wr; round[1] = i * wg; round[2] = i * wb; // Uint8ClampedArray rounds half to even
-    lut[i * 3] = round[0]; lut[i * 3 + 1] = round[1]; lut[i * 3 + 2] = round[2];
-  }
-  lutCache.set(key, lut);
-  return lut;
-}
+/** A single-colour preset as its 256 x 3 LUT (kept for the tests; every table is in js/image/luts.js). */
+export function presetLUT(name) { return namedLUT(PRESETS[name] ? name : 'grey'); }
 
 /**
  * Lookup from every possible raw value (0..2^bitDepth - 1) to its display index 0..255:
@@ -76,13 +54,30 @@ export function colourTable(table, lut) {
 // Colour tables by display settings, so a change to one channel rebuilds only that channel's table.
 const colourCache = new Map();
 function cachedColour(ch, bitDepth) {
-  const key = [bitDepth > 8 ? 16 : 8, ch.min, ch.max, ch.gamma ?? 1, !!ch.invert, PRESETS[ch.color] ? ch.color : 'grey'].join('|');
+  const key = [bitDepth > 8 ? 16 : 8, ch.min, ch.max, ch.gamma ?? 1, !!ch.invert, ch.color, ch.color === 'file' ? ch.lut : ''].join('|');
   let colour = colourCache.get(key);
   if (colour) { colourCache.delete(key); colourCache.set(key, colour); return colour; }
-  colour = colourTable(levelTable(ch, bitDepth), presetLUT(ch.color));
+  colour = colourTable(levelTable(ch, bitDepth), channelLUT(ch.color, ch.lut));
   colourCache.set(key, colour);
   if (colourCache.size > 32) colourCache.delete(colourCache.keys().next().value);
   return colour;
+}
+
+/**
+ * The colours of a calibration bar: 256 entries (R, G, B interleaved) from the channel's min (entry 0)
+ * to its max (entry 255), through the same gamma, invert and LUT as the image.
+ */
+export function calibrationColours(ch) {
+  const lut = channelLUT(ch.color, ch.lut), out = new Uint8Array(768), level = new Uint8ClampedArray(1);
+  const g = ch.gamma > 0 && Number.isFinite(ch.gamma) ? ch.gamma : 1;
+  for (let k = 0; k < 256; k++) {
+    let norm = k / 255;
+    if (g !== 1) norm = Math.pow(norm, g);
+    if (ch.invert) norm = 1 - norm;
+    level[0] = norm * 255;
+    out.set(lut.subarray(level[0] * 3, level[0] * 3 + 3), k * 3);
+  }
+  return out;
 }
 
 /** Maximum or mean intensity projection of a list of Z planes (all the same length and type). */

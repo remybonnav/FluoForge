@@ -114,9 +114,11 @@ async function runV024Regressions() {
   rawB.contrast=30;
   fire('ch-brightness','input','25');
   assert('Brightness applies to all images without overwriting their contrast',rawA.brightness===25&&rawB.brightness===25&&rawB.contrast===30);
-  const colorSelect=document.querySelector('#channel-list .channel-row .ch-color');
-  colorSelect.value=[...colorSelect.options].find(o=>o.value!==rawA.channels[0].color).value;colorSelect.dispatchEvent(new Event('change'));
-  assert('Channel color applies to every selected image',rawA.channels[0].color===colorSelect.value&&rawB.channels[0].color===colorSelect.value);
+  // The colour is chosen in the LUT popover (P2-T2).
+  document.querySelector('#channel-list .channel-row .ch-lut').click();
+  const pick=[...document.querySelectorAll('.lut-popover .lut-option')].find(o=>o.dataset.lut!==rawA.channels[0].color);
+  const picked=pick.dataset.lut;pick.click();
+  assert('Channel color applies to every selected image',rawA.channels[0].color===picked&&rawB.channels[0].color===picked);
   const shape=(left,stroke,fill)=>{const r=new fabric.Rect({left,top:600,width:80,height:60,stroke,strokeWidth:3,fill,strokeUniform:true});r.mfcId='shp'+left;r.mfcType='shape';canvas.add(r);return r;};
   const s1=shape(100,'#ff0000','#111111'),s2=shape(300,'#00ff00','#222222');
   canvas.setActiveObject(new fabric.ActiveSelection([s1,s2],{canvas}));canvas.fire('selection:created');

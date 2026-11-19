@@ -46,6 +46,7 @@ export function historyObjectName(json) {
   }
   if (json.mfcType === 'scalebar') return 'scale bar' + (json.mfcLengthUm != null ? ' ' + json.mfcLengthUm + ' µm' : '');
   if (json.mfcType === 'insetContour') return 'inset outline';
+  if (json.mfcType === 'calibrationBar') return 'calibration bar';
   if (json.mfcShapeKind === 'path') return 'path';
   if (json.mfcType === 'shape') return json.mfcShapeKind || (json.type === 'ellipse' ? 'ellipse' : 'box');
   if (json.type === 'group') return 'group';
@@ -83,8 +84,8 @@ export function describeHistoryStep(prev, next) {
   const pagesBefore = Math.max(1, prev.docProps?.pages || 1), pagesAfter = Math.max(1, next.docProps?.pages || 1);
   if (pagesAfter > pagesBefore) return 'Added page ' + pagesAfter;
   if (pagesAfter < pagesBefore) return 'Removed page ' + pagesBefore;
-  if (added.length === 1 && added[0].type === 'group' && added[0].mfcType !== 'scalebar' && removed.length > 1) return 'Grouped ' + removed.length + ' objects';
-  if (removed.length === 1 && removed[0].type === 'group' && removed[0].mfcType !== 'scalebar' && !added.length) {
+  if (added.length === 1 && added[0].type === 'group' && added[0].mfcType !== 'scalebar' && added[0].mfcType !== 'calibrationBar' && removed.length > 1) return 'Grouped ' + removed.length + ' objects';
+  if (removed.length === 1 && removed[0].type === 'group' && removed[0].mfcType !== 'scalebar' && removed[0].mfcType !== 'calibrationBar' && !added.length) {
     const ids = new Set((removed[0].objects || []).map(o => o.mfcId));
     if (ids.size && [...ids].every(id => after.has(id))) return 'Ungrouped ' + ids.size + ' objects';
   }
@@ -98,7 +99,10 @@ export function describeHistoryStep(prev, next) {
   if (added.length && !removed.length) return added.length === 1 ? 'Added ' + historyObjectName(added[0]) : 'Added ' + added.length + ' objects';
   if (removed.length && !added.length) return removed.length === 1 ? 'Deleted ' + historyObjectName(removed[0]) : 'Deleted ' + removed.length + ' objects';
   if (added.length && removed.length) return 'Replaced ' + removed.length + ' object(s)';
-  const changed = next.objects.filter(o => before.has(o.mfcId) && JSON.stringify(before.get(o.mfcId)) !== JSON.stringify(o));
+  let changed = next.objects.filter(o => before.has(o.mfcId) && JSON.stringify(before.get(o.mfcId)) !== JSON.stringify(o));
+  // A calibration bar redrawn because its image's channel changed is part of that change.
+  const followers = changed.filter(o => o.mfcType === 'calibrationBar' && changed.some(c => c.mfcId === o.mfcCalImageId));
+  if (followers.length && followers.length < changed.length) changed = changed.filter(o => !followers.includes(o));
   if (changed.length === 1) {
     const kind = historyChangeKind(before.get(changed[0].mfcId), changed[0]);
     return kind === 'Cropped to shape' || kind === 'Removed shape crop'
