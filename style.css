@@ -213,6 +213,9 @@ body:not(.document-open) #side-panel>.panel{display:none;}
 .range-row input[type=range]{flex:1;width:auto;}
 .range-row .rv-input{width:52px;text-align:right;color:var(--text);font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 4px;}
 .range-row .rv-input:focus{border-color:var(--accent);outline:none;}
+.ch-display-row{margin-top:2px;}
+.ch-display-row .ch-gamma{width:58px;}
+.ch-invert-label{display:inline-flex;align-items:center;gap:4px;margin-left:auto;font-size:11px;color:var(--text-dim);cursor:pointer;}
 
 /* ---------------- toast ---------------- */
 #toast{

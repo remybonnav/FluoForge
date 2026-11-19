@@ -45,11 +45,11 @@ async function runZStackRegressions() {
   assert('The Z step is read from spacing=',raw.stack.zStepUm===0.5);
   assert('A Z stack opens as a maximum intensity projection',raw.zMode==='max'&&raw.tIndex===0);
   assert('Max projection takes the brightest slice of each channel',raw.channels[1].data[5]===value(1,Z-1,0,5)&&raw.channels[0].data[0]===value(0,Z-1,0,0));
-  raw.zMode='mean';MFC_TIFF.selectPlane(raw);
+  raw.zMode='mean';await MFC_TIFF.selectPlane(raw);
   assert('Mean projection averages the slices',raw.channels[1].data[5]===value(1,1,0,5));
-  raw.zMode='slice';raw.zIndex=0;raw.tIndex=1;MFC_TIFF.selectPlane(raw);
+  raw.zMode='slice';raw.zIndex=0;raw.tIndex=1;await MFC_TIFF.selectPlane(raw);
   assert('A single slice and frame are picked in XYCZT order',raw.channels[0].data[3]===value(0,0,1,3)&&raw.channels[1].data[3]===value(1,0,1,3));
-  raw.zIndex=99;raw.tIndex=-4;MFC_TIFF.selectPlane(raw);
+  raw.zIndex=99;raw.tIndex=-4;await MFC_TIFF.selectPlane(raw);
   assert('Out of range slice and frame are clamped',raw.zIndex===Z-1&&raw.tIndex===0);
 
   const zOnly=await MFC_TIFF.decodeFile(makeTiff('z.tif',pages.slice(0,3),W,H,'ImageJ=1.54p\nimages=3\nslices=3\nunit=micron\n'));
@@ -71,15 +71,16 @@ async function runZStackRegressions() {
   assert('The frame slider is shown for a time series',!document.getElementById('ch-tframe-row').classList.contains('hidden'));
 
   const zmode=document.getElementById('ch-zmode');
-  zmode.value='slice';zmode.dispatchEvent(new Event('change',{bubbles:true}));
+  // Planes are chosen asynchronously (projections are computed off the main thread).
+  zmode.value='slice';zmode.dispatchEvent(new Event('change',{bubbles:true}));await MFC_TIFF.whenIdle();
   assert('Choosing Single slice shows the slice slider',!document.getElementById('ch-zslice-row').classList.contains('hidden'));
   assert('The default slice is the middle one',entry().zIndex===1&&entry().channels[0].data[2]===value(0,1,0,2));
   const slider=document.getElementById('ch-zslice');
-  slider.value='3';slider.dispatchEvent(new Event('input',{bubbles:true}));slider.dispatchEvent(new Event('change',{bubbles:true}));
+  slider.value='3';slider.dispatchEvent(new Event('input',{bubbles:true}));slider.dispatchEvent(new Event('change',{bubbles:true}));await MFC_TIFF.whenIdle();
   assert('Moving the slice slider shows that slice',entry().zIndex===2&&entry().channels[1].data[0]===value(1,2,0,0));
   assert('A slice change is labelled in the history',MFC.getHistory().labels.slice(-1)[0]==='Changed Z plane of hyper.tif');
   const frame=document.getElementById('ch-tframe-val');
-  frame.value='2';frame.dispatchEvent(new Event('change',{bubbles:true}));
+  frame.value='2';frame.dispatchEvent(new Event('change',{bubbles:true}));await MFC_TIFF.whenIdle();
   assert('Typing a frame number shows that frame',entry().tIndex===1&&entry().channels[0].data[0]===value(0,2,1,0));
   assert('A frame change is labelled in the history',MFC.getHistory().labels.slice(-1)[0]==='Changed time frame of hyper.tif');
 
@@ -100,7 +101,7 @@ async function runZStackRegressions() {
 
   // Two stacks selected: the Z display applies to both.
   canvas.setActiveObject(img);
-  MFC.applyStackPlane({zMode:'max'},true);
+  await MFC.applyStackPlane({zMode:'max'},true);
   assert('Switching back to a projection uses the brightest slice of that frame',entry().zMode==='max'&&entry().channels[0].data[0]===value(0,Z-1,1,0));
   return checks;
 }

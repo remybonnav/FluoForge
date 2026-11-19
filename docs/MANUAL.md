@@ -91,6 +91,8 @@ Click **Import Image** (you can choose several files at once). Supported formats
 
 Images keep their full resolution for export. On screen, very large images (more than 2048 px on the long side) are shown with a reduced preview so that editing stays fast.
 
+How the displayed colours are made follows Fiji and QuPath: each channel's value is mapped through *min*, *max* and gamma to one of 256 levels of its colour, and the channels are added together. When an image is shown or exported smaller than its pixels, each pixel is the average of the source pixels it covers, so fine detail is smoothed rather than turned into false patterns (moiré). This works best when an image is reduced to half its size or less; a slight reduction can leave a faint pattern in very fine, regular detail. When it is shown larger, every source pixel stays a sharp square. The colours are computed in the background, so the sliders stay smooth even for large images.
+
 ## 4. Channels, contrast and calibration
 
 Select an image to show its channels in the **Channels** panel (see the screenshot in [section 2](#2-the-workspace)). For each channel:
@@ -98,6 +100,8 @@ Select an image to show its channels in the **Channels** panel (see the screensh
 - **Checkbox**: shows or hides the channel. Single-channel panels are made by duplicating an image and leaving one channel on.
 - **Colour menu**: grey, red, green, blue, cyan, magenta, yellow or orange. Channels are added together, as in an ImageJ composite.
 - **min / max**: the display range (as in ImageJ's *Brightness & Contrast*). Values below *min* are black; values at or above *max* are full colour. Drag the slider or type a number and press Enter.
+- **gamma** (0.1 to 5, default 1): bends the display between *min* and *max*. Above 1 the dim parts get darker, below 1 they get brighter. Like *min* and *max*, it only changes how the channel is shown, never the data; report it in your figure legend when it is not 1.
+- **invert**: shows the channel inverted, bright as dark (like *Invert LUT* in Fiji).
 
 Below the channels:
 
@@ -305,7 +309,7 @@ Every change is a step in the **History** panel, with a readable name and its ti
 | **SVG** | One file per page. Text, shapes, paths, arrows, scale bars and clip paths stay as vectors; each image is embedded (cropped) at the output resolution, never enlarged beyond its source pixels. | Final touches in Inkscape or Illustrator. |
 | **PDF** | One PDF with one page per figure page; vectors stay vectors and the Liberation fonts are embedded. | Submission and sharing. |
 
-Images are always re-composited from the original channel data at full resolution, never from the screen preview. Dashed outlines keep their dash lengths in Inkscape and when resized. Export files are named after the project (characters that are not allowed in file names are replaced), and multi-page SVG/TIFF exports add `_page-1`, `_page-2`, … Objects on the pasteboard (outside a page) are not exported.
+Images are always re-composited from the original channel data at full resolution, never from the screen preview. A panel printed smaller than its source is averaged down from the source pixels; a panel printed larger keeps its source resolution and is never enlarged. Dashed outlines keep their dash lengths in Inkscape and when resized. Export files are named after the project (characters that are not allowed in file names are replaced), and multi-page SVG/TIFF exports add `_page-1`, `_page-2`, … Objects on the pasteboard (outside a page) are not exported.
 
 ## 20. Themes
 

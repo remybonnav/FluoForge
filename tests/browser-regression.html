@@ -23,6 +23,7 @@ body{font:14px system-ui;background:#eef0f5;color:#172031;margin:16px}button{pad
 <button data-suite="image-info-regression">Quiet import and Image info</button>
 <button data-suite="compat-regression">Old projects reopen; save as .fluoforge</button>
 <button data-suite="errors-storage-regression">Errors, damaged files and storage</button>
+<button data-suite="compositor-regression">Compositor: LUTs, gamma, resizing, worker</button>
 <pre id="result" role="status">Choose a suite. Each run uses a fresh test frame and isolated recovery storage.</pre>
 <div id="frame"></div>
 <script>
@@ -32,7 +33,7 @@ const suites={ 'dev-interface-regression':'runDevInterfaceRegressions', 'path-re
   'zstack-regression':'runZStackRegressions', 'about-regression':'runAboutRegressions',
   'offline-regression':'runOfflineRegressions', 'module-api-regression':'runModuleApiRegressions',
   'image-info-regression':'runImageInfoRegressions', 'compat-regression':'runCompatRegressions',
-  'errors-storage-regression':'runErrorsStorageRegressions' };
+  'errors-storage-regression':'runErrorsStorageRegressions', 'compositor-regression':'runCompositorRegressions' };
 document.querySelectorAll('button').forEach(button=>button.onclick=async()=>{
   const result=document.getElementById('result'); result.textContent='Running '+button.dataset.suite+'…';
   const frame=document.createElement('iframe');frame.src='../?test=regression-'+Date.now();document.getElementById('frame').replaceChildren(frame);

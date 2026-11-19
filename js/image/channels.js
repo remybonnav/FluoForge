@@ -13,6 +13,7 @@ import { selectedObjects } from '../ui/selection-bar.js';
 // With several images selected, the panel shows the first one and every edit is
 // applied to that same setting on each selected image (channel N of each image);
 // other settings of the other images are left as they were.
+const gammaOf = ch => (Number.isFinite(ch.gamma) && ch.gamma > 0 ? ch.gamma : 1);
 export function selectedImages() { return selectedObjects(o => o.mfcType === 'mfcImage' && registry[o.mfcId]); }
 export function commitImages(images) {
   images.forEach(img => recomposite(img));
@@ -93,10 +94,19 @@ export function refreshChannelPanel() {
           <input type="range" class="ch-max" min="0" max="65535" value="${ch.max}">
           <input type="number" class="rv-input ch-max-val" min="0" max="65535" value="${Math.round(ch.max)}">
         </div>
+        <div class="range-row ch-display-row">
+          <label class="hint" for="ch-gamma-${idx}">gamma</label>
+          <input type="number" class="rv-input ch-gamma" id="ch-gamma-${idx}" min="0.1" max="5" step="0.05" value="${gammaOf(ch)}"
+            title="Gamma for this channel's display (1 = linear). Above 1 darkens the dim parts, below 1 brightens them. The raw data is not changed.">
+          <label class="ch-invert-label" title="Invert this channel's display: bright becomes dark (like Invert LUT in Fiji). The raw data is not changed."><input type="checkbox" class="ch-invert" ${ch.invert ? 'checked' : ''}> invert</label>
+        </div>
       `;
     row.querySelector('.ch-name').textContent = ch.name + (peers.length > 1 ? ' ×' + peers.length : '');
     const toggle = row.querySelector('.ch-toggle');
     toggle.indeterminate = !peers.every(p => !!p.enabled === !!ch.enabled);
+    const gammaInput = row.querySelector('.ch-gamma'), invertBox = row.querySelector('.ch-invert');
+    if (peers.length > 1 && !peers.every(p => gammaOf(p) === gammaOf(ch))) gammaInput.title += ' The selected images use different values.';
+    invertBox.indeterminate = !peers.every(p => !!p.invert === !!ch.invert);
     if (peers.length > 1 && !peers.every(p => p.color === ch.color)) row.querySelector('.ch-color').title = 'Colors differ between the selected images';
     listEl.appendChild(row);
 
@@ -141,6 +151,16 @@ export function refreshChannelPanel() {
     // is how typed values get confirmed (Enter, Tab, or clicking elsewhere all commit).
     minInput.addEventListener('change', (e) => { commitMin(parseFloat(e.target.value)); commitImages(images); });
     maxInput.addEventListener('change', (e) => { commitMax(parseFloat(e.target.value)); commitImages(images); });
+    // Gamma: live while typing or using the arrows, committed to the history on change.
+    const commitGamma = v => {
+      const g = Number.isFinite(v) ? Math.min(5, Math.max(0.1, Math.round(v * 100) / 100)) : gammaOf(ch);
+      peers.forEach(p => { p.gamma = g; });
+      return g;
+    };
+    gammaInput.addEventListener('input', (e) => { const v = parseFloat(e.target.value); if (Number.isFinite(v) && v >= 0.1 && v <= 5) { commitGamma(v); recompositeAll(); } });
+    gammaInput.addEventListener('change', (e) => { gammaInput.value = commitGamma(parseFloat(e.target.value)); commitImages(images); });
+    gammaInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); gammaInput.blur(); } });
+    invertBox.addEventListener('change', (e) => { peers.forEach(p => { p.invert = e.target.checked; }); commitImages(images); });
     minInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); minInput.blur(); } });
     maxInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); maxInput.blur(); } });
   });
@@ -176,20 +196,22 @@ export function refreshStackControls(images) {
  * Choose the Z display (projection or slice) and time frame of the selected stacks.
  * `commit` records an undo step; without it (slider dragging) only the preview updates.
  */
-export function applyStackPlane(change, commit) {
+export async function applyStackPlane(change, commit) {
   const images = selectedImages().filter(img => registry[img.mfcId].rawImage.stack);
   if (!images.length) return;
-  images.forEach(img => {
+  // The settings change at once (so the controls and history see them); the planes follow when
+  // a projection, computed off the main thread, is ready.
+  const planes = images.map(img => {
     const raw = registry[img.mfcId].rawImage;
     if (change.zMode) raw.zMode = change.zMode;
     if (Number.isFinite(change.zIndex) && raw.stack.sizeZ > 1) { raw.zIndex = change.zIndex; raw.zMode = 'slice'; }
     if (Number.isFinite(change.tIndex)) raw.tIndex = change.tIndex;
-    MFC_TIFF.selectPlane(raw);
-    recomposite(img);
+    return MFC_TIFF.track(MFC_TIFF.selectPlane(raw).then(() => recomposite(img)));
   });
   refreshStackControls(images);
   if (commit) canvas.fire('object:modified', { target: canvas.getActiveObject() });
   else canvas.requestRenderAll();
+  await Promise.all(planes);
 }
 
 /** Manually set (or clear) the physical pixel size of the selected image(s) — the only way to calibrate scale bars for formats (JPEG/PNG/BMP) or TIFFs that carry no resolution metadata. */
@@ -212,7 +234,7 @@ export function applyAlphaToggle(enabled) {
   commitImages(images);
 }
 
-/** Applies the panel's current brightness/contrast values to the selected image(s)' whole composite (see compositeChannels' tone-curve pass — works the same for RGB imports and TIFF composites alike). */
+/** Applies the panel's current brightness/contrast values to the selected image(s)' whole composite (see the tone-curve pass in js/image/composite-core.js — works the same for RGB imports and TIFF composites alike). */
 export function applyBrightnessContrast(brightness, contrast) {
   const images = selectedImages();
   if (!images.length) return;

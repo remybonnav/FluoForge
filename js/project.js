@@ -6,7 +6,7 @@
    The file format is described in docs/PROJECT-FORMAT.md. */
 const MFC_PROJECT = (() => {
   const FORMAT = 3;   // manifest.version
-  const SCHEMA = 1;   // state.schema written by captureState; equals CURRENT_SCHEMA in js/migrations/index.js
+  const SCHEMA = 2;   // state.schema written by captureState; equals CURRENT_SCHEMA in js/migrations/index.js
   // Migrations are ES modules (pure functions on JSON), loaded the first time a project is opened.
   const MIGRATIONS_URL = new URL('migrations/index.js', document.currentScript?.src || new URL('js/', document.baseURI)).href;
   let migrations = null;
@@ -66,7 +66,8 @@ const MFC_PROJECT = (() => {
       json.cropX = obj.cropX || 0; json.cropY = obj.cropY || 0;
       if (obj.filters?.length) json.filters = obj.filters.map(filter => filter.toObject());
       const raw = entry.rawImage;
-      json.display = { channels: raw.channels.map(c => ({ enabled: c.enabled, color: c.color, min: c.min, max: c.max, name: c.name })),
+      json.display = { channels: raw.channels.map(c => ({ enabled: c.enabled, color: c.color, min: c.min, max: c.max, name: c.name,
+          gamma: Number.isFinite(c.gamma) && c.gamma > 0 ? c.gamma : 1, invert: !!c.invert })),
         brightness: raw.brightness || 0, contrast: raw.contrast || 0,
         alphaEnabled: raw.alphaEnabled !== false, voxelSizeUm: raw.voxelSizeUm ?? null };
       if (raw.stack) Object.assign(json.display, { zMode: raw.zMode, zIndex: raw.zIndex, tIndex: raw.tIndex });
@@ -118,9 +119,9 @@ const MFC_PROJECT = (() => {
       const original = await sourceRaw(json.sourceId);
       const raw = { ...original, ...json.display,
         channels: original.channels.map((channel, i) => ({ ...channel, ...json.display.channels[i] })) };
-      MFC_TIFF.selectPlane(raw); // Z slice / projection and time frame saved with the object
+      await MFC_TIFF.selectPlane(raw); // Z slice / projection and time frame saved with the object
       const workingScale = json.workingScale || MFC_TIFF.workingScale(raw.width, raw.height);
-      obj = new fabric.Image(forExport ? document.createElement('canvas') : MFC_TIFF.compositeChannels(raw, workingScale), options);
+      obj = new fabric.Image(forExport ? document.createElement('canvas') : await MFC_TIFF.composite(raw, workingScale, null, null, null, { cache: true }), options);
       registry[json.mfcId] = { rawImage: raw, workingScale, sourceId: json.sourceId, sourceBlob: sources.get(json.sourceId).blob };
     } else if (json.type === 'group') {
       const children = [];

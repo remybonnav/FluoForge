@@ -111,7 +111,28 @@ export async function runMigrationRegressions() {
     byId('outlinePx').mfcCropX === 1 && byId('outlinePx').mfcCropW === 3 && !('mfcCropX' in byId('orphan')));
   assert('0→1: everything else is copied unchanged', JSON.stringify({ ...migrated, schema: 0, objects: null }) === JSON.stringify({ ...legacy, objects: null }) &&
     JSON.stringify(migrated.objects[0]) === JSON.stringify(legacy.objects[0]));
-  assert('0→1: running the chain from schema 0 applies it', migrateState(legacy).applied.join() === 'schema-0-to-1.js' && migrateState(legacy).state.schema === CURRENT_SCHEMA);
+  assert('0→1: running the chain from schema 0 applies it first', migrateState(legacy).applied[0] === 'schema-0-to-1.js' && migrateState(legacy).state.schema === CURRENT_SCHEMA);
+  // --- schema-1-to-2.js alone ---------------------------------------------------------------
+  const { migrate: m12 } = await import(pathToFileURL(join(ROOT, 'js/migrations/schema-1-to-2.js')).href);
+  const image = (id, channels) => ({ type: 'image', mfcType: 'mfcImage', mfcId: id, sourceId: 'src-x', display: { channels, brightness: 0, contrast: 0 } });
+  const v1 = deepFrozen({ schema: 1, docProps: { name: 'One' }, nextId: 4, objects: [
+    image('a', [{ enabled: true, color: 'grey', min: 0, max: 255, name: 'Ch 1' }, { enabled: false, color: 'red', min: 5, max: 90, name: 'Ch 2' }]),
+    { type: 'group', mfcType: 'group', mfcId: 'g', objects: [image('b', [{ enabled: true, color: 'green', min: 1, max: 2, name: 'G' }])] },
+    { ...image('c', [{ enabled: true, color: 'blue', min: 0, max: 9, name: 'B', gamma: 2.5, invert: true }]), clipPath: { type: 'ellipse' } },
+    { type: 'textbox', mfcType: 'text', mfcId: 't', text: 'x' }
+  ] });
+  const v2 = m12(v1);
+  const channelsOf = id => { let found; walkAll(v2.objects, o => { if (o.mfcId === id) found = o.display.channels; }); return found; };
+  function walkAll(list, visit) { list.forEach(o => { visit(o); if (o.objects) walkAll(o.objects, visit); }); }
+  assert('1→2: the result is schema 2, and the input is not modified', v2.schema === 2 && v1.schema === 1 && !('gamma' in v1.objects[0].display.channels[0]));
+  assert('1→2: every image channel gets gamma 1 and invert false', channelsOf('a').every(c => c.gamma === 1 && c.invert === false));
+  assert('1→2: images inside groups are migrated too', channelsOf('b')[0].gamma === 1 && channelsOf('b')[0].invert === false);
+  assert('1→2: values already set are kept', channelsOf('c')[0].gamma === 2.5 && channelsOf('c')[0].invert === true);
+  assert('1→2: the other channel settings and objects are unchanged',
+    JSON.stringify(channelsOf('a').map(({ gamma, invert, ...rest }) => rest)) === JSON.stringify(v1.objects[0].display.channels) &&
+    JSON.stringify(v2.objects[3]) === JSON.stringify(v1.objects[3]) && JSON.stringify(v2.docProps) === JSON.stringify(v1.docProps));
+  assert('0→2: a legacy state runs both migrations', migrateState(legacy).applied.join() === 'schema-0-to-1.js,schema-1-to-2.js' && migrateState(legacy).state.schema === 2);
+
   assert('Migrations use no browser objects', !/\b(window|document|fabric|MFC\w*)\b/.test(files.map(f => readFileSync(join(ROOT, 'js/migrations', f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')).join('\n')));
 
   // --- The fixture library ------------------------------------------------------------------

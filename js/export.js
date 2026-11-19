@@ -127,8 +127,9 @@ const MFC_EXPORT = (() => {
       preflight(canvas.getObjects(), pdf);
       walk(canvas.getObjects(), bakeUniformStroke);
       await document.fonts.ready;
-      walk(canvas.getObjects(), image => {
-        if (image.mfcType !== 'mfcImage') return;
+      const images = [];
+      walk(canvas.getObjects(), image => { if (image.mfcType === 'mfcImage') images.push(image); });
+      for (const image of images) {
         const entry = registry[image.mfcId], raw = entry.rawImage;
         const previewW = Math.round(raw.width * entry.workingScale), previewH = Math.round(raw.height * entry.workingScale);
         const rx = raw.width / previewW, ry = raw.height / previewH;
@@ -138,7 +139,9 @@ const MFC_EXPORT = (() => {
         // are included; no panel is enlarged beyond its original source resolution.
         const outW = Math.max(1, Math.min(Math.ceil(region.width), Math.ceil(image.width * Math.hypot(matrix[0],matrix[1]))));
         const outH = Math.max(1, Math.min(Math.ceil(region.height), Math.ceil(image.height * Math.hypot(matrix[2],matrix[3]))));
-        const raster = MFC_TIFF.compositeChannels(raw, 1, region, outW, outH);
+        // Recomposited from the source planes at the output size: area-averaged when the panel
+        // is printed smaller than its source region, never enlarged beyond it.
+        const raster = await MFC_TIFF.composite(raw, 1, region, outW, outH);
         const href = raster.toDataURL('image/png');
         imageDetails.push({ id: image.mfcId, sourceId: entry.sourceId, sourceWidth: raw.width, sourceHeight: raw.height,
           previewWidth: previewW, width: outW, height: outH, region });
@@ -147,7 +150,7 @@ const MFC_EXPORT = (() => {
         image._toSVG = function () { return ['<image ', 'COMMON_PARTS', ' x="', -this.width/2,
           '" y="', -this.height/2, '" width="', this.width, '" height="', this.height,
           '" preserveAspectRatio="none" xlink:href="', href, '" />\n']; };
-      });
+      }
       let svg = canvas.toSVG({ suppressPreamble: true, viewBox: { x:0,y:0,width:size.width,height:size.height } });
       // Embed the same licensed TTF used by the browser, making standalone SVG/TIFF
       // rendering independent of fonts installed on the recipient's machine.

@@ -26,7 +26,7 @@ export async function importFiles(fileList) {
 
 export async function addImageToCanvas(rawImage, sourceFile) {
   const scale = MFC_TIFF.workingScale(rawImage.width, rawImage.height);
-  const compositeCanvas = MFC_TIFF.compositeChannels(rawImage, scale);
+  const compositeCanvas = await MFC_TIFF.composite(rawImage, scale, null, null, null, { cache: true });
 
   const id = 'img' + takeId();
   const sourceId = await MFC_PROJECT.registerSource(sourceFile, rawImage);
@@ -54,12 +54,51 @@ export async function addImageToCanvas(rawImage, sourceFile) {
   refreshScaleBarRefList();
 }
 
-/** Recompute the composite for a given fabric image object from its raw channel data. */
+/* Recomposites are scheduled: several changes within one animation frame (a slider drag fires
+   many input events) give one composite per image, and while one is being computed only the
+   latest settings are composited next. MFC_TIFF.whenIdle() waits for all of them. */
+const scheduled = new Map(); // image -> fullRes, for the next frame
+const running = new Set(), again = new Map();
+let frame = 0, frameDone = null;
+const nextFrame = callback => (document.hidden ? setTimeout(callback, 0) : requestAnimationFrame(callback));
+
+/** Recompute the composite for a given fabric image object from its raw channel data (in the next frame). */
 export function recomposite(fabricImg, fullRes) {
-  const entry = registry[fabricImg.mfcId];
-  if (!entry) return;
-  const scale = fullRes ? 1 : entry.workingScale;
-  const newCanvas = MFC_TIFF.compositeChannels(entry.rawImage, scale);
+  if (!registry[fabricImg.mfcId]) return;
+  scheduled.set(fabricImg, !!fullRes);
+  if (!frame) {
+    MFC_TIFF.track(new Promise(resolve => { frameDone = resolve; }));
+    frame = nextFrame(runScheduled);
+  }
+}
+
+function runScheduled() {
+  frame = 0;
+  const batch = [...scheduled]; scheduled.clear();
+  for (const [img, fullRes] of batch) {
+    if (running.has(img)) again.set(img, fullRes);
+    else MFC_TIFF.track(compositeInto(img, fullRes));
+  }
+  const done = frameDone; frameDone = null; done();
+}
+
+async function compositeInto(fabricImg, fullRes) {
+  running.add(fabricImg);
+  try {
+    const entry = registry[fabricImg.mfcId];
+    if (!entry) return;
+    const scale = fullRes ? 1 : entry.workingScale;
+    const newCanvas = await MFC_TIFF.composite(entry.rawImage, scale, null, null, null, { cache: !fullRes });
+    if (registry[fabricImg.mfcId] === entry) applyComposite(fabricImg, newCanvas);
+  } catch (error) {
+    MFC_ERRORS.report(error, { title: 'Could not redraw ' + (fabricImg.mfcFileName || 'the image') });
+  } finally {
+    running.delete(fabricImg);
+    if (again.has(fabricImg)) { const fullRes = again.get(fabricImg); again.delete(fabricImg); recomposite(fabricImg, fullRes); }
+  }
+}
+
+function applyComposite(fabricImg, newCanvas) {
   const curScaleX = fabricImg.scaleX, curScaleY = fabricImg.scaleY;
   const curWidth = fabricImg.width, curHeight = fabricImg.height;
   const curCropX = fabricImg.cropX, curCropY = fabricImg.cropY;

@@ -4,6 +4,22 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.6 (2026-11-19)
+
+- **Gamma and invert per channel.** Each channel in the Channels panel has a **gamma** field (0.1 to 5, default 1) and an **invert** box. Like *min* and *max* they change only the display, never the data; they apply to every selected image, appear in the History panel and are saved with the project.
+- **Smoother, faster colours.** The colours of an image are now computed in background workers, so dragging a slider stays smooth: a 4096 px, 4-channel image updates in about 55 ms (Chromium) and the page never freezes. A slider drag redraws at most once per screen frame.
+- **No moiré when shrinking.** An image shown or exported smaller than its pixels is now averaged down (each pixel is the mean of the source pixels it covers) instead of sampled, so fine regular detail no longer turns into false patterns. Images shown at their size or larger are unchanged: every source pixel stays a sharp square.
+- **Colours computed the Fiji and QuPath way.** Each channel's value is mapped to one of 256 levels of its colour (a 256-entry LUT), and the channels are added as whole numbers. Compared with 0.1.5, at 1:1 a 16-bit image can differ by 1 level out of 255 in a few pixels: where two channels add up at an exact rounding tie (0.05 % of the values in the reference figure), and in the green half of orange. 8-bit images and single grey, red, green, blue, cyan, magenta and yellow channels are identical.
+- **Project format 2.** Projects store each channel's gamma and invert flag; older projects are converted on opening (`schema-1-to-2.js`) and keep their original version on the first save.
+
+### Development
+
+- `js/image/composite-core.js` holds the compositor as pure functions (LUTs, level tables, area averaging, Z projection), run in a pool of up to 4 module workers (`js/image/composite-worker.js`), each compositing a band of rows, or on the main thread when workers are unavailable. Pixel data is copied to the workers once; they keep the resampled preview planes, so a display change sends no pixels.
+- `MFC_TIFF.composite()` and `MFC_TIFF.selectPlane()` are asynchronous; `MFC_TIFF.whenIdle()` waits for pending composites.
+- The reference exports (`tests/fixtures/reference.svg`, `.tif`, `.pdf`) were re-exported from the unchanged reference project: 191 of 393,660 colour values in its three 16-bit TIFF panels changed by 1 level (above).
+- The import memory estimate now includes the copy of the shown planes sent to the workers.
+- **Tests:** the new `compositor-regression` suite; `migrations-regression` tests `schema-1-to-2.js`.
+
 ## v0.1.5 (2026-11-18)
 
 - **Old projects open in every new version, and this is now tested.** Every project saved by FluoForge 0.1.0 or later, and the older `.mfcproj.json`, gzip and `.mfcproj.zip` formats, must open, look the same and export the same in every later version.

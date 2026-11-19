@@ -7,6 +7,7 @@
 import { pushHistory } from '../core/history.js';
 import { DASH_PRESETS, canvas, currentTool, registry, takeId } from '../core/state.js';
 import { refreshChannelPanel } from '../image/channels.js';
+import { recomposite } from '../image/import.js';
 import { refreshScaleBarRefList, updateScaleBarsForImage } from './scalebar.js';
 import { toHexColor } from './text.js';
 import { setTool } from './tool-switch.js';
@@ -206,7 +207,10 @@ export function createInsetFromContour(contourRect) {
   const clonedRaw = { ...entry.rawImage, channels: entry.rawImage.channels.map(c => ({ ...c })) };
   const insetId = 'img' + takeId();
   registry[insetId] = { rawImage: clonedRaw, sourceId: entry.sourceId, sourceBlob: entry.sourceBlob, workingScale: entry.workingScale };
-  const compositeCanvas = MFC_TIFF.compositeChannels(clonedRaw, entry.workingScale);
+  // A blank canvas of the composite's size, filled in the next frame (compositing is asynchronous).
+  const size = MFC_TIFF.compositeSize(clonedRaw, entry.workingScale);
+  const compositeCanvas = document.createElement('canvas');
+  compositeCanvas.width = size.width; compositeCanvas.height = size.height;
 
   insetImg = new fabric.Image(compositeCanvas, {
     left: srcBox.left + srcBox.width + 30, top: srcBox.top,
@@ -225,6 +229,7 @@ export function createInsetFromContour(contourRect) {
   contourRect.mfcInsetTargetId = insetImg.mfcId;
 
   canvas.add(insetImg);
+  recomposite(insetImg);
   canvas.setActiveObject(insetImg);
   canvas.requestRenderAll();
   pushHistory();

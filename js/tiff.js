@@ -372,13 +372,19 @@ const MFC_TIFF = (function () {
     let ifds;
     try { ifds = UTIF.decode(buf); } catch (error) { throw damaged(file.name, 'its table of images cannot be read', error); }
     if (!ifds || !ifds.length) throw damaged(file.name, 'it contains no image');
-    // width × height × planes × bytes per sample, plus one full-resolution RGBA composite
-    let needed = 0, maxPixels = 0;
+    // width × height × planes × bytes per sample, plus one full-resolution RGBA composite, plus
+    // the copy of the planes shown that the first composite sends to the compositing workers
+    // (one per channel for an ImageJ hyperstack, every page otherwise).
+    let needed = 0, maxPixels = 0, planeBytes = 0;
     for (const ifd of ifds) {
       const w = first(ifd.t256) || 0, h = first(ifd.t257) || 0, bits = first(ifd.t258) || 8, spp = first(ifd.t277) || 1;
       needed += w * h * (bits > 8 ? 2 : 1) * spp; maxPixels = Math.max(maxPixels, w * h);
+      planeBytes = Math.max(planeBytes, w * h * (bits > 8 ? 2 : 1) * spp);
     }
-    needed += maxPixels * 4;
+    const header = String((ifds[0].t270 && ifds[0].t270[0]) || '');
+    const hyper = /ImageJ=/.test(header) && /(slices|frames)=\d+/.test(header);
+    const shown = hyper ? Math.min(ifds.length, parseInt((header.match(/channels=(\d+)/) || [])[1], 10) || 1) : ifds.length;
+    needed += maxPixels * 4 + planeBytes * shown;
     const firstIfd = ifds[0];
     confirmMemory(file.name, needed, `${first(firstIfd.t256)} × ${first(firstIfd.t257)} px, ${ifds.length} plane${ifds.length > 1 ? 's' : ''}, ` +
       `${first(firstIfd.t258) || 8}-bit`);
@@ -489,7 +495,7 @@ const MFC_TIFF = (function () {
     }
     const planeSelection = stack ? { stack, zMode: stack.sizeZ > 1 ? 'max' : 'slice',
       zIndex: Math.floor((stack.sizeZ - 1) / 2), tIndex: 0, channels: channelsRaw } : null;
-    if (planeSelection) selectPlane(planeSelection);
+    if (planeSelection) await selectPlane(planeSelection);
 
     // ---- Assign display ranges: explicit per-channel (IJMetadata "rang") >
     //      global min/max (ImageDescription) > auto-computed ("auto contrast") ----
@@ -571,7 +577,8 @@ const MFC_TIFF = (function () {
 
   const Z_MODES = { max: 'Maximum intensity projection', mean: 'Mean intensity projection', slice: 'Single slice' };
 
-  /** 2D plane of channel c shown for the given Z mode, slice and frame (projections are cached). */
+  /** 2D plane of channel c shown for the given Z mode, slice and frame. Projections are computed
+   *  off the main thread (composite worker) and cached on the stack. */
   function planeFor(stack, c, zMode, zIndex, tIndex) {
     const t = Math.min(Math.max(0, tIndex | 0), stack.sizeT - 1);
     const zs = stack.planes[c][t];
@@ -580,30 +587,31 @@ const MFC_TIFF = (function () {
     }
     const key = c + '|' + t + '|' + zMode;
     if (stack.cache.has(key)) return stack.cache.get(key);
-    const n = zs[0].length, out = new (zs[0].constructor)(n);
-    if (zMode === 'max') {
-      out.set(zs[0]);
-      for (let z = 1; z < zs.length; z++) { const p = zs[z]; for (let i = 0; i < n; i++) if (p[i] > out[i]) out[i] = p[i]; }
-    } else {
-      const sum = new Float64Array(n);
-      for (const p of zs) for (let i = 0; i < n; i++) sum[i] += p[i];
-      for (let i = 0; i < n; i++) out[i] = Math.round(sum[i] / zs.length);
+    if (!stack.projecting) stack.projecting = new Map();
+    if (!stack.projecting.has(key)) {
+      stack.projecting.set(key, track(project(zs, zMode).then(out => { stack.cache.set(key, out); return out; })
+        .finally(() => stack.projecting.delete(key))));
     }
-    stack.cache.set(key, out);
-    return out;
+    return stack.projecting.get(key);
   }
 
+  const planeTickets = new WeakMap();
   /**
    * Point each channel's `data` at the plane chosen by raw.zMode / zIndex / tIndex.
    * Every other part of the app (compositing, crop, export) only reads channel.data.
+   * Asynchronous: a projection may have to be computed. When it is called again for the same
+   * image before an earlier call finished, only the latest call changes the channels.
    */
-  function selectPlane(raw) {
+  async function selectPlane(raw) {
     const stack = raw && raw.stack;
     if (!stack) return raw;
     if (!Z_MODES[raw.zMode]) raw.zMode = stack.sizeZ > 1 ? 'max' : 'slice';
     raw.zIndex = Math.min(Math.max(0, raw.zIndex | 0), stack.sizeZ - 1);
     raw.tIndex = Math.min(Math.max(0, raw.tIndex | 0), stack.sizeT - 1);
-    raw.channels.forEach((ch, c) => { if (c < stack.sizeC) ch.data = planeFor(stack, c, raw.zMode, raw.zIndex, raw.tIndex); });
+    const ticket = (planeTickets.get(raw) || 0) + 1;
+    planeTickets.set(raw, ticket);
+    const planes = await Promise.all(raw.channels.map((ch, c) => c < stack.sizeC ? planeFor(stack, c, raw.zMode, raw.zIndex, raw.tIndex) : ch.data));
+    if (planeTickets.get(raw) === ticket) raw.channels.forEach((ch, c) => { ch.data = planes[c]; });
     return raw;
   }
 
@@ -613,91 +621,154 @@ const MFC_TIFF = (function () {
     return longest > MAX_WORKING_DIM ? MAX_WORKING_DIM / longest : 1;
   }
 
+  // ---- Compositing (js/image/composite-core.js), in a worker when one can be started ----
+  // Pixel planes are copied into the worker, which keeps the resampled preview planes; a later
+  // change of display settings then sends no pixels. Results come back as transferred buffers.
+  const SCRIPT_URL = document.currentScript?.src || new URL('js/tiff.js', document.baseURI).href;
+  const CORE_URL = new URL('image/composite-core.js', SCRIPT_URL).href;
+  const WORKER_URL = new URL('image/composite-worker.js', SCRIPT_URL).href;
+  let corePromise = null, workerBroken = false, nextMessage = 1;
+  const pool = []; // composite workers; large composites are split into one band of rows per worker
+  const POOL_SIZE = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1));
+  const replies = new Map();
+  const loadCore = () => (corePromise ||= import(CORE_URL));
+  const planeKeys = new WeakMap();
+  let nextPlaneKey = 1;
+  const keyOf = data => { let key = planeKeys.get(data); if (!key) { key = 'p' + nextPlaneKey++; planeKeys.set(data, key); } return key; };
+  const inWorker = new Set(); // "<plane key>|<geometry>|<band>" the worker for that band should still have cached
+
+  /** The worker pool, started on first use; empty when workers are off or could not start. */
+  function getPool() {
+    if (api.useWorker === false || workerBroken || typeof Worker === 'undefined') return [];
+    if (pool.length) return pool;
+    try {
+      for (let i = 0; i < POOL_SIZE; i++) {
+        const worker = new Worker(WORKER_URL, { type: 'module' });
+        worker.onmessage = ({ data }) => { const reply = replies.get(data.id); if (reply) { replies.delete(data.id); reply(data); } };
+        worker.onerror = event => {
+          // A worker could not start (or died): finish everything on the main thread from now on.
+          if (event && event.preventDefault) event.preventDefault();
+          MFC_DEBUG.warn('[composite] worker unavailable, compositing on the main thread', event && event.message);
+          workerBroken = true; pool.forEach(w => w.terminate()); pool.length = 0; inWorker.clear();
+          const pending = [...replies.values()]; replies.clear(); pending.forEach(reply => reply({ broken: true }));
+        };
+        pool.push(worker);
+      }
+    } catch (error) { workerBroken = true; pool.forEach(w => w.terminate()); pool.length = 0; }
+    return pool;
+  }
+  const ask = (worker, message, transfer = []) => new Promise(resolve => { const id = nextMessage++; replies.set(id, resolve); worker.postMessage({ ...message, id }, transfer); });
+  const stats = { planesSent: 0, workerComposites: 0, mainThreadComposites: 0 };
+
+  // Everything in flight, so tests (and anything that must read the result) can wait for it.
+  let busy = 0, idleWaiters = [];
+  function track(promise) {
+    busy++;
+    const done = () => { if (--busy === 0) { const waiters = idleWaiters; idleWaiters = []; waiters.forEach(w => w()); } };
+    promise.then(done, done);
+    return promise;
+  }
+  /** Resolves when no composite, projection or scheduled recomposite is pending. */
+  function whenIdle() { return busy === 0 ? Promise.resolve() : new Promise(resolve => idleWaiters.push(resolve)); }
+
+  async function project(zs, mode) {
+    const workers = getPool();
+    if (workers.length) {
+      const reply = await ask(workers[0], { type: 'project', zs, mode });
+      if (reply.error) throw new Error(reply.error);
+      if (!reply.broken) return reply.plane;
+    }
+    return (await loadCore()).projectPlanes(zs, mode);
+  }
+
+  /** Output size of a composite: `scale` of the region, or an explicit target size. */
+  function compositeSize(imgData, scale, region = null, targetWidth = null, targetHeight = null) {
+    const area = region || { x: 0, y: 0, width: imgData.width, height: imgData.height };
+    return { area, width: targetWidth || Math.max(1, Math.round(area.width * scale)), height: targetHeight || Math.max(1, Math.round(area.height * scale)) };
+  }
+
   /**
-   * Composite channels -> an HTMLCanvasElement (8-bit RGBA), additive blend.
-   * `scale` < 1 downsamples for the live-editing canvas; pass 1 for full-res export.
+   * Composite channels -> an HTMLCanvasElement (8-bit RGBA). `scale` < 1 gives the live-editing
+   * preview; pass 1 (or a region and a target size) for export. `cache: true` keeps the
+   * resampled planes in the worker (previews), so the next display change is fast.
    */
-  function compositeChannels(imgData, scale, region = null, targetWidth = null, targetHeight = null) {
-    const srcW = imgData.width, srcH = imgData.height;
-    const area = region || { x: 0, y: 0, width: srcW, height: srcH };
-    const dstW = targetWidth || Math.max(1, Math.round(area.width * scale));
-    const dstH = targetHeight || Math.max(1, Math.round(area.height * scale));
-    const sourceX = x => Math.floor(area.x + x * area.width / dstW);
-    const sourceY = y => Math.floor(area.y + y * area.height / dstH);
-
+  async function composite(imgData, scale, region = null, targetWidth = null, targetHeight = null, { cache = false } = {}) {
+    const { area, width, height } = compositeSize(imgData, scale, region, targetWidth, targetHeight);
+    const geometry = `${imgData.width}x${imgData.height}|${area.x},${area.y},${area.width},${area.height}|${width}x${height}`;
+    const planeOf = data => ({ key: keyOf(data), data });
+    const job = { srcW: imgData.width, srcH: imgData.height, region: area, dstW: width, dstH: height, cache,
+      brightness: imgData.brightness || 0, contrast: imgData.contrast || 0,
+      channels: imgData.channels.map(ch => ({ ...planeOf(ch.data), enabled: !!ch.enabled, color: ch.color, min: ch.min, max: ch.max,
+        gamma: Number.isFinite(ch.gamma) && ch.gamma > 0 ? ch.gamma : 1, invert: !!ch.invert,
+        bitDepth: ch.bitDepth || (ch.data && ch.data.BYTES_PER_ELEMENT > 1 ? 16 : 8) })),
+      alpha: imgData.hasAlpha && imgData.alphaEnabled !== false && imgData.alphaData ? planeOf(imgData.alphaData) : null };
+    const bands = await track(runComposite(job, geometry));
     const canvas = document.createElement('canvas');
-    canvas.width = dstW; canvas.height = dstH;
+    canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext('2d');
-    const out = ctx.createImageData(dstW, dstH);
-    const outData = out.data;
-
-    // init alpha to 255, rgb to 0
-    for (let i = 0; i < outData.length; i += 4) outData[i + 3] = 255;
-
-    const activeChannels = imgData.channels.filter(c => c.enabled);
-    for (const ch of activeChannels) {
-      const [wr, wg, wb] = COLOR_PRESETS[ch.color] || COLOR_PRESETS.grey;
-      const range = (ch.max - ch.min) || 1;
-      const data = ch.data;
-
-      for (let y = 0; y < dstH; y++) {
-        const sy = sourceY(y);
-        for (let x = 0; x < dstW; x++) {
-          const sx = sourceX(x);
-          if (sx < 0 || sy < 0 || sx >= srcW || sy >= srcH) { outData[(y * dstW + x) * 4 + 3] = 0; continue; }
-          const v = data[sy * srcW + sx];
-          let norm = (v - ch.min) / range;
-          if (norm < 0) norm = 0; else if (norm > 1) norm = 1;
-          const o = (y * dstW + x) * 4;
-          if (wr) outData[o]     = Math.min(255, outData[o]     + norm * 255 * wr);
-          if (wg) outData[o + 1] = Math.min(255, outData[o + 1] + norm * 255 * wg);
-          if (wb) outData[o + 2] = Math.min(255, outData[o + 2] + norm * 255 * wb);
-        }
-      }
-    }
-
-    // Whole-image brightness/contrast tone curve — applied after channel compositing to
-    // the already-blended RGB, so the same control works identically for TIFF composites
-    // and RGB imports. contrast/brightness default to 0 (no-op) when unset, so existing
-    // images/projects that predate this feature render exactly as before.
-    const brightness = imgData.brightness || 0, contrast = imgData.contrast || 0;
-    if (brightness !== 0 || contrast !== 0) {
-      const contrastFactor = (100 + contrast) / 100; // 0 -> 1x (no change), 100 -> 2x, -100 -> 0x (flat grey)
-      const brightnessOffset = brightness * 2.55;    // -100..100 -> roughly -255..255
-      for (let i = 0; i < outData.length; i += 4) {
-        for (let c = 0; c < 3; c++) {
-          let v = (outData[i + c] - 128) * contrastFactor + 128 + brightnessOffset;
-          outData[i + c] = v < 0 ? 0 : v > 255 ? 255 : v;
-        }
-      }
-    }
-
-    // Preserve real source transparency (e.g. PNG alpha) when present and enabled;
-    // otherwise stays fully opaque (255, set above) same as every other image type.
-    if (imgData.hasAlpha && imgData.alphaEnabled !== false && imgData.alphaData) {
-      const alphaData = imgData.alphaData;
-      for (let y = 0; y < dstH; y++) {
-        const sy = sourceY(y);
-        for (let x = 0; x < dstW; x++) {
-          const sx = sourceX(x);
-          if (sx < 0 || sy < 0 || sx >= srcW || sy >= srcH) { outData[(y * dstW + x) * 4 + 3] = 0; continue; }
-          outData[(y * dstW + x) * 4 + 3] = alphaData[sy * srcW + sx];
-        }
-      }
-    }
-
-    ctx.putImageData(out, 0, 0);
+    for (const band of bands) ctx.putImageData(new ImageData(band.rgba, width, band.rows[1] - band.rows[0]), 0, band.rows[0]);
     return canvas;
+  }
+
+  /** Composites `job` and returns its bands: [{ rows: [y0, y1), rgba }]. */
+  async function runComposite(job, geometry) {
+    const workers = getPool();
+    if (workers.length) {
+      const core = await loadCore();
+      // One band per worker for large outputs; each worker gets (and caches) only its band's rows.
+      const count = job.dstW * job.dstH >= 512 * 512 ? Math.min(workers.length, job.dstH) : 1;
+      const bands = Array.from({ length: count }, (_, b) => [Math.floor(job.dstH * b / count), Math.floor(job.dstH * (b + 1) / count)]);
+      stats.lastWorkerMs = 0;
+      const results = await Promise.all(bands.map((rows, b) => compositeBand(workers[b], core, job, geometry, rows, b)));
+      if (results.every(Boolean)) {
+        stats.workerComposites++;
+        return results.map((rgba, b) => ({ rows: bands[b], rgba }));
+      }
+    }
+    stats.mainThreadComposites++;
+    return [{ rows: [0, job.dstH], rgba: (await loadCore()).compositeImage(job) }];
+  }
+
+  /** One band in one worker. Sends pixels (that band's source rows) only for planes it does not have yet. */
+  async function compositeBand(worker, core, job, geometry, rows, band) {
+    const [r0, r1] = core.sourceRows(job.region, job.dstH, job.srcH, rows[0], rows[1]);
+    const cacheKey = p => p.key + '|' + geometry + '|' + band;
+    const planes = [...job.channels.filter(c => c.enabled), ...(job.alpha ? [job.alpha] : [])];
+    const send = keep => {
+      // A compact copy of the band's source rows, whose buffer is then transferred: one copy, and
+      // the image's own arrays (shared with insets and the Z cache) are never detached.
+      const transfer = [];
+      const strip = p => {
+        if (!(keep(p) && p.data)) return { ...p, data: null };
+        const copy = p.data.slice(r0 * job.srcW, r1 * job.srcW);
+        transfer.push(copy.buffer);
+        return { ...p, data: copy };
+      };
+      const sent = { ...job, rows, dataRow0: r0, channels: job.channels.map(c => (c.enabled ? strip(c) : { ...c, data: null })), alpha: job.alpha && strip(job.alpha) };
+      stats.planesSent += transfer.length;
+      return ask(worker, { type: 'composite', job: sent }, transfer);
+    };
+    let reply = await send(p => !(job.cache && inWorker.has(cacheKey(p))));
+    if (reply.miss) {
+      const missed = reply.miss;
+      planes.forEach(p => { if (missed.includes(p.key)) inWorker.delete(cacheKey(p)); });
+      reply = await send(p => missed.includes(p.key) || !inWorker.has(cacheKey(p)));
+    }
+    if (reply.error) throw new Error(reply.error);
+    if (reply.broken || reply.miss) return null;
+    if (job.cache) planes.forEach(p => inWorker.add(cacheKey(p)));
+    stats.lastWorkerMs = Math.max(stats.lastWorkerMs || 0, reply.ms || 0);
+    return reply.rgba;
   }
 
   /**
    * Decode a standard raster image (JPEG/PNG/BMP) into the SAME normalized shape
    * decodeFile() produces for TIFFs — three 8-bit channels (Red/Green/Blue), so it gets
-   * the whole existing per-channel toggle/color/min-max UI and compositeChannels() for
+   * the whole existing per-channel toggle/color/min-max UI and the compositor for
    * free. Unlike TIFF (raw sensor data, often needing contrast stretch), these formats
    * are already meant to be viewed as-is, so channel ranges default to the full 0-255
    * (no auto-contrast). PNG alpha (if any real translucency is present) is kept as a
-   * separate mask applied in compositeChannels, not as a 4th toggle channel — see
+   * separate mask applied by the compositor, not as a 4th toggle channel — see
    * `hasAlpha`/`alphaData`/`alphaEnabled`.
    */
   async function decodeRasterImage(file) {
@@ -710,8 +781,8 @@ const MFC_TIFF = (function () {
         el.src = url;
       });
       const width = img.naturalWidth, height = img.naturalHeight;
-      // RGBA canvas + red, green, blue (+ alpha) planes
-      confirmMemory(file.name, width * height * 8, `${width} × ${height} px, 8-bit RGB`);
+      // RGBA canvas + red, green, blue (+ alpha) planes, and their copy for the compositing workers
+      confirmMemory(file.name, width * height * 12, `${width} × ${height} px, 8-bit RGB`);
       const canvas = document.createElement('canvas');
       canvas.width = width; canvas.height = height;
       const ctx = canvas.getContext('2d');
@@ -756,7 +827,14 @@ const MFC_TIFF = (function () {
     decodeFile,
     decodeRasterImage,
     memoryBudgetBytes, // replaceable, so the memory warning can be tested
-    compositeChannels,
+    composite,
+    compositeSize,
+    whenIdle,
+    track,
+    useWorker: true, // set to false to composite on the main thread (tests, debugging)
+    get workerActive() { return getPool().length > 0; },
+    get workerCount() { return getPool().length; },
+    stats, // counters for the tests: planes copied to the worker, composites by where they ran
     workingScale,
     selectPlane,
     stackDimensions,

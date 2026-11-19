@@ -8,11 +8,13 @@
    file's schema up to CURRENT_SCHEMA. Migrations are pure functions on plain JSON, so they can be
    tested alone (tests/migrations-regression.mjs). Never delete or edit a released migration. */
 import { migrate as schema0to1 } from './schema-0-to-1.js';
+import { migrate as schema1to2 } from './schema-1-to-2.js';
 
-export const CURRENT_SCHEMA = 1;
+export const CURRENT_SCHEMA = 2;
 
 export const MIGRATIONS = [
-  { from: 0, to: 1, file: 'schema-0-to-1.js', migrate: schema0to1 }
+  { from: 0, to: 1, file: 'schema-0-to-1.js', migrate: schema0to1 },
+  { from: 1, to: 2, file: 'schema-1-to-2.js', migrate: schema1to2 }
 ];
 
 /** States written before the schema field was checked always said 1; a missing schema means 1. */

@@ -51,7 +51,7 @@ Each `versions/<id>.json` is one figure state. States hold no pixels: images ref
 
 | Field | Meaning |
 |---|---|
-| `schema` | The state format (section 6). Currently `1`. |
+| `schema` | The state format (section 6). Currently `2`. |
 | `documentOpen` | `false` only for an empty workspace. |
 | `docProps` | The page: `name`, `width`, `height`, `unit` (`"px"`, `"cm"` or `"in"`), `dpi` and `pages` (missing in projects from before multi-page figures, which have one page). |
 | `nextId` | The counter for new object ids. |
@@ -82,7 +82,7 @@ Fields used by every type:
 | `width`, `height`, `cropX`, `cropY` | The visible region, in working pixels. |
 | `workingScale` | Working pixels per source pixel (below 1 for images over 2048 px, which are previewed at reduced size). |
 | `mfcRawWidth`, `mfcRawHeight` | The source size in pixels. |
-| `display.channels[]` | Per channel: `enabled`, `color` (`grey`, `red`, `green`, `blue`, `cyan`, `magenta`, `yellow`, `orange`), `min`, `max` (display range in raw values) and `name`. |
+| `display.channels[]` | Per channel: `enabled`, `color` (`grey`, `red`, `green`, `blue`, `cyan`, `magenta`, `yellow`, `orange`), `min`, `max` (display range in raw values), `name`, and since schema 2 `gamma` (display gamma, 0.1 to 5, default 1) and `invert` (inverted display, default false). |
 | `display.brightness`, `display.contrast` | The tone curve on the composite (0 = none). |
 | `display.alphaEnabled` | Keep PNG transparency. |
 | `display.voxelSizeUm` | Pixel size in µm (null when unknown). |
@@ -153,7 +153,8 @@ Schemas:
 | Schema | Meaning |
 |---|---|
 | 0 | What the legacy loaders produce from a project in manifest version 1 or 2 (section 7). It is never written to a new file, except as the kept original of a converted legacy project. |
-| 1 | The current state format (section 3), written since before 0.1.0. |
+| 1 | The state format written from before 0.1.0 to 0.1.5. |
+| 2 | The current state format (section 3), since 0.1.6: image channels also store `gamma` and `invert`. `schema-1-to-2.js` adds gamma 1 and invert false, which is how schema-1 figures were always drawn. |
 
 ## 7. Legacy formats
 
@@ -182,6 +183,7 @@ A project whose `manifest.version` or `schema` is higher than this version knows
 | before 2026-11-17 | by v0.22 | Manifest version 3 with `versions/`, `sources/` and states of schema 1. |
 | 2026-11-17 | 0.1.0 | Repository restarted; format 3, schema 1 unchanged. Files named `.mfcproj.zip`. |
 | 2026-11-18 | 0.1.3 | New projects are named `.fluoforge`. The content is unchanged. |
+| 2026-11-19 | 0.1.6 | Schema 2: each image channel stores a display `gamma` and an `invert` flag (`schema-1-to-2.js`). 0.1.5 opens such a project with "some content may not display"; 0.1.0 to 0.1.4 do not check the schema and open it without a notice. All of them ignore gamma and invert. |
 | 2026-11-18 | 0.1.5 | No change to what is written. Schema 0 is defined for the legacy loaders' output and migrated by `schema-0-to-1.js`; sources are checked against their SHA-256 when opened; the first save of a migrated project keeps its original version; projects from a newer format open and keep what they do not understand. |
 
 ## 10. Changing the format

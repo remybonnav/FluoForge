@@ -101,6 +101,7 @@ Open [the browser regression runner](tests/browser-regression.html) on the local
 | `image-info-regression` | Quiet import, the `?debug=1` logger, the Image info dialog. |
 | `compat-regression` | Every fixture in `tests/compat/` opens, matches its `expected.json` and SVG export, keeps its source images byte for byte, keeps its original version when migrated, and reopens identically; saving as `.fluoforge`; a damaged source; a project from a newer version. |
 | `errors-storage-regression` | The error message and Copy details, damaged TIFFs, the memory warning, a full IndexedDB, the storage line. |
+| `compositor-regression` | The compositor against the previous one (1:1 and enlarged), the 8 presets as LUTs, gamma and invert, area averaging (no moiré on a shrunk checkerboard) in the preview and in export, worker and main-thread fallback byte for byte, a 4096 px 4-channel recomposite under 100 ms with the main thread free, one composite per frame during a slider drag, the gamma and invert controls. |
 
 The suites can also be run from the browser console with the app open, for example:
 
