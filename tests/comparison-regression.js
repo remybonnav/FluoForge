@@ -166,7 +166,7 @@ async function runComparisonRegressions() {
   assert('…and edits are still linked, as one History step', ['control.tif', 'treated.tif', 'rescue.tif'].every(n => chans(n)[0].min === 55) && step() === before + 1 &&
     !comparison.divergedChannels(1).length);
   const savedState = MFC_PROJECT.captureState();
-  assert('The state is schema 4 and stores the group on each member', savedState.schema === 4 && savedState.objects.filter(o => o.mfcCompareGroup === 1).length === 3);
+  assert('The state is schema 4 or later and stores the group on each member', savedState.schema >= 4 && savedState.objects.filter(o => o.mfcCompareGroup === 1).length === 3);
 
   // ---- unlink ----
   select(['treated.tif']);

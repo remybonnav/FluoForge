@@ -4,6 +4,21 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.10 (2026-11-20)
+
+- **More TIFF types.** 32-bit float and signed 16-bit images open with their exact values (negative ones included), and the compositor maps them through min, max and gamma as other images. Packed 12-bit (and 1- to 15-bit) files are unpacked and report their real bit depth. RGB TIFFs (8- or 16-bit, interleaved or planar) give three channels, Red, Green and Blue, instead of only the first sample.
+- **OME-TIFF.** The OME-XML of a `.ome.tif` file gives the channels, Z slices and time frames (in any dimension order), the pixel size with its unit, the Z step, channel names and colours, and the bit depth it states. Image info says where the dimensions came from.
+- **Fiji macro for microscope formats.** `tools/Export_for_FluoForge.ijm` converts a folder of CZI, LIF, ND2 (or any Bio-Formats) files to OME-TIFF with their metadata. Importing a CZI, LIF or ND2 file, a BigTIFF or an unsupported sample type now says so and links to the macro.
+- ImageJ hyperstacks take a channel's name from its slice labels when they are all the same.
+- **Project format 5.** Each image records which TIFF reader made its channels. Projects saved by earlier versions keep the previous reader, so they open exactly as before (an RGB TIFF in an old project stays one channel).
+
+### Development
+
+- `js/tiff.js`: `parseOmeXml`, `pageLayout` (OME-XML, then the ImageJ header, then one channel per page), `pageSamples` (sample formats, packed bits, RGB), `decodePage` (planar files, which UTIF lays out wrongly). Only the pages an image uses are decoded. `composite-core.js`: `floatLevels` for float planes; float averages and mean projections are no longer rounded. `MFC_ERRORS.report` takes an optional `link`.
+- Schema 5 with `schema-4-to-5.js` (marks every existing image `display.decoder: 1`); `MFC_TIFF.decodeFile(file, { decoder: 1 })` reproduces the reader of 0.1.9 for old projects. Format lock recorded again for schema 5 (`serializeObject` and `restoreObject` changed).
+- **geotiff.js evaluated, not adopted**: see [docs/GEOTIFF-EVALUATION.md](docs/GEOTIFF-EVALUATION.md). UTIF stays for reading and writing.
+- **Tests:** the new `file-formats-regression` suite and the fixtures in `tests/fixtures/formats/`, with the scripts that made them; `migrations-regression` tests `schema-4-to-5.js`; the comparison suite's schema check accepts schema 4 or later.
+
 ## v0.1.9 (2026-11-20)
 
 - **Comparison groups.** Select images (control and treated, for example) and click **Link** in the selection bar: their channel range, LUT and gamma become linked, channel by number, so changing one image changes all of them, in one undo step. The Layers panel shows a chain icon on each member, and a ⚠ badge when the settings have diverged (after pasting display settings onto one of them); clicking it matches the group again. **Unlink** takes images out. Groups are saved with the project.

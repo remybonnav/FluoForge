@@ -87,6 +87,7 @@ Fields used by every type:
 | `display.alphaEnabled` | Keep PNG transparency. |
 | `display.voxelSizeUm` | Pixel size in µm (null when unknown). |
 | `display.zMode`, `zIndex`, `tIndex` | Stacks only: `"max"`, `"mean"` or `"slice"`, and the slice and frame shown. |
+| `display.decoder` | Since schema 5, TIFF sources only: the TIFF decoder that made the channels, used again when the project opens. `1`: how every version up to 0.1.9 read a TIFF (no OME-XML; RGB pages give their first sample only; 16-bit samples read as unsigned; other bit depths read as 8- or 16-bit). `2` (0.1.10): OME-XML dimensions, names, colours and pixel size; RGB pages as three channels; float, signed and packed samples. `display.channels` lists the channels that decoder produces, so the two are never mixed. Missing means 1. |
 | `filters` | Fabric image filters, when any. |
 | `mfcIsInset`, `mfcInsetSourceId`, `mfcInsetContourId` | For an inset: it is a view of image `mfcInsetSourceId`, through outline `mfcInsetContourId`. |
 | `mfcCompareGroup` | Since schema 4: the number of the comparison group the image belongs to (absent when none). The images of a group keep the same `min`, `max`, `color`, `lut` and `gamma` on each channel number; an edit to one is applied to all. A group may have diverged (after a paste); opening does not change it. |
@@ -165,7 +166,8 @@ Schemas:
 | 1 | The state format written from before 0.1.0 to 0.1.5. |
 | 2 | 0.1.6: image channels also store `gamma` and `invert`. `schema-1-to-2.js` adds gamma 1 and invert false, which is how schema-1 figures were always drawn. |
 | 3 | 0.1.7: the LUT library's names in `color`, a file's LUT in `lut`, and calibration bars. All additions, so `schema-2-to-3.js` only changes the number. |
-| 4 | The current state format, since 0.1.9: images may carry `mfcCompareGroup` (comparison groups). An addition, so `schema-3-to-4.js` only changes the number. |
+| 4 | 0.1.9: images may carry `mfcCompareGroup` (comparison groups). An addition, so `schema-3-to-4.js` only changes the number. |
+| 5 | The current state format, since 0.1.10: images record their TIFF decoder in `display.decoder`. `schema-4-to-5.js` sets `decoder: 1` on every image (also inside groups), which is how schema-4 figures were decoded, so they open exactly as before. |
 
 ## 7. Legacy formats
 
@@ -194,6 +196,7 @@ A project whose `manifest.version` or `schema` is higher than this version knows
 | before 2026-11-17 | by v0.22 | Manifest version 3 with `versions/`, `sources/` and states of schema 1. |
 | 2026-11-17 | 0.1.0 | Repository restarted; format 3, schema 1 unchanged. Files named `.mfcproj.zip`. |
 | 2026-11-18 | 0.1.3 | New projects are named `.fluoforge`. The content is unchanged. |
+| 2026-11-20 | 0.1.10 | Schema 5: images record the TIFF decoder that made their channels (`display.decoder`, `schema-4-to-5.js`); new imports use decoder 2 (OME-TIFF, RGB, float, signed and packed samples). 0.1.5 to 0.1.9 open such a project with "some content may not display" and decode with their own reader: images that decoder 2 reads differently (RGB, OME-TIFF stacks, float, signed or packed samples) show only the settings of the channels that reader finds. |
 | 2026-11-20 | 0.1.9 | Schema 4: images may carry `mfcCompareGroup`, the comparison group whose range, LUT and gamma they share (`schema-3-to-4.js`). 0.1.5 to 0.1.8 open such a project with "some content may not display" and show it unchanged, but do not link edits. |
 | 2026-11-19 | 0.1.7 | Schema 3: channel colours may name any LUT of the library or `file`, with a file's own LUT kept in `lut`; new object type `calibrationBar` (`schema-2-to-3.js`). 0.1.5 and 0.1.6 open such a project with "some content may not display": a channel in a new LUT is shown in grey, and the bar keeps its last colours and labels. |
 | 2026-11-19 | 0.1.6 | Schema 2: each image channel stores a display `gamma` and an `invert` flag (`schema-1-to-2.js`). 0.1.5 opens such a project with "some content may not display"; 0.1.0 to 0.1.4 do not check the schema and open it without a notice. All of them ignore gamma and invert. |

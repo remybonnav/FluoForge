@@ -44,6 +44,24 @@ export function levelTable({ min, max, gamma = 1, invert = false }, bitDepth) {
   return table;
 }
 
+/**
+ * Display levels (0..255) of a floating-point plane: the levelTable formula applied to each value
+ * (norm = (v - min) / (max - min), clamped, then gamma, then invert). NaN counts as below min.
+ */
+export function floatLevels(plane, { min, max, gamma = 1, invert = false }) {
+  const n = plane.length, out = new Uint8Array(n), level = new Uint8ClampedArray(1);
+  const range = (max - min) || 1, g = gamma > 0 && Number.isFinite(gamma) ? gamma : 1;
+  for (let i = 0; i < n; i++) {
+    let norm = (plane[i] - min) / range;
+    if (!(norm > 0)) norm = 0; else if (norm > 1) norm = 1;
+    if (g !== 1) norm = Math.pow(norm, g);
+    if (invert) norm = 1 - norm;
+    level[0] = norm * 255; // rounds as the Uint8ClampedArray of levelTable does
+    out[i] = level[0];
+  }
+  return out;
+}
+
 /** A channel's raw value -> packed colour (R << 20 | G << 10 | B), from its level table and LUT. */
 export function colourTable(table, lut) {
   const colour = new Uint32Array(table.length);
@@ -80,16 +98,19 @@ export function calibrationColours(ch) {
   return out;
 }
 
+/** Floating-point planes (32-bit float files, and signed or 32-bit integer data decoded as float). */
+export const isFloatPlane = plane => plane instanceof Float32Array || plane instanceof Float64Array;
+
 /** Maximum or mean intensity projection of a list of Z planes (all the same length and type). */
 export function projectPlanes(zs, mode) {
-  const n = zs[0].length, out = new (zs[0].constructor)(n);
+  const n = zs[0].length, out = new (zs[0].constructor)(n), float = isFloatPlane(out);
   if (mode === 'max') {
     out.set(zs[0]);
     for (let z = 1; z < zs.length; z++) { const p = zs[z]; for (let i = 0; i < n; i++) if (p[i] > out[i]) out[i] = p[i]; }
   } else {
     const sum = new Float64Array(n);
     for (const p of zs) for (let i = 0; i < n; i++) sum[i] += p[i];
-    for (let i = 0; i < n; i++) out[i] = Math.round(sum[i] / zs.length);
+    for (let i = 0; i < n; i++) out[i] = float ? sum[i] / zs.length : Math.round(sum[i] / zs.length);
   }
   return out;
 }
@@ -138,7 +159,7 @@ export function sourceRows(region, dstH, srcH, y0, y1) {
 
 /**
  * Resamples one plane (srcW x srcH) to dstW x dstH over `region` (source pixels).
- * Returns the resampled plane, of the same type (averages are rounded to the nearest raw value),
+ * Returns the resampled plane, of the same type (integer averages are rounded to the nearest raw value),
  * and `coverage`: null when every output pixel lies inside the image, otherwise a Uint8ClampedArray
  * of 0..255 giving the part of each output pixel that does.
  * `rows` = [y0, y1) computes only those output rows (a band); `data` may then hold only source
@@ -176,7 +197,7 @@ export function resamplePlane(data, srcW, srcH, region, dstW, dstH, rows = null,
   const { first: xf, count: xc, index: xi, weight: xw } = xs;
   const xCover = new Float64Array(dstW);
   for (let x = 0; x < dstW; x++) { let c = 0; for (let j = xf[x], end = j + xc[x]; j < end; j++) c += xw[j]; xCover[x] = c; }
-  const acc = new Float64Array(dstW);
+  const acc = new Float64Array(dstW), float = isFloatPlane(data);
   for (let y = y0; y < y1; y++) {
     acc.fill(0);
     let yCover = 0;
@@ -193,7 +214,7 @@ export function resamplePlane(data, srcW, srcH, region, dstW, dstH, rows = null,
     for (let x = 0; x < dstW; x++) {
       const c = xCover[x] * yCover;
       if (c < 1 - 1e-9) needCoverage()[o + x] = c * 255;
-      out[o + x] = c > 0 ? Math.round(acc[x] / c) : 0;
+      out[o + x] = c > 0 ? (float ? acc[x] / c : Math.round(acc[x] / c)) : 0;
     }
   }
   return { data: out, coverage };
@@ -273,7 +294,9 @@ export function compositeImage(job, resample = data => resamplePlane(data, job.s
     if (!ch.enabled) continue;
     const r = resample(ch.data);
     coverage = coverage || r.coverage;
-    channels.push({ plane: r.data, colour: cachedColour(ch, ch.bitDepth) });
+    // Float planes cannot index a table: each pixel goes through the same formula as levelTable.
+    if (isFloatPlane(r.data)) channels.push({ plane: floatLevels(r.data, ch), colour: cachedColour({ ...ch, min: 0, max: 255, gamma: 1, invert: false }, 8) });
+    else channels.push({ plane: r.data, colour: cachedColour(ch, ch.bitDepth) });
   }
   let alpha = null;
   if (job.alpha) { const r = resample(job.alpha); alpha = r.data; coverage = coverage || r.coverage; }

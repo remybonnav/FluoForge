@@ -10,17 +10,34 @@ import { refreshChannelPanel } from './channels.js';
 import { refreshScaleBarRefList } from '../tools/scalebar.js';
 import { updateCalibrationBarsForImage } from '../tools/calibration-bar.js';
 
+// Microscope formats a browser cannot read: Fiji (Bio-Formats) converts them to OME-TIFF.
+const MICROSCOPE_FORMATS = /\.(czi|lif|lof|nd2|oib|oif|vsi|ims|dv|r3d|zvi|sld|lei|mvd2)$/i;
+export const CONVERSION_MACRO = 'tools/Export_for_FluoForge.ijm';
+const macroLink = { href: CONVERSION_MACRO, download: 'Export_for_FluoForge.ijm', text: 'Download the Fiji macro Export_for_FluoForge.ijm',
+  title: 'A Fiji macro that converts a folder of microscope files (CZI, LIF, ND2, ...) to OME-TIFF with Bio-Formats, keeping channels, Z, time and pixel size' };
+
+/** The error for a microscope format FluoForge does not read, naming the way to convert it. */
+export function microscopeFormatError(name) {
+  const ext = (name.match(/\.([^.]+)$/) || [])[1] || '';
+  const error = new Error(`${name} is a ${ext.toUpperCase()} file. FluoForge reads TIFF (including OME-TIFF and ImageJ TIFF), PNG, JPEG and BMP; ` +
+    'microscope formats such as CZI, LIF and ND2 cannot be decoded in a browser. Convert them to OME-TIFF in Fiji with the ' +
+    'Export_for_FluoForge macro (Plugins > Macros > Run...), which keeps the channels, Z slices, time frames and pixel size.');
+  error.name = 'UnsupportedFormatError';
+  return error;
+}
+
 // ---- image import ----
 export async function importFiles(fileList) {
   for (const file of Array.from(fileList)) {
     try {
+      if (MICROSCOPE_FORMATS.test(file.name)) throw microscopeFormatError(file.name);
       const isTiff = /\.tiff?$/i.test(file.name);
       const rawImage = isTiff ? await MFC_TIFF.decodeFile(file) : await MFC_TIFF.decodeRasterImage(file);
       await addImageToCanvas(rawImage, file);
     } catch (err) {
       // Nothing was added: decoding happens before the image touches the canvas.
       if (err.name === 'ImportCancelled') MFC_UI.toast(err.message);
-      else MFC_ERRORS.report(err, { title: 'Could not import ' + file.name });
+      else MFC_ERRORS.report(err, { title: 'Could not import ' + file.name, link: err.name === 'UnsupportedFormatError' ? macroLink : null });
     }
   }
 }

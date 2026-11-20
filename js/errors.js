@@ -47,6 +47,8 @@ const MFC_ERRORS = (() => {
     box.id = 'error-toast'; box.setAttribute('role', 'alert');
     const title = document.createElement('p'); title.className = 'error-title';
     const message = document.createElement('p'); message.className = 'error-message';
+    // Optional link (for example to the Fiji conversion macro); its address is set per error.
+    const link = document.createElement('a'); link.className = 'error-link hidden';
     const row = document.createElement('div'); row.className = 'error-actions';
     const copyButton = document.createElement('button'); copyButton.type = 'button'; copyButton.className = 'error-copy';
     copyButton.textContent = 'Copy details'; copyButton.title = 'Copy a text report of this error, to paste into a bug report';
@@ -62,14 +64,15 @@ const MFC_ERRORS = (() => {
     dismiss.addEventListener('click', hide);
     box.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); hide(); } });
     row.append(copyButton, dismiss);
-    box.append(title, message, row, fallback);
+    box.append(title, message, link, row, fallback);
     document.body.append(box);
   }
 
   function hide() { if (box) { box.classList.add('hidden'); last = null; } }
 
-  /** Shows `title` and the error's message; "Copy details" copies the full report. */
-  function report(error, { title = 'Something went wrong', extra = null } = {}) {
+  /** Shows `title` and the error's message; "Copy details" copies the full report.
+      `link`: { href, text, title, download } shown under the message (same-origin files only). */
+  function report(error, { title = 'Something went wrong', extra = null, link = null } = {}) {
     try {
       MFC_DEBUG.warn('[FluoForge error]', title, error);
       if (!document.body) return;
@@ -83,6 +86,13 @@ const MFC_ERRORS = (() => {
       box.dataset.details = details(title, error, extra);
       box.querySelector('.error-copy').textContent = 'Copy details';
       box.querySelector('.error-details').classList.add('hidden');
+      const anchor = box.querySelector('.error-link');
+      anchor.classList.toggle('hidden', !link);
+      if (link) {
+        anchor.textContent = link.text; anchor.title = link.title || link.text;
+        anchor.href = new URL(link.href, document.baseURI).href;
+        if (link.download) anchor.setAttribute('download', link.download); else anchor.removeAttribute('download');
+      } else anchor.removeAttribute('href');
       box.classList.remove('hidden');
       // A failure in the middle of a save or load must not leave the screen blocked.
       try { if (typeof MFC_UI !== 'undefined') MFC_UI.hideSavingDialog(); } catch (e) { /* not ready yet */ }

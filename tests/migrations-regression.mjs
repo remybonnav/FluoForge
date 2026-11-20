@@ -147,6 +147,22 @@ export async function runMigrationRegressions() {
   assert('3→4: only the schema number changes (comparison groups are an addition)',
     v4.schema === 4 && v3state.schema === 3 && JSON.stringify({ ...v4, schema: 3 }) === JSON.stringify(v3state));
 
+  // --- schema-4-to-5.js alone ---------------------------------------------------------------
+  const { migrate: m45 } = await import(pathToFileURL(join(ROOT, 'js/migrations/schema-4-to-5.js')).href);
+  const v4state = deepFrozen({ schema: 4, docProps: { pages: 1 }, nextId: 9, futureLike: { kept: 1 }, objects: [
+    { type: 'image', mfcType: 'mfcImage', mfcId: 'a', display: { channels: [{ min: 0, max: 255 }] } },
+    { type: 'group', objects: [{ type: 'image', mfcType: 'mfcImage', mfcId: 'b', display: { channels: [] } }, { type: 'rect', mfcType: 'mfcShape' }] },
+    { type: 'image', mfcType: 'mfcImage', mfcId: 'c', display: { channels: [], decoder: 2 } },
+    { type: 'text', text: 'A' }] });
+  const v5 = m45(v4state);
+  assert('4→5: every image, also inside groups, records decoder 1 (how TIFFs were read before 0.1.10)',
+    v5.schema === 5 && v5.objects[0].display.decoder === 1 && v5.objects[1].objects[0].display.decoder === 1 && v4state.schema === 4 &&
+    v4state.objects[0].display.decoder === undefined);
+  assert('4→5: a decoder already recorded is kept, other objects and fields are unchanged',
+    v5.objects[2].display.decoder === 2 && JSON.stringify(v5.objects[3]) === JSON.stringify(v4state.objects[3]) &&
+    JSON.stringify(v5.objects[1].objects[1]) === JSON.stringify(v4state.objects[1].objects[1]) && v5.futureLike.kept === 1 && v5.nextId === 9 &&
+    JSON.stringify({ ...v5, schema: 4, objects: null }) === JSON.stringify({ ...v4state, objects: null }));
+
   assert('Migrations use no browser objects', !/\b(window|document|fabric|MFC\w*)\b/.test(files.map(f => readFileSync(join(ROOT, 'js/migrations', f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')).join('\n')));
 
   // --- The fixture library ------------------------------------------------------------------

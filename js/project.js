@@ -6,7 +6,7 @@
    The file format is described in docs/PROJECT-FORMAT.md. */
 const MFC_PROJECT = (() => {
   const FORMAT = 3;   // manifest.version
-  const SCHEMA = 4;   // state.schema written by captureState; equals CURRENT_SCHEMA in js/migrations/index.js
+  const SCHEMA = 5;   // state.schema written by captureState; equals CURRENT_SCHEMA in js/migrations/index.js
   // Migrations are ES modules (pure functions on JSON), loaded the first time a project is opened.
   const MIGRATIONS_URL = new URL('migrations/index.js', document.currentScript?.src || new URL('js/', document.baseURI)).href;
   let migrations = null;
@@ -46,7 +46,7 @@ const MFC_PROJECT = (() => {
     const id = suppliedId || 'src-' + await hashBlob(blob);
     if (!sources.has(id)) sources.set(id, { id, name: blob.name || raw.fileName || 'image.tif',
       type: blob.type || 'application/octet-stream', format: raw.sourceFormat || 'tiff', blob });
-    if (raw) decoded.set(id, raw);
+    if (raw) decoded.set(id + '|' + (raw.decoder === 2 ? 2 : 1), raw);
     return id;
   }
   function propsFor(obj) { return [...Object.keys(obj).filter(k => k.startsWith('mfc') && k !== 'mfcIsPageBounds'), 'inverted', 'absolutePositioned']; }
@@ -71,6 +71,8 @@ const MFC_PROJECT = (() => {
           ...(typeof c.lut === 'string' && c.lut ? { lut: c.lut } : {}) })),
         brightness: raw.brightness || 0, contrast: raw.contrast || 0,
         alphaEnabled: raw.alphaEnabled !== false, voxelSizeUm: raw.voxelSizeUm ?? null };
+      // Which TIFF decoder made the channels: reopening uses the same one (schema 5).
+      if (raw.sourceFormat === 'tiff') json.display.decoder = raw.decoder === 2 ? 2 : 1;
       if (raw.stack) Object.assign(json.display, { zMode: raw.zMode, zIndex: raw.zIndex, tIndex: raw.tIndex });
     }
     if (obj.clipPath) json.clipPath = serializeObject(obj.clipPath);
@@ -95,13 +97,15 @@ const MFC_PROJECT = (() => {
     return JSON.stringify({schema:state.schema, documentOpen:state.documentOpen !== false,
       docProps:state.docProps && {...state.docProps, pages: pageCountOf(state)}, nextId:state.nextId, objects:state.objects});
   }
-  async function sourceRaw(id) {
-    if (decoded.has(id)) return decoded.get(id);
+  /** A source decoded once per TIFF decoder version (images saved before schema 5 use decoder 1). */
+  async function sourceRaw(id, decoder = 1) {
+    const key = id + '|' + decoder;
+    if (decoded.has(key)) return decoded.get(key);
     const source = sources.get(id);
     if (!source) throw new Error('Project source is missing: ' + id);
     const file = new File([source.blob], source.name, { type: source.type });
-    const raw = source.format === 'raster' ? await MFC_TIFF.decodeRasterImage(file) : await MFC_TIFF.decodeFile(file);
-    decoded.set(id, raw);
+    const raw = source.format === 'raster' ? await MFC_TIFF.decodeRasterImage(file) : await MFC_TIFF.decodeFile(file, { decoder });
+    decoded.set(key, raw);
     return raw;
   }
   const enliven = json => new Promise((resolve, reject) => {
@@ -117,7 +121,7 @@ const MFC_PROJECT = (() => {
       error.name = 'UnsupportedObject'; throw error;
     }
     if (json.mfcType === 'mfcImage') {
-      const original = await sourceRaw(json.sourceId);
+      const original = await sourceRaw(json.sourceId, json.display && json.display.decoder === 2 ? 2 : 1);
       const raw = { ...original, ...json.display,
         channels: original.channels.map((channel, i) => ({ ...channel, ...json.display.channels[i] })) };
       await MFC_TIFF.selectPlane(raw); // Z slice / projection and time frame saved with the object
@@ -291,7 +295,7 @@ const MFC_PROJECT = (() => {
         else throw new Error('Legacy project is missing an original image.');
         const sourceFormat = old.sourceFormat || (old.imageArchivePath || old.fileBase64 ? 'tiff' : 'raster');
         const file = new File([blob], old.fileName || json.mfcFileName || 'image.tif');
-        const raw = sourceFormat === 'raster' ? await MFC_TIFF.decodeRasterImage(file) : await MFC_TIFF.decodeFile(file);
+        const raw = sourceFormat === 'raster' ? await MFC_TIFF.decodeRasterImage(file) : await MFC_TIFF.decodeFile(file, { decoder: 1 });
         json.sourceId = await registerSource(file, raw); json.type = 'image';
         json.mfcFileName = old.fileName || json.mfcFileName || file.name;
         json.workingScale = MFC_TIFF.workingScale(raw.width, raw.height);

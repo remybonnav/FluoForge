@@ -334,6 +334,7 @@ const MFC_TIFF = (function () {
       error.name = 'NotTiffError';
       throw error;
     }
+    return magic;
   }
   const first = v => Array.isArray(v) ? v[0] : v;
   const formatBytes = n => n >= 2 ** 30 ? (n / 2 ** 30).toFixed(1) + ' GB' : Math.max(1, Math.round(n / 2 ** 20)) + ' MB';
@@ -353,36 +354,299 @@ const MFC_TIFF = (function () {
     if (!ok) { const error = new Error(`Import of ${name} cancelled.`); error.name = 'ImportCancelled'; throw error; }
   }
 
-  async function decodeFile(file) {
+  // ---------------------------------------------------------------------
+  // OME-XML (the ImageDescription of an OME-TIFF)
+  // ---------------------------------------------------------------------
+
+  /** Micrometres per unit of the OME length units (UnitsLength) a pixel size may use. */
+  const LENGTH_UM = { 'Å': 1e-4, 'pm': 1e-6, 'nm': 1e-3, 'µm': 1, 'μm': 1, 'um': 1, 'mm': 1e3, 'cm': 1e4, 'dm': 1e5, 'm': 1e6,
+    'in': 25400, 'ft': 304800, 'mil': 25.4 };
+
+  /** A tag string that UTIF read one byte per character, decoded as UTF-8 (OME-XML is UTF-8). */
+  function utf8(text) {
+    if (typeof text !== 'string' || !/[\u0080-ÿ]/.test(text) || /[^\u0000-ÿ]/.test(text)) return text;
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(text, ch => ch.charCodeAt(0))); } catch (e) { return text; }
+  }
+
+  // Only complete OME-XML is parsed (Firefox prints a console error for every malformed document).
+  const isOmeXml = text => typeof text === 'string' && /<([\w.-]+:)?OME[\s>]/.test(text) && /<\/([\w.-]+:)?OME>\s*\0*$/.test(text);
+
+  /**
+   * The parts of an OME-XML block FluoForge uses, for the first Image in it:
+   * { sizeC, sizeZ, sizeT, order ('XYCZT', ...), pixelSizeUm, pixelSizeText, zStepUm, significantBits,
+   *   type, channels: [{ name, rgb: [r, g, b] | null, samples }], tiffData: [...], imageCount }.
+   * null when the text is not OME-XML or has no Pixels element.
+   */
+  function parseOmeXml(text) {
+    if (!isOmeXml(text)) return null;
+    let doc;
+    try { doc = new DOMParser().parseFromString(text, 'application/xml'); } catch (e) { return null; }
+    if (!doc || doc.getElementsByTagName('parsererror').length) return null;
+    const all = (el, name) => [...el.getElementsByTagNameNS('*', name)];
+    const images = all(doc, 'Image');
+    const pixels = images.length ? all(images[0], 'Pixels')[0] : null;
+    if (!pixels) return null;
+    const count = (el, name, fallback) => { const v = Number(el.getAttribute(name)); return Number.isInteger(v) && v > 0 ? v : fallback; };
+    const index = (el, name) => { const v = Number(el.getAttribute(name)); return el.hasAttribute(name) && Number.isInteger(v) && v >= 0 ? v : null; };
+    let order = String(pixels.getAttribute('DimensionOrder') || 'XYCZT').toUpperCase();
+    if (!/^XY/.test(order) || [...order.slice(2)].sort().join('') !== 'CTZ') order = 'XYCZT';
+    const length = (value, unit) => {
+      const v = Number(value), factor = LENGTH_UM[unit || 'µm'];
+      return value != null && Number.isFinite(v) && v > 0 && factor ? v * factor : null;
+    };
+    const sizeXUnit = pixels.getAttribute('PhysicalSizeXUnit') || 'µm';
+    const pixelSizeUm = length(pixels.getAttribute('PhysicalSizeX'), sizeXUnit);
+    return {
+      sizeC: count(pixels, 'SizeC', 1), sizeZ: count(pixels, 'SizeZ', 1), sizeT: count(pixels, 'SizeT', 1), order,
+      pixelSizeUm, pixelSizeText: pixelSizeUm ? `${pixels.getAttribute('PhysicalSizeX')} ${sizeXUnit}` : null,
+      zStepUm: length(pixels.getAttribute('PhysicalSizeZ'), pixels.getAttribute('PhysicalSizeZUnit')),
+      significantBits: count(pixels, 'SignificantBits', null), type: pixels.getAttribute('Type') || null,
+      channels: all(pixels, 'Channel').map(ch => {
+        const colour = Number(ch.getAttribute('Color'));
+        // Color is a signed 32-bit RGBA integer: red in the top byte.
+        const rgb = ch.hasAttribute('Color') && Number.isInteger(colour) ? [(colour >>> 24) & 255, (colour >>> 16) & 255, (colour >>> 8) & 255] : null;
+        return { name: ch.getAttribute('Name') || ch.getAttribute('Fluor') || null, rgb, samples: count(ch, 'SamplesPerPixel', 1) };
+      }),
+      tiffData: all(pixels, 'TiffData').map(td => {
+        const uuid = all(td, 'UUID')[0];
+        return { ifd: index(td, 'IFD'), firstC: index(td, 'FirstC') || 0, firstZ: index(td, 'FirstZ') || 0, firstT: index(td, 'FirstT') || 0,
+          planeCount: index(td, 'PlaneCount'), fileName: uuid ? uuid.getAttribute('FileName') : null };
+      }),
+      imageCount: images.length
+    };
+  }
+
+  /** Position of plane (c, z, t) in the order DimensionOrder gives (after X and Y). */
+  function omePlaneIndex(order, sizes, c, z, t) {
+    const at = { C: c, Z: z, T: t };
+    let position = 0, stride = 1;
+    for (const d of order.slice(2)) { position += at[d] * stride; stride *= sizes[d]; }
+    return position;
+  }
+
+  /**
+   * How the pages of a TIFF map to channels, Z slices and time frames:
+   * { sizeC, sizeZ, sizeT, pageOf(c, z, t), source, note }. sizeC counts pages per (z, t): a page of
+   * an RGB file gives three channels. OME-XML is used when present and complete, then the ImageJ
+   * header (XYCZT order), otherwise every page is a channel.
+   */
+  function pageLayout(pageCount, samples, descMeta, ome) {
+    let note = null;
+    if (ome) {
+      const sizeC = samples > 1 && ome.sizeC % samples === 0 ? ome.sizeC / samples : ome.sizeC;
+      const sizes = { C: sizeC, Z: ome.sizeZ, T: ome.sizeT }, total = sizeC * ome.sizeZ * ome.sizeT;
+      const map = new Array(total).fill(-1);
+      // TiffData naming other files (a multi-file OME-TIFF set): those planes are not in this file.
+      const files = new Set(ome.tiffData.map(td => td.fileName).filter(Boolean));
+      if (ome.tiffData.length) {
+        for (const td of ome.tiffData) {
+          if (files.size > 1 && td.fileName && td.fileName !== [...files][0]) continue;
+          const start = omePlaneIndex(ome.order, sizes, td.firstC, td.firstZ, td.firstT);
+          const planes = td.planeCount != null ? td.planeCount : td.ifd == null ? total : 1;
+          for (let k = 0; k < planes && start + k < total; k++) map[start + k] = (td.ifd || 0) + k;
+        }
+      } else for (let i = 0; i < total; i++) map[i] = i;
+      if (map.every(page => page >= 0 && page < pageCount)) {
+        return { sizeC, sizeZ: ome.sizeZ, sizeT: ome.sizeT, pageOf: (c, z, t) => map[omePlaneIndex(ome.order, sizes, c, z, t)],
+          source: 'OME-XML', note: ome.imageCount > 1 ? `The file holds ${ome.imageCount} images (series); FluoForge shows the first.` : null };
+      }
+      note = `The OME-XML describes ${total} planes that are not all in this file (${pageCount} pages), so every page is treated as a channel.`;
+    }
+    const dims = stackDimensions(descMeta, pageCount);
+    const imagej = /ImageJ=/.test(descMeta.raw || '');
+    if (dims.sizeZ * dims.sizeT > 1) {
+      return { ...dims, pageOf: (c, z, t) => t * dims.sizeC * dims.sizeZ + z * dims.sizeC + c, source: 'ImageJ header', note };
+    }
+    const headerPlanes = (descMeta.channels || 1) * (descMeta.slices || 1) * (descMeta.frames || 1);
+    if (!note && imagej && (descMeta.slices || 1) * (descMeta.frames || 1) > 1 && headerPlanes !== pageCount) {
+      note = `The ImageJ header describes ${headerPlanes} planes but the file has ${pageCount} pages, so every page is treated as a channel.`;
+    }
+    return { sizeC: pageCount, sizeZ: 1, sizeT: 1, pageOf: c => c, source: imagej ? 'ImageJ header' : null, note };
+  }
+
+  // ---------------------------------------------------------------------
+  // Pixel samples of one page
+  // ---------------------------------------------------------------------
+
+  const SAMPLE_FORMATS = { 1: 'unsigned integer', 2: 'signed integer', 3: 'floating-point' };
+  /** An error for samples FluoForge cannot read (with the Fiji conversion macro as the way out). */
+  function unsupported(name, what) {
+    const error = new Error(`${name} uses ${what}, which FluoForge cannot read. Convert it to OME-TIFF in Fiji ` +
+      '(the Export_for_FluoForge macro does this for a whole folder).');
+    error.name = 'UnsupportedFormatError';
+    return error;
+  }
+
+  /** Samples per pixel, bits, sample format and how many of the samples are image channels. */
+  function sampleInfo(ifd) {
+    const spp = first(ifd.t277) || 1, bits = first(ifd.t258) || 8, format = first(ifd.t339) || 1;
+    // Extra samples (tag 338: alpha and the like) are not channels: RGB keeps 3, grey keeps 1.
+    const kept = ifd.t338 != null && spp > 1 ? (first(ifd.t262) === 2 ? Math.min(3, spp) : 1) : spp;
+    return { spp, bits, format, kept, rgb: first(ifd.t262) === 2 && kept === 3 };
+  }
+  /** Bytes per sample of the array a page decodes to. */
+  const decodedBytes = ({ bits, format }) => (format === 1 && bits <= 8 ? 1 : format === 1 && bits <= 16 ? 2 : 4);
+
+  /**
+   * The channel planes of one decoded page (UTIF leaves the pixel bytes as stored): one typed
+   * array per kept sample. Unsigned 8-bit and 16-bit stay Uint8Array and Uint16Array; packed samples
+   * are unpacked (1- to 7-bit to Uint8Array, 9- to 15-bit, such as 12-bit cameras, to Uint16Array); floating-point, signed and 32-bit
+   * integer samples become Float32Array (exact for 8- and 16-bit signed values).
+   */
+  function pageSamples(ifd, name, page) {
+    const { spp, bits, format, kept } = sampleInfo(ifd);
+    const width = ifd.width, height = ifd.height, n = width * height;
+    const planar = spp > 1 && first(ifd.t284) === 2;
+    const raw = ifd.data || new Uint8Array(0);
+    const rowSamples = planar ? width : width * spp, rows = planar ? height * spp : height;
+    const rowBytes = Math.ceil(rowSamples * bits / 8), expected = rowBytes * rows;
+    if (raw.length < expected) throw damaged(name, `${page} has ${raw.length} of its ${expected} bytes of pixel data (the file is probably cut short)`);
+    const kind = `${bits}-bit ${SAMPLE_FORMATS[format] || 'sample format ' + format} samples`;
+    // UTIF sets isLE, and already swaps 16-bit samples of big-endian files to little-endian;
+    // 32- and 64-bit samples (ImageJ writes big-endian float files) keep the file's byte order.
+    const total = n * spp, little = bits === 16 || !!ifd.isLE;
+    const dv = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
+    let values;
+    if (bits === 8 && format !== 3) values = format === 2 ? new Int8Array(raw.buffer, raw.byteOffset, total) : raw.subarray(0, total);
+    else if (bits === 16 && format !== 3) {
+      values = format === 2 ? new Float32Array(total) : new Uint16Array(total);
+      if (format === 2) for (let i = 0; i < total; i++) values[i] = dv.getInt16(i * 2, little);
+      else for (let i = 0; i < total; i++) values[i] = dv.getUint16(i * 2, little);
+    } else if (bits === 32) {
+      values = new Float32Array(total);
+      if (format === 3) for (let i = 0; i < total; i++) values[i] = dv.getFloat32(i * 4, little);
+      else if (format === 2) for (let i = 0; i < total; i++) values[i] = dv.getInt32(i * 4, little);
+      else for (let i = 0; i < total; i++) values[i] = dv.getUint32(i * 4, little);
+    } else if (bits === 64 && format === 3) {
+      values = new Float32Array(total);
+      for (let i = 0; i < total; i++) values[i] = dv.getFloat64(i * 8, little);
+    } else if (bits < 16 && bits !== 8 && format === 1) {
+      // Packed (1-, 2-, 4-bit masks; 10-, 12-, 14-bit cameras): most significant bit first, each row
+      // starting on a whole byte.
+      values = bits < 8 ? new Uint8Array(total) : new Uint16Array(total);
+      for (let r = 0, o = 0; r < rows; r++) {
+        let bit = r * rowBytes * 8;
+        for (let k = 0; k < rowSamples; k++, o++, bit += bits) {
+          let v = 0;
+          for (let b = 0; b < bits; b++) { const at = bit + b; v = (v << 1) | ((raw[at >> 3] >> (7 - (at & 7))) & 1); }
+          values[o] = v;
+        }
+      }
+    } else throw unsupported(name, kind);
+    const Out = format === 1 && bits <= 8 ? Uint8Array : format === 1 && bits <= 16 ? Uint16Array : Float32Array;
+    const planes = [];
+    for (let s = 0; s < kept; s++) {
+      let plane;
+      if (spp === 1) plane = values instanceof Out && values !== raw ? values : Out.from(values.subarray(0, n));
+      else if (planar) plane = Out.from(values.subarray(s * n, (s + 1) * n));
+      else { plane = new Out(n); for (let i = 0; i < n; i++) plane[i] = values[i * spp + s]; }
+      planes.push(plane);
+    }
+    return planes;
+  }
+
+  /**
+   * UTIF.decodeImage, plus planar files (PlanarConfiguration 2: all reds, then all greens, ...),
+   * which UTIF lays out as if the samples were interleaved: each sample plane is decoded as a
+   * one-sample image of its own strips (or tiles) and the planes are put one after the other.
+   */
+  function decodePage(buf, ifd, ifds) {
+    const spp = first(ifd.t277) || 1;
+    if (!(spp > 1 && first(ifd.t284) === 2)) { UTIF.decodeImage(buf, ifd, ifds); return; }
+    const tiled = ifd.t322 != null, offsets = tiled ? ifd.t324 : ifd.t273, counts = tiled ? ifd.t325 : ifd.t279;
+    const per = Math.floor(offsets.length / spp), parts = [];
+    for (let s = 0; s < spp; s++) {
+      const one = { ...ifd, t277: [1], t284: [1], t262: [1], t258: [first(ifd.t258)], t339: ifd.t339 && [first(ifd.t339)] };
+      one[tiled ? 't324' : 't273'] = offsets.slice(s * per, (s + 1) * per);
+      one[tiled ? 't325' : 't279'] = counts.slice(s * per, (s + 1) * per);
+      UTIF.decodeImage(buf, one, ifds);
+      parts.push(one.data);
+    }
+    const data = new Uint8Array(parts.reduce((sum, p) => sum + p.length, 0));
+    parts.reduce((at, p) => { data.set(p, at); return at + p.length; }, 0);
+    Object.assign(ifd, { data, width: first(ifd.t256), height: first(ifd.t257), isLE: new Uint8Array(buf, 0, 1)[0] === 0x49 });
+  }
+
+  /** Default colour for a channel from an OME Color: a preset LUT, or a "From file" ramp of that colour. */
+  function omeColour(rgb, luts) {
+    const ramp = new Uint8Array(768), round = new Uint8ClampedArray(1);
+    for (let i = 0; i < 256; i++) for (let c = 0; c < 3; c++) { round[0] = i * rgb[c] / 255; ramp[i * 3 + c] = round[0]; }
+    const match = luts.matchLUT(ramp);
+    return match ? { color: match } : { color: luts.FILE_LUT, lut: luts.bytesToBase64(ramp) };
+  }
+
+  /**
+   * Version of the TIFF decoder. Projects record it per image (display.decoder), so a figure saved
+   * before 0.1.10 decodes its sources exactly as it did then (decoder 1: no OME-XML, the first sample
+   * of RGB pages, 16-bit read as unsigned, other bit depths read as 8- or 16-bit). See
+   * docs/PROJECT-FORMAT.md.
+   */
+  const DECODER = 2;
+
+  /** Decoder 1: one page's first sample, read exactly as FluoForge 0.1.9 and earlier did. */
+  function legacyPlane(ifd, name, page) {
+    const width = ifd.width, height = ifd.height, n = width * height;
+    const bitsPerSample = first(ifd.t258) || 8, samplesPerPixel = ifd.t277 || 1;
+    if (bitsPerSample >= 8) {
+      const expected = width * height * (bitsPerSample > 8 ? 2 : 1) * first(samplesPerPixel);
+      const got = ifd.data ? ifd.data.length : 0;
+      if (got < expected) throw damaged(name, `${page} has ${got} of its ${expected} bytes of pixel data (the file is probably cut short)`);
+    }
+    let arr;
+    if (bitsPerSample > 8) {
+      const raw = ifd.data, dv = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
+      arr = new Uint16Array(n);
+      for (let i = 0; i < n; i++) arr[i] = dv.getUint16(i * 2, true);
+    } else arr = new Uint8Array(ifd.data.slice(0, n));
+    if (samplesPerPixel > 1) {
+      const mono = new (arr.constructor)(n);
+      for (let i = 0; i < n; i++) mono[i] = arr[i * samplesPerPixel];
+      arr = mono;
+    }
+    return [arr];
+  }
+
+  /** Decodes a TIFF. `decoder: 1` reproduces the decoding of FluoForge 0.1.9 and earlier (old projects). */
+  async function decodeFile(file, { decoder = DECODER } = {}) {
+    const legacy = decoder < 2;
     const buf = await file.arrayBuffer();
-    checkTiffHeader(buf, file.name);
+    if (checkTiffHeader(buf, file.name) === 43) {
+      // UTIF does not read BigTIFF (it finds no pixel data); see docs/GEOTIFF-EVALUATION.md.
+      throw unsupported(file.name, 'BigTIFF (the TIFF variant for files over 4 GB)');
+    }
     let ifds;
     try { ifds = UTIF.decode(buf); } catch (error) { throw damaged(file.name, 'its table of images cannot be read', error); }
     if (!ifds || !ifds.length) throw damaged(file.name, 'it contains no image');
-    // width × height × planes × bytes per sample, plus one full-resolution RGBA composite, plus
-    // the copy of the planes shown that the first composite sends to the compositing workers
-    // (one per channel for an ImageJ hyperstack, every page otherwise).
-    let needed = 0, maxPixels = 0, planeBytes = 0;
-    for (const ifd of ifds) {
-      const w = first(ifd.t256) || 0, h = first(ifd.t257) || 0, bits = first(ifd.t258) || 8, spp = first(ifd.t277) || 1;
-      needed += w * h * (bits > 8 ? 2 : 1) * spp; maxPixels = Math.max(maxPixels, w * h);
-      planeBytes = Math.max(planeBytes, w * h * (bits > 8 ? 2 : 1) * spp);
-    }
-    const header = String((ifds[0].t270 && ifds[0].t270[0]) || '');
-    const hyper = /ImageJ=/.test(header) && /(slices|frames)=\d+/.test(header);
-    const shown = hyper ? Math.min(ifds.length, parseInt((header.match(/channels=(\d+)/) || [])[1], 10) || 1) : ifds.length;
-    needed += maxPixels * 4 + planeBytes * shown;
-    const firstIfd = ifds[0];
-    confirmMemory(file.name, needed, `${first(firstIfd.t256)} × ${first(firstIfd.t257)} px, ${ifds.length} plane${ifds.length > 1 ? 's' : ''}, ` +
-      `${first(firstIfd.t258) || 8}-bit`);
 
-    // ---- ImageDescription (tag 270) — global text header ----
+    // ---- ImageDescription (tag 270): OME-XML, or the ImageJ text header ----
     let descRaw = null;
     for (const ifd of ifds) {
       const d = findTag(ifd, 't270');
       if (d) { descRaw = Array.isArray(d) ? d[0] : d; break; }
     }
-    const descMeta = parseImageDescription(descRaw);
+    const ome = !legacy && isOmeXml(descRaw) ? parseOmeXml(utf8(descRaw)) : null;
+    const descMeta = parseImageDescription(ome ? utf8(descRaw) : descRaw);
+    // The ImageJ text patterns mean nothing inside XML (PhysicalSizeXUnit="nm" is not unit=...).
+    if (ome) Object.assign(descMeta, { channels: null, slices: null, frames: null, images: null, unit: null, spacing: null, globalMin: null, globalMax: null, ome });
+
+    // ---- Which pages hold which planes (decided from the tags, before any pixel is decoded) ----
+    const firstIfd = ifds[0], samples = legacy ? { ...sampleInfo(firstIfd), kept: 1, rgb: false, format: 1 } : sampleInfo(firstIfd);
+    const layout = pageLayout(ifds.length, samples.kept, descMeta, ome);
+    const stacked = layout.sizeZ * layout.sizeT > 1;
+    const used = [...new Set(Array.from({ length: layout.sizeC * layout.sizeZ * layout.sizeT }, (_, i) =>
+      layout.pageOf(i % layout.sizeC, Math.floor(i / layout.sizeC) % layout.sizeZ, Math.floor(i / (layout.sizeC * layout.sizeZ)))))].sort((a, b) => a - b);
+
+    // width × height × planes × bytes per decoded sample, plus one full-resolution RGBA composite,
+    // plus the copy of the planes shown that the first composite sends to the compositing workers.
+    let needed = 0, maxPixels = 0, planeBytes = 0;
+    for (const page of used) {
+      const ifd = ifds[page], info = legacy ? { ...sampleInfo(ifd), kept: first(ifd.t277) || 1, format: 1 } : sampleInfo(ifd);
+      const w = first(ifd.t256) || 0, h = first(ifd.t257) || 0, bytes = w * h * decodedBytes(info) * info.kept;
+      needed += bytes; maxPixels = Math.max(maxPixels, w * h); planeBytes = Math.max(planeBytes, bytes);
+    }
+    needed += maxPixels * 4 + planeBytes * (stacked ? layout.sizeC : used.length);
+    confirmMemory(file.name, needed, `${first(firstIfd.t256)} × ${first(firstIfd.t257)} px, ${used.length} plane${used.length > 1 ? 's' : ''}, ` +
+      `${samples.bits}-bit${samples.rgb ? ' RGB' : ''}`);
 
     // ---- IJMetadata (tags 50839 + 50838) — per-channel ranges/LUTs/labels ----
     let ijMeta = { info: null, labels: [], ranges: [], luts: [] };
@@ -411,81 +675,55 @@ const MFC_TIFF = (function () {
     MFC_DEBUG.log("=================================================");
     MFC_DEBUG.log(JSON.stringify(descMeta, null, 2));
 
-    // ---- Decode pixel data for every page/IFD (one 2D plane per page) ----
-    const pagesRaw = [];
+    // ---- Decode the pixel data of the pages used (one plane per kept sample) ----
+    const pagePlanes = new Map();
     let width = 0, height = 0;
-    for (const [pageIndex, ifd] of ifds.entries()) {
+    for (const pageIndex of used) {
+      const ifd = ifds[pageIndex];
       const page = `page ${pageIndex + 1} of ${ifds.length}`;
-      try { UTIF.decodeImage(buf, ifd, ifds); } catch (error) { throw damaged(file.name, page + ' cannot be decoded', error); }
+      try { if (legacy) UTIF.decodeImage(buf, ifd, ifds); else decodePage(buf, ifd, ifds); } catch (error) { throw damaged(file.name, page + ' cannot be decoded', error); }
+      if (!(ifd.width > 0 && ifd.height > 0)) throw damaged(file.name, page + ' has no width or height');
+      if (!legacy && pagePlanes.size && (ifd.width !== width || ifd.height !== height)) {
+        throw unsupported(file.name, `pages of different sizes (${width} × ${height} and ${ifd.width} × ${ifd.height} px)`);
+      }
       width = ifd.width; height = ifd.height;
-      const bitsPerSample = Array.isArray(ifd.t258) ? ifd.t258[0] : (ifd.t258 || 8);
-      const samplesPerPixel = ifd.t277 || 1;
-      if (!(width > 0 && height > 0)) throw damaged(file.name, page + ' has no width or height');
-      if (bitsPerSample >= 8) {
-        const expected = width * height * (bitsPerSample > 8 ? 2 : 1) * first(samplesPerPixel);
-        const got = ifd.data ? ifd.data.length : 0;
-        if (got < expected) throw damaged(file.name, `${page} has ${got} of its ${expected} bytes of pixel data (the file is probably cut short)`);
-      }
-
-      let arr;
-      if (bitsPerSample > 8) {
-        // ifd.data is Uint8Array of raw bytes; reinterpret as Uint16
-        const raw = ifd.data;
-        const n = width * height;
-        arr = new Uint16Array(n);
-        const dv = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
-        const little = !ifd.isBE; // UTIF sets isBE when big-endian byte order detected
-        for (let i = 0; i < n; i++) {
-          arr[i] = dv.getUint16(i * 2, little);
-        }
-      } else {
-        // 8-bit grayscale (samplesPerPixel assumed 1 for microscopy channel pages)
-        arr = new Uint8Array(ifd.data.slice(0, width * height));
-      }
-
-      // channel-only pages (samplesPerPixel==1) are what we expect; if an RGB page
-      // sneaks in, just take the first sample per pixel as a best-effort fallback.
-      if (samplesPerPixel > 1) {
-        const n = width * height;
-        const mono = new (arr.constructor)(n);
-        for (let i = 0; i < n; i++) mono[i] = arr[i * samplesPerPixel];
-        arr = mono;
-      }
-
-      pagesRaw.push({ data: arr, bitDepth: bitsPerSample });
+      pagePlanes.set(pageIndex, legacy ? legacyPlane(ifd, file.name, page) : pageSamples(ifd, file.name, page));
+      ifd.data = null; // the decoded planes replace UTIF's copy of the bytes
     }
 
-    // ---- Split pages into channels x Z slices x T frames ----
-    // ImageJ writes hyperstacks in XYCZT order: page = t*(C*Z) + z*C + c.
-    // Without ImageJ dimensions every page stays a channel (plain multipage TIFF).
-    const dims = stackDimensions(descMeta, pagesRaw.length);
-    const headerPlanes = (descMeta.channels || 1) * (descMeta.slices || 1) * (descMeta.frames || 1);
-    const layoutNote = /ImageJ=/.test(descMeta.raw || '') && (descMeta.slices || 1) * (descMeta.frames || 1) > 1 && headerPlanes !== pagesRaw.length
-      ? `The ImageJ header describes ${headerPlanes} planes but the file has ${pagesRaw.length} pages, so every page is treated as a channel.` : null;
+    // Bit depth as the file states it: BitsPerSample, or OME SignificantBits for 16-bit containers.
+    const significant = ome && ome.significantBits && samples.format === 1 && samples.bits === 16 && ome.significantBits < 16 ? ome.significantBits : null;
+    const bitDepth = significant || samples.bits;
+    const kept = samples.kept;
+
+    // ---- Channels (page channel × sample), each with its Z × T planes ----
     let stack = null;
     const channelsRaw = [];
-    if (dims.sizeZ * dims.sizeT > 1) {
+    const channelCount = layout.sizeC * kept;
+    if (stacked) {
       const planes = [];
-      for (let c = 0; c < dims.sizeC; c++) {
+      for (let k = 0; k < channelCount; k++) {
+        const c = Math.floor(k / kept), s = k % kept;
         planes.push([]);
-        for (let t = 0; t < dims.sizeT; t++) {
+        for (let t = 0; t < layout.sizeT; t++) {
           const zs = [];
-          for (let z = 0; z < dims.sizeZ; z++) zs.push(pagesRaw[t * dims.sizeC * dims.sizeZ + z * dims.sizeC + c].data);
-          planes[c].push(zs);
+          for (let z = 0; z < layout.sizeZ; z++) zs.push(pagePlanes.get(layout.pageOf(c, z, t))[s]);
+          planes[k].push(zs);
         }
-        channelsRaw.push({ data: null, bitDepth: pagesRaw[c].bitDepth });
+        channelsRaw.push({ data: null, bitDepth });
       }
-      stack = { sizeC: dims.sizeC, sizeZ: dims.sizeZ, sizeT: dims.sizeT, planes,
-        zStepUm: descMeta.spacing || null, cache: new Map() };
+      stack = { sizeC: channelCount, sizeZ: layout.sizeZ, sizeT: layout.sizeT, planes,
+        zStepUm: (ome && ome.zStepUm) || descMeta.spacing || null, cache: new Map() };
     } else {
-      pagesRaw.forEach(page => channelsRaw.push(page));
+      for (let k = 0; k < channelCount; k++) channelsRaw.push({ data: pagePlanes.get(layout.pageOf(Math.floor(k / kept), 0, 0))[k % kept], bitDepth });
     }
+    channelsRaw.forEach(ch => { if (samples.format === 2) ch.signed = true; });
     const planeSelection = stack ? { stack, zMode: stack.sizeZ > 1 ? 'max' : 'slice',
       zIndex: Math.floor((stack.sizeZ - 1) / 2), tIndex: 0, channels: channelsRaw } : null;
     if (planeSelection) await selectPlane(planeSelection);
 
     // ---- Assign display ranges: explicit per-channel (IJMetadata "rang") >
-    //      global min/max (ImageDescription) > auto-computed ("auto contrast") ----
+    //      global min/max (ImageDescription) > full range of 8-bit RGB > auto-computed ----
     const channelInfo = channelsRaw.map(() => ({ rangeSource: null, colorSource: 'Default colour order' }));
     channelsRaw.forEach((ch, idx) => {
       let mn, mx;
@@ -497,14 +735,18 @@ const MFC_TIFF = (function () {
         mn = descMeta.globalMin; mx = descMeta.globalMax;
         MFC_DEBUG.log(`[Channel ${idx}] Using global min/max from ImageDescription: min=${mn}, max=${mx}`);
         channelInfo[idx].rangeSource = 'min= and max= of the ImageJ header';
+      } else if (samples.rgb && samples.bits === 8 && samples.format === 1) {
+        mn = 0; mx = 255; // an RGB picture is meant to be seen as it is
+        channelInfo[idx].rangeSource = 'Full 8-bit range (RGB)';
       } else {
-        // auto-contrast fallback: compute actual min/max of this channel
+        // auto-contrast fallback: compute actual min/max of this channel (NaN and infinities left out)
         let lo = Infinity, hi = -Infinity;
         for (let i = 0; i < ch.data.length; i++) {
           const v = ch.data[i];
           if (v < lo) lo = v;
           if (v > hi) hi = v;
         }
+        if (!Number.isFinite(lo) || !Number.isFinite(hi)) { lo = 0; hi = 1; }
         mn = lo; mx = hi === lo ? lo + 1 : hi;
         MFC_DEBUG.log(`[Channel ${idx}] No metadata range found — auto-contrast computed: min=${mn}, max=${mx}`);
         channelInfo[idx].rangeSource = 'Auto-contrast (no range in the file)';
@@ -513,34 +755,52 @@ const MFC_TIFF = (function () {
       ch.fileMin = mn; ch.fileMax = mx; // for "Reset to file"; not saved (a project decodes its source again)
     });
 
-    const pixelSize = getVoxelSizeXY(ifds[0], descMeta);
+    const tiffPixelSize = getVoxelSizeXY(ifds[0], descMeta);
+    const pixelSize = ome && ome.pixelSizeUm ? { um: ome.pixelSizeUm, source: `OME-XML PhysicalSizeX (${ome.pixelSizeText})` } : tiffPixelSize;
     const voxelSizeUm = pixelSize.um;
 
-    // ---- Default color/name assignment — informed by IJMetadata LUTs/labels
-    //      when present, falling back to the cycling preset order otherwise ----
+    // ---- Colours and names: OME-XML channels > ImageJ LUTs and labels > RGB > default order ----
     const defaultOrder = ['grey', 'red', 'green', 'blue', 'cyan', 'magenta', 'yellow', 'orange'];
-    const luts = ijMeta.luts.length ? await loadLuts() : null;
+    const omeChannels = ome && ome.channels.length === channelsRaw.length ? ome.channels : null;
+    const luts = ijMeta.luts.length || (omeChannels && omeChannels.some(c => c.rgb)) ? await loadLuts() : null;
+    // ImageJ labels belong to pages; a channel of a hyperstack takes one only when all its planes share it.
+    const labelOf = idx => {
+      const labels = descMeta.channelLabels;
+      if (!labels || kept > 1 || (legacy && stack)) return null;
+      if (!stack) return labels[layout.pageOf(idx, 0, 0)] || null;
+      const label = labels[layout.pageOf(idx, 0, 0)];
+      for (let t = 0; t < layout.sizeT; t++) for (let z = 0; z < layout.sizeZ; z++) if (labels[layout.pageOf(idx, z, t)] !== label) return null;
+      return label || null;
+    };
+    const RGB_NAMES = ['Red', 'Green', 'Blue'];
     channelsRaw.forEach((ch, idx) => {
+      const omeChannel = omeChannels ? omeChannels[idx] : null;
       // An ImageJ LUT is matched against the whole library; one that matches nothing is kept as it
       // is ("From file") rather than replaced by a default colour.
       const fileLut = ijMeta.luts[idx] && ijMeta.luts[idx].length >= 768 ? luts.fromImageJ(ijMeta.luts[idx]) : null;
       const lutMatch = fileLut ? luts.matchLUT(fileLut) || luts.FILE_LUT : null;
-      ch.color = lutMatch || (channelsRaw.length === 1 ? 'grey' : defaultOrder[idx % defaultOrder.length]);
-      if (lutMatch === luts?.FILE_LUT) ch.lut = luts.bytesToBase64(fileLut);
-      ch.enabled = true;
-      // Hyperstack labels belong to individual planes, not channels.
-      const labels = stack ? null : descMeta.channelLabels;
-      ch.name = (labels && labels[idx]) || ('Ch ' + (idx + 1));
-
-      if (lutMatch) {
+      const rgbSample = samples.rgb ? idx % kept : -1;
+      if (omeChannel && omeChannel.rgb) {
+        Object.assign(ch, omeColour(omeChannel.rgb, luts));
+        channelInfo[idx].colorSource = 'OME-XML channel colour' + (ch.color === luts.FILE_LUT ? ' (no matching LUT; kept as "From file")' : '');
+      } else if (lutMatch) {
+        ch.color = lutMatch;
+        if (lutMatch === luts.FILE_LUT) ch.lut = luts.bytesToBase64(fileLut);
         MFC_DEBUG.log(`[Channel ${idx}] Color auto-detected from ImageJ LUT: ${lutMatch}`);
         channelInfo[idx].colorSource = lutMatch === luts.FILE_LUT ? 'ImageJ LUT (matches no LUT in FluoForge; kept as "From file")' : 'ImageJ LUT';
-      }
+      } else if (rgbSample >= 0) {
+        ch.color = ['red', 'green', 'blue'][rgbSample];
+        channelInfo[idx].colorSource = 'RGB channel';
+      } else ch.color = channelsRaw.length === 1 ? 'grey' : defaultOrder[idx % defaultOrder.length];
+      ch.enabled = true;
+      const pageNote = rgbSample >= 0 && layout.sizeC > 1 ? ' ' + (Math.floor(idx / kept) + 1) : '';
+      ch.name = (omeChannel && omeChannel.name) || labelOf(idx) || (rgbSample >= 0 ? RGB_NAMES[rgbSample] + pageNote : null) || ('Ch ' + (idx + 1));
     });
 
     // What the import found, for the Image info dialog (not saved in projects).
-    descMeta.decodeInfo = { pages: pagesRaw.length, pixelSizeUm: voxelSizeUm || null, pixelSizeSource: pixelSize.source,
-      channels: channelInfo, layoutNote };
+    descMeta.decodeInfo = { pages: ifds.length, pixelSizeUm: voxelSizeUm || null, pixelSizeSource: pixelSize.source,
+      channels: channelInfo, layoutNote: layout.note, metadata: layout.source || (ome ? 'OME-XML' : null),
+      sampleType: `${samples.bits}-bit ${SAMPLE_FORMATS[samples.format] || ''}${samples.rgb ? ' RGB' : ''}`.trim() };
 
     const result = {
       fileName: file.name,
@@ -548,7 +808,8 @@ const MFC_TIFF = (function () {
       channels: channelsRaw,
       voxelSizeUm: voxelSizeUm || null,
       meta: descMeta,
-      sourceFormat: 'tiff'
+      sourceFormat: 'tiff',
+      decoder: legacy ? 1 : DECODER
     };
     if (planeSelection) Object.assign(result, { stack, zMode: planeSelection.zMode, zIndex: planeSelection.zIndex, tIndex: 0 });
     return result;
@@ -872,6 +1133,9 @@ const MFC_TIFF = (function () {
     COLOR_PRESETS,
     MAX_WORKING_DIM,
     parseImageDescription,
+    parseOmeXml,
+    DECODER,
+    pageLayout,
     parseIJMetadata // exposed for debugging in the console if needed
   };
   return api;

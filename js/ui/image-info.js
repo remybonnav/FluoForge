@@ -29,10 +29,11 @@ function pixelSizeSource(raw, info) {
 /** The rows of the dialog for one image, as [label, value] pairs. */
 export function imageInfoRows(raw) {
   const info = raw.meta && raw.meta.decodeInfo;
-  const depths = [...new Set(raw.channels.map(c => c.bitDepth).filter(Boolean))].map(d => d + '-bit');
+  const kind = info && /floating-point/.test(info.sampleType || '') ? ' float' : info && /signed integer/.test(info.sampleType || '') && !/unsigned/.test(info.sampleType) ? ' signed' : '';
+  const depths = [...new Set(raw.channels.map(c => c.bitDepth).filter(Boolean))].map(d => d + '-bit' + kind);
   const rows = [
     ['File', raw.fileName || 'Unknown'],
-    ['Format', FORMATS[raw.sourceFormat] || raw.sourceFormat || 'Unknown'],
+    ['Format', (info && info.metadata === 'OME-XML' ? 'OME-TIFF' : FORMATS[raw.sourceFormat]) || raw.sourceFormat || 'Unknown'],
     ['Dimensions', `${raw.width} × ${raw.height} px`],
     ['Bit depth', depths.join(', ') || 'Unknown'],
     ['Channels', String(raw.channels.length)],
@@ -41,6 +42,7 @@ export function imageInfoRows(raw) {
   ];
   if (raw.stack && raw.stack.zStepUm) rows.push(['Z step', raw.stack.zStepUm + ' µm']);
   if (info) rows.push(['Pages in the file', String(info.pages)]);
+  if (info && raw.sourceFormat === 'tiff') rows.push(['Dimensions from', info.metadata || 'Page count (every page is a channel)']);
   rows.push(['Pixel size', raw.voxelSizeUm != null ? raw.voxelSizeUm + ' µm/px' : 'Not set']);
   rows.push(['Pixel size source', pixelSizeSource(raw, info)]);
   if (info && info.layoutNote) rows.push(['Note', info.layoutNote]);
@@ -75,14 +77,15 @@ export function showImageInfo() {
   });
 
   const header = raw.meta && raw.meta.raw ? raw.meta.raw : '';
+  const ome = !!(raw.meta && raw.meta.ome);
   const headerBox = element('pre', 'image-info-header', header || 'None: the file has no ImageJ header.');
   headerBox.id = 'image-info-header';
   headerBox.tabIndex = 0; // long headers scroll: reachable and scrollable with the keyboard
-  headerBox.setAttribute('aria-label', 'ImageJ header, as stored in the file');
+  headerBox.setAttribute('aria-label', (ome ? 'OME-XML' : 'ImageJ header') + ', as stored in the file');
 
   const close = element('button', null, 'Close'); close.type = 'button'; close.id = 'image-info-close';
   const buttons = element('div', 'btn-row'); buttons.append(close);
-  dialog.append(title, list, element('h3', null, 'Channels'), channels, element('h3', null, 'ImageJ header'), headerBox, buttons);
+  dialog.append(title, list, element('h3', null, 'Channels'), channels, element('h3', null, ome ? 'OME-XML' : 'ImageJ header'), headerBox, buttons);
   backdrop.append(dialog);
 
   const done = () => { backdrop.remove(); if (opener && opener.focus) opener.focus(); };

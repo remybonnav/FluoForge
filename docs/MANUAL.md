@@ -85,9 +85,16 @@ Click **Import Image** (you can choose several files at once). Supported formats
 
 | Format | What FluoForge reads |
 |---|---|
-| TIFF (8- or 16-bit, one page per channel) | Every channel at full bit depth, plus what ImageJ/Fiji saved: channel colours (LUTs), per-channel display ranges, channel labels and pixel size (µm/px). |
+| TIFF (8-, 12-, 16- or 32-bit, one page per channel) | Every channel at full bit depth, plus what ImageJ/Fiji saved: channel colours (LUTs), per-channel display ranges, channel labels and pixel size (µm/px). 32-bit float and signed 16-bit images keep their exact values, negative ones included; packed 12-bit camera files show as 12-bit. |
+| RGB TIFF (8- or 16-bit) | Three channels, Red, Green and Blue, each with its colour. 8-bit RGB is shown at its full 0–255 range. |
+| OME-TIFF (`.ome.tif`, from Bio-Formats, Fiji, OMERO and many microscopes) | Channels, Z slices and time frames in the file's dimension order, pixel size with its unit (nm, µm, mm, ...), Z step, channel names and colours, and the bit depth the file states (12-bit data in a 16-bit file shows as 12-bit). If the file holds several images (series), the first is shown. |
 | ImageJ hyperstacks (channels × Z slices × time frames) | See [Z stacks and time series](#5-z-stacks-and-time-series). |
+| CZI, LIF, ND2 and other microscope formats | Not read directly: a browser cannot decode them. Convert them to OME-TIFF in Fiji (see below). |
 | JPEG, PNG, BMP | Three channels (red, green, blue) shown at their full 0–255 range. PNG transparency is kept. These files carry no pixel size; enter it by hand to use scale bars. |
+
+**Converting microscope files.** FluoForge comes with a Fiji macro, `tools/Export_for_FluoForge.ijm` (the error shown when you import a CZI, LIF or ND2 file links to it). In Fiji, choose *Plugins ▸ Macros ▸ Run...*, pick the macro, then a folder of microscope files and a folder for the results. It converts every file Bio-Formats can read to OME-TIFF, one file per image (series), keeping the channels, Z slices, time frames, pixel size and channel names; files that already exist are skipped. Bio-Formats keeps the original metadata in the OME-TIFF, including the path of the source file. The macro can also run without a window: `fiji --headless --run Export_for_FluoForge.ijm "input='/data/raw',output='/data/ome'"`. BigTIFF files (the TIFF variant for files over 4 GB) cannot be imported yet.
+
+**Image info** (in the Channels panel) shows where the dimensions came from: the OME-XML, the ImageJ header, or the page count.
 
 Images keep their full resolution for export. On screen, very large images (more than 2048 px on the long side) are shown with a reduced preview so that editing stays fast.
 
@@ -136,7 +143,7 @@ A paste of display settings onto one image of a group is not passed on, so the g
 
 ## 5. Z stacks and time series
 
-TIFFs saved by ImageJ/Fiji as hyperstacks open with their real channels: a stack with 4 channels and 5 Z slices shows 4 channels, not 20. The Channels panel then shows the stack size and a **Z display** choice:
+TIFFs saved by ImageJ/Fiji as hyperstacks, and OME-TIFFs, open with their real channels: a stack with 4 channels and 5 Z slices shows 4 channels, not 20. When every slice of a channel has the same label in an ImageJ hyperstack, that label becomes the channel name. The Channels panel then shows the stack size and a **Z display** choice:
 
 - **Maximum intensity projection** (default): each pixel shows its brightest value across the slices.
 - **Mean intensity projection**: the average across the slices.
@@ -146,7 +153,7 @@ Time series also get a **frame** slider. Colours, display ranges and channel tog
 
 ![A 4-channel, 5-slice Z stack shown as a maximum projection (left) and as slice 3 (selected, right), with the Z display controls in the Channels panel](images/14-zstack.jpg)
 
-Each image (and each inset) keeps its own Z display. The choice is listed in the History panel, saved with the project and used when exporting. TIFFs without an ImageJ header still open with one channel per page.
+Each image (and each inset) keeps its own Z display. The choice is listed in the History panel, saved with the project and used when exporting. TIFFs without an ImageJ header or OME-XML still open with one channel per page.
 
 ## 6. Laying out panels with the Grid tool
 
@@ -380,6 +387,6 @@ Images are always re-composited from the original channel data at full resolutio
 - **Large images feel slow.** The editor shows a reduced preview above 2048 px; exports still use the full resolution.
 - **"needs about … of memory" when importing.** FluoForge estimates the memory an image needs (width × height × planes × bytes per sample) and asks before opening one that would exceed what the browser seems to have left. Opening it anyway may crash the tab: save first, or close other tabs.
 - **"The image … inside this project is damaged".** Every image in a project is stored with a checksum, and this one no longer matches: the project file was damaged, for example by an incomplete copy. Open an earlier copy of the project.
-- **A file cannot be imported.** The message says why, for example "is not a TIFF file" or "is damaged or incomplete" (often a file that was not fully copied or downloaded). Nothing is added to the figure.
+- **A file cannot be imported.** The message says why, for example "is not a TIFF file" or "is damaged or incomplete" (often a file that was not fully copied or downloaded). Nothing is added to the figure. For a microscope format (CZI, LIF, ND2, ...), a BigTIFF or a sample type FluoForge does not read (such as 16-bit float), the message links to the Fiji conversion macro (see [Importing images](#3-importing-images)).
 - **"Unexpected error" message.** Something went wrong inside FluoForge. The figure stays editable; save it, then use **Copy details** and paste the report into a bug report. **Dismiss** or Escape closes the message.
 - **Lost work.** Reopen FluoForge in the same browser: a recovery prompt appears if a draft newer than your last save exists. Save projects regularly anyway: browser storage can be cleared.
