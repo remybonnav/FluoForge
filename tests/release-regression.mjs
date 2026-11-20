@@ -125,6 +125,14 @@ export function runReleaseRegressions() {
   assert('CONTRIBUTING has the test and release instructions',
     ['npm ci', 'npx playwright install chromium firefox', 'npm test', 'npm run make-reference', 'npm run release -- --check', 'npm run release -- 0.1.5'].every(s => contributing.includes(s)));
 
+  // The site publishes only the paths the Pages workflow copies: every file the app links to must be among them.
+  const pages = readFileSync(join(ROOT, '.github/workflows/pages.yml'), 'utf8');
+  const published = ((pages.match(/cp -r ([^\n]+) _site\//) || [])[1] || '').split(/\s+/);
+  const linked = [...readFileSync(join(ROOT, 'js/image/import.js'), 'utf8').matchAll(/CONVERSION_MACRO = '([^']+)'/g)].map(m => m[1]);
+  const unpublished = linked.filter(path => !published.includes(path.split('/')[0]) || !existsSync(join(ROOT, path)));
+  assert('The Pages workflow publishes the files the app links to (the Fiji macro)', linked.length === 1 && unpublished.length === 0,
+    unpublished.join(', ') || 'no CONVERSION_MACRO found');
+
   const manual = readFileSync(join(ROOT, 'docs/MANUAL.md'), 'utf8');
   assert('The feature details moved from the README are in the manual',
     ['`manifest.json`', 'pure ImageJ channel colours', 'not allowed in file names', 'read from its label', 'Which panels are collapsed is remembered',

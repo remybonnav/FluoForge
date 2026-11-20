@@ -4,6 +4,12 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+- The download link to the Fiji macro in import errors now works on the published site: the Pages workflow did not publish `tools/`.
+
+### Development
+
+- `release-regression` checks that the Pages workflow publishes the files the app links to.
+
 ## v0.1.10 (2026-11-20)
 
 - **More TIFF types.** 32-bit float and signed 16-bit images open with their exact values (negative ones included), and the compositor maps them through min, max and gamma as other images. Packed 12-bit (and 1- to 15-bit) files are unpacked and report their real bit depth. RGB TIFFs (8- or 16-bit, interleaved or planar) give three channels, Red, Green and Blue, instead of only the first sample.
