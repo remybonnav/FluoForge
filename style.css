@@ -209,6 +209,13 @@ body:not(.document-open) #side-panel>.panel{display:none;}
 .layer-row .layer-icon svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
 .layer-row .layer-icon.on{color:var(--accent);background:var(--accent-dim);border-radius:4px;}
 .layer-row .layer-icon.off{color:var(--text-dim);opacity:.7;}
+.layer-row .layer-chain{width:18px;flex-shrink:0;}
+.layer-row .layer-diverged{color:var(--danger);font-weight:700;padding:0 3px;}
+.layer-row .layer-diverged:hover{color:var(--danger);background:var(--accent-dim);border-radius:4px;}
+.channel-compare{margin-bottom:8px;}
+.channel-compare .hint{margin:0 0 4px;}
+.channel-compare .compare-warning{margin:0 0 4px;font-size:12px;color:var(--danger);}
+.channel-compare .compare-match{padding:3px 8px;font-size:12px;}
 .layer-actions{margin-top:8px;flex-wrap:wrap;}
 .layer-actions button{width:auto;padding:5px 9px;}
 .layer-row button{

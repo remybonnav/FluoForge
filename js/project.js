@@ -6,7 +6,7 @@
    The file format is described in docs/PROJECT-FORMAT.md. */
 const MFC_PROJECT = (() => {
   const FORMAT = 3;   // manifest.version
-  const SCHEMA = 3;   // state.schema written by captureState; equals CURRENT_SCHEMA in js/migrations/index.js
+  const SCHEMA = 4;   // state.schema written by captureState; equals CURRENT_SCHEMA in js/migrations/index.js
   // Migrations are ES modules (pure functions on JSON), loaded the first time a project is opened.
   const MIGRATIONS_URL = new URL('migrations/index.js', document.currentScript?.src || new URL('js/', document.baseURI)).href;
   let migrations = null;

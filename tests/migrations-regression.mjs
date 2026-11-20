@@ -140,6 +140,13 @@ export async function runMigrationRegressions() {
   assert('2→3: only the schema number changes (new LUT names, file LUTs and calibration bars are additions)',
     v3.schema === 3 && v2state.schema === 2 && JSON.stringify({ ...v3, schema: 2 }) === JSON.stringify(v2state));
 
+  // --- schema-3-to-4.js alone ---------------------------------------------------------------
+  const { migrate: m34 } = await import(pathToFileURL(join(ROOT, 'js/migrations/schema-3-to-4.js')).href);
+  const v3state = deepFrozen({ ...v3, futureLike: { kept: 1 } });
+  const v4 = m34(v3state);
+  assert('3→4: only the schema number changes (comparison groups are an addition)',
+    v4.schema === 4 && v3state.schema === 3 && JSON.stringify({ ...v4, schema: 3 }) === JSON.stringify(v3state));
+
   assert('Migrations use no browser objects', !/\b(window|document|fabric|MFC\w*)\b/.test(files.map(f => readFileSync(join(ROOT, 'js/migrations', f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')).join('\n')));
 
   // --- The fixture library ------------------------------------------------------------------

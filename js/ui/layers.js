@@ -10,6 +10,7 @@ import { canvas, isHelper, takeId } from '../core/state.js';
 import { scaleBarProps } from '../tools/scalebar.js';
 import { applyLockState, applySelectionLock, refuseLocked, setPositionLock } from './locks.js';
 import { refreshSelectionBar } from './selection-bar.js';
+import { divergedChannels, groupLabel, groupMembers, groupOf, matchGroup, onComparisonChange } from '../image/comparison.js';
 
 // ---- layers panel ----
 export function layerLabel(o) {
@@ -38,6 +39,7 @@ export const LAYER_ICONS = {
   eyeOff: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.9 17.9A10 10 0 0 1 12 19c-7 0-11-7-11-7a18.5 18.5 0 0 1 5.1-5.9"/><path d="M9.9 4.2A9 9 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.2 3.2"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
   lock: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
   unlock: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>',
+  chain: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
   position: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/><circle cx="12" cy="12" r="4"/></svg>'
 };
 export function layerObjects() { return canvas.getObjects().filter(o => !isHelper(o)); }
@@ -72,6 +74,8 @@ export function refreshLayersPanel() {
       `;
     const name = row.querySelector('.layer-name');
     name.textContent = layerLabel(o); name.title = layerLabel(o);
+    const group = groupOf(o);
+    if (group != null) name.after(...comparisonMarks(o, group));
     name.addEventListener('click', () => selectLayer(o));
     row.querySelector('.layer-eye').addEventListener('click', (e) => { e.stopPropagation(); toggleLayerVisibility(o); });
     row.querySelector('.layer-lock').addEventListener('click', (e) => { e.stopPropagation(); toggleLayerLock(o); });
@@ -82,6 +86,28 @@ export function refreshLayersPanel() {
   }
   listEl.scrollTop = scrollTop;
 }
+
+/** The chain icon of a comparison group member, and a warning badge when the group's settings differ. */
+function comparisonMarks(o, id) {
+  const members = groupMembers(id), diverged = divergedChannels(id);
+  const chain = document.createElement('span');
+  chain.className = 'layer-chain layer-icon on';
+  chain.setAttribute('role', 'img');
+  chain.innerHTML = LAYER_ICONS.chain;
+  chain.title = groupLabel(id) + ' (' + members.length + ' images): range, LUT and gamma are linked';
+  chain.setAttribute('aria-label', chain.title);
+  if (!diverged.length) return [chain];
+  const badge = document.createElement('button');
+  badge.type = 'button';
+  badge.className = 'layer-diverged';
+  badge.textContent = '⚠';
+  badge.title = 'The images of ' + groupLabel(id) + ' have different settings on channel' + (diverged.length > 1 ? 's ' : ' ') +
+    diverged.map(i => i + 1).join(', ') + '. Click to match the group to ' + (o.mfcFileName || 'this image') + '.';
+  badge.setAttribute('aria-label', badge.title);
+  badge.addEventListener('click', e => { e.stopPropagation(); matchGroup(o); });
+  return [chain, badge];
+}
+onComparisonChange(() => refreshLayersPanel());
 
 export function selectLayer(o) {
   if (o.mfcLocked) { MFC_UI.toast('This layer is locked — unlock it first to select it.'); return; }

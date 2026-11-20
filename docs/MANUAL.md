@@ -128,6 +128,10 @@ Below the channels:
 
 **Copying display settings.** To give other images exactly the look of one image, select that image and click **Copy display** in the selection bar (or right-click it and choose **Copy display settings**). Then select the other images and click **Paste display** (or right-click → **Paste display settings**). Each channel gets the copied LUT, *min*, *max*, gamma, invert and on/off, matched by number: channel 1 to channel 1, and so on. Brightness and contrast are copied too; channel names are not. When the images have different numbers of channels, the extra channels are left as they were. A paste is one undo step. With the keyboard, select an image and press the Menu key or Shift+F10 to open the same menu.
 
+**Comparison groups.** When images must be compared (control versus treated, for example), their display has to stay the same. Select them and click **Link** in the selection bar: they become a *comparison group* and take the range (*min*, *max*), LUT and gamma of the first image, channel by number. From then on, changing one of these on any image of the group changes it on all of them, as one undo step: the sliders, typed values, the LUT, gamma, **Auto**, **Full range** and **Reset to file**. On/off, invert, channel names, brightness and contrast stay per image. The Channels panel names the group above the channels, and the Layers panel shows a chain icon on each of its images.
+
+A paste of display settings onto one image of a group is not passed on, so the group can end up with different settings. Its images then show a ⚠ badge in the Layers panel, and the Channels panel says which channels differ. Click the badge, or **Match group to this image**, to give the whole group that image's settings again. **Unlink** takes the selected images out of their group; a group left with one image ends. Groups are saved with the project.
+
 **Editing several images at once.** With several images selected, the panel edits all of them: a change to channel 2's colour, for example, is applied to channel 2 of every selected image. Only the setting you change is copied; the other settings stay as they were. Use this to give every panel of a figure the same display range, which keeps intensities comparable between conditions.
 
 ## 5. Z stacks and time series
@@ -293,6 +297,8 @@ Each row has three toggles:
 - **Eye**: show / hide (**Show all** / **Hide all** for every object).
 - **Padlock**: layer lock (cannot be selected, moved, edited or deleted).
 - **Crosshair**: position/size lock (cannot be moved, resized or rotated; channels, colours and text stay editable).
+
+Images in a comparison group (section 4) show a chain icon after their name, and a ⚠ badge when the group's settings differ; click the badge to match the group to that image.
 
 **Ungroup** splits a selected group.
 

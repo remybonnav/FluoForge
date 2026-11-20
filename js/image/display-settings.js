@@ -11,6 +11,7 @@
 import { canvas, registry } from '../core/state.js';
 import { commitImages, refreshChannelPanel, selectedImages } from './channels.js';
 import { FILE_LUT } from './luts.js';
+import { groupOf, linkImages, unlinkImages } from './comparison.js';
 
 let copied = null;
 
@@ -75,6 +76,9 @@ export function refreshDisplayButtons() {
   const copyBtn = document.getElementById('obj-copy-display'), pasteBtn = document.getElementById('obj-paste-display');
   copyBtn.disabled = images.length !== 1;
   pasteBtn.disabled = !copied || !images.length;
+  const linkBtn = document.getElementById('obj-link-compare'), unlinkBtn = document.getElementById('obj-unlink-compare');
+  linkBtn.disabled = images.length < 2;
+  unlinkBtn.disabled = !images.some(img => groupOf(img) != null);
   pasteBtn.title = copied
     ? 'Paste the display settings copied from ' + (copied.fileName || 'an image') + ' onto the selected images, channel by number (one undo step)'
     : 'Paste display settings: copy them from an image first';
@@ -159,3 +163,5 @@ window.addEventListener('keydown', event => {
 
 document.getElementById('obj-copy-display')?.addEventListener('click', () => copyDisplaySettings());
 document.getElementById('obj-paste-display')?.addEventListener('click', () => pasteDisplaySettings());
+document.getElementById('obj-link-compare')?.addEventListener('click', () => { linkImages(selectedImages()); refreshDisplayButtons(); });
+document.getElementById('obj-unlink-compare')?.addEventListener('click', () => { unlinkImages(selectedImages()); refreshDisplayButtons(); });

@@ -121,7 +121,7 @@ async function runLutCalibrationRegressions() {
   assert('Clicking elsewhere closes the popover', !document.querySelector('.lut-popover'));
   {
     const state = MFC_PROJECT.captureState(), saved = state.objects.find(o => o.mfcType === 'mfcImage').display.channels;
-    assert('The project stores LUT names, and the 768 bytes only for "From file" (schema 3)', state.schema === 3 &&
+    assert('The project stores LUT names, and the 768 bytes only for "From file" (since schema 3)', state.schema >= 3 &&
       saved[0].color === 'viridis' && saved[2].color === 'file' && luts.base64ToBytes(saved[2].lut).length === 768 && !('lut' in saved[0]));
   }
 

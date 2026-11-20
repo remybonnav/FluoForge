@@ -51,7 +51,7 @@ Each `versions/<id>.json` is one figure state. States hold no pixels: images ref
 
 | Field | Meaning |
 |---|---|
-| `schema` | The state format (section 6). Currently `3`. |
+| `schema` | The state format (section 6). Currently `4`. |
 | `documentOpen` | `false` only for an empty workspace. |
 | `docProps` | The page: `name`, `width`, `height`, `unit` (`"px"`, `"cm"` or `"in"`), `dpi` and `pages` (missing in projects from before multi-page figures, which have one page). |
 | `nextId` | The counter for new object ids. |
@@ -89,6 +89,7 @@ Fields used by every type:
 | `display.zMode`, `zIndex`, `tIndex` | Stacks only: `"max"`, `"mean"` or `"slice"`, and the slice and frame shown. |
 | `filters` | Fabric image filters, when any. |
 | `mfcIsInset`, `mfcInsetSourceId`, `mfcInsetContourId` | For an inset: it is a view of image `mfcInsetSourceId`, through outline `mfcInsetContourId`. |
+| `mfcCompareGroup` | Since schema 4: the number of the comparison group the image belongs to (absent when none). The images of a group keep the same `min`, `max`, `color`, `lut` and `gamma` on each channel number; an edit to one is applied to all. A group may have diverged (after a paste); opening does not change it. |
 | `mfcPreShapeCrop` | After **Crop to shape**: the frame before the crop, restored by **Remove shape crop**. |
 
 ### Inset outline: `type: "rect"`, `mfcType: "insetContour"`
@@ -163,7 +164,8 @@ Schemas:
 | 0 | What the legacy loaders produce from a project in manifest version 1 or 2 (section 7). It is never written to a new file, except as the kept original of a converted legacy project. |
 | 1 | The state format written from before 0.1.0 to 0.1.5. |
 | 2 | 0.1.6: image channels also store `gamma` and `invert`. `schema-1-to-2.js` adds gamma 1 and invert false, which is how schema-1 figures were always drawn. |
-| 3 | The current state format, since 0.1.7: the LUT library's names in `color`, a file's LUT in `lut`, and calibration bars. All additions, so `schema-2-to-3.js` only changes the number. |
+| 3 | 0.1.7: the LUT library's names in `color`, a file's LUT in `lut`, and calibration bars. All additions, so `schema-2-to-3.js` only changes the number. |
+| 4 | The current state format, since 0.1.9: images may carry `mfcCompareGroup` (comparison groups). An addition, so `schema-3-to-4.js` only changes the number. |
 
 ## 7. Legacy formats
 
@@ -192,6 +194,7 @@ A project whose `manifest.version` or `schema` is higher than this version knows
 | before 2026-11-17 | by v0.22 | Manifest version 3 with `versions/`, `sources/` and states of schema 1. |
 | 2026-11-17 | 0.1.0 | Repository restarted; format 3, schema 1 unchanged. Files named `.mfcproj.zip`. |
 | 2026-11-18 | 0.1.3 | New projects are named `.fluoforge`. The content is unchanged. |
+| 2026-11-20 | 0.1.9 | Schema 4: images may carry `mfcCompareGroup`, the comparison group whose range, LUT and gamma they share (`schema-3-to-4.js`). 0.1.5 to 0.1.8 open such a project with "some content may not display" and show it unchanged, but do not link edits. |
 | 2026-11-19 | 0.1.7 | Schema 3: channel colours may name any LUT of the library or `file`, with a file's own LUT kept in `lut`; new object type `calibrationBar` (`schema-2-to-3.js`). 0.1.5 and 0.1.6 open such a project with "some content may not display": a channel in a new LUT is shown in grey, and the bar keeps its last colours and labels. |
 | 2026-11-19 | 0.1.6 | Schema 2: each image channel stores a display `gamma` and an `invert` flag (`schema-1-to-2.js`). 0.1.5 opens such a project with "some content may not display"; 0.1.0 to 0.1.4 do not check the schema and open it without a notice. All of them ignore gamma and invert. |
 | 2026-11-18 | 0.1.5 | No change to what is written. Schema 0 is defined for the legacy loaders' output and migrated by `schema-0-to-1.js`; sources are checked against their SHA-256 when opened; the first save of a migrated project keeps its original version; projects from a newer format open and keep what they do not understand. |

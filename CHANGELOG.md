@@ -4,6 +4,16 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.9 (2026-11-20)
+
+- **Comparison groups.** Select images (control and treated, for example) and click **Link** in the selection bar: their channel range, LUT and gamma become linked, channel by number, so changing one image changes all of them, in one undo step. The Layers panel shows a chain icon on each member, and a ⚠ badge when the settings have diverged (after pasting display settings onto one of them); clicking it matches the group again. **Unlink** takes images out. Groups are saved with the project.
+- **Project format 4.** Projects store which comparison group each image belongs to; older projects open unchanged.
+
+### Development
+
+- `js/image/comparison.js`: groups (`mfcCompareGroup` on images), linked edits (`propagate`), divergence and matching. Schema 4 with `schema-3-to-4.js` (number only); format lock recorded again for schema 4 (the locked functions did not change).
+- **Tests:** the new `comparison-regression` suite; `migrations-regression` tests `schema-3-to-4.js`.
+
 ## v0.1.8 (2026-11-19)
 
 - **Histogram behind the min and max sliders.** Each channel shows the histogram of the plane on screen, on a log scale, with the display range shaded. It is computed in the background.

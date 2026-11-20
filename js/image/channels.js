@@ -8,9 +8,11 @@ import { canvas, registry } from '../core/state.js';
 import { recomposite } from './import.js';
 import { updateScaleBarsForImage } from '../tools/scalebar.js';
 import { selectedObjects } from '../ui/selection-bar.js';
+import { refreshLayersPanel } from '../ui/layers.js';
 import { LUT_GROUPS, LUT_LABELS, FILE_LUT, channelLUT, lutGradient } from './luts.js';
 import { addCalibrationBar } from '../tools/calibration-bar.js';
 import { autoRange, logBins, sliderLimits } from './composite-core.js';
+import { divergedChannels, groupLabel, groupMembers, groupOf, matchGroup, onComparisonChange, propagate, withGroupMembers } from './comparison.js';
 
 // ---- channel panel ----
 // With several images selected, the panel shows the first one and every edit is
@@ -44,6 +46,8 @@ export function selectedImages() { return selectedObjects(o => o.mfcType === 'mf
 export function commitImages(images) {
   images.forEach(img => recomposite(img));
   canvas.fire('object:modified', { target: canvas.getActiveObject() });
+  // A comparison group may have diverged or come back together: update its badges.
+  if (images.some(img => groupOf(img) != null)) refreshLayersPanel();
 }
 
 export function refreshChannelPanel() {
@@ -67,8 +71,11 @@ export function refreshChannelPanel() {
   const active = images[0];
   const entry = registry[active.mfcId];
   const raws = images.map(img => registry[img.mfcId].rawImage);
+  // Range, LUT and gamma edits also reach the other members of a comparison group (comparison.js).
+  const linked = withGroupMembers(images);
   nameEl.textContent = images.length > 1 ? '— ' + images.length + ' images (edits apply to all)' : '— ' + active.mfcFileName;
   listEl.innerHTML = '';
+  showComparison(listEl, images);
 
   calibBox.classList.remove('hidden');
   const pxSizeInput = document.getElementById('ch-pixelsize');
@@ -178,8 +185,9 @@ export function refreshChannelPanel() {
     });
     lutButton.addEventListener('click', () => openLutPicker(lutButton, ch, (color, lut) => {
       peers.forEach(p => { p.color = color; if (color === FILE_LUT) p.lut = lut; });
+      propagate(images, idx, ['color', 'lut']);
       showLut(lutButton, ch, false);
-      commitImages(images);
+      commitImages(linked);
     }));
     row.querySelector('.ch-calbar').addEventListener('click', () => addCalibrationBar(images, idx));
 
@@ -189,11 +197,13 @@ export function refreshChannelPanel() {
     function commitMin(v) {
       if (!isFinite(v)) v = ch.min; // invalid input handled gracefully: keep previous value
       peers.forEach(p => { const t = typeRange(p); p.min = Math.min(Math.max(v, t.lo), p.max - t.gap); });
+      propagate(images, idx, ['min', 'max']);
       showRange();
     }
     function commitMax(v) {
       if (!isFinite(v)) v = ch.max;
       peers.forEach(p => { const t = typeRange(p); p.max = Math.max(Math.min(v, t.hi), p.min + t.gap); });
+      propagate(images, idx, ['min', 'max']);
       showRange();
     }
     function showRange() {
@@ -203,19 +213,22 @@ export function refreshChannelPanel() {
     }
     minInput.value = fmt(ch.min); maxInput.value = fmt(ch.max);
     // Auto, Full range and Reset to file: each selected image gets its own range (Auto and Full
-    // range from its own displayed plane), as one History step.
+    // range from its own displayed plane), as one History step. Members of a comparison group
+    // that are not selected take the range of the selected member.
     const setRanges = async compute => {
       const ranges = await Promise.all(peers.map(async p => compute(p, await MFC_TIFF.histogram(p.data))));
       peers.forEach((p, i) => { const r = ranges[i]; if (r && r.max > r.min) { p.min = r.min; p.max = r.max; } });
-      if (!row.isConnected) { commitImages(images); return; }
+      // In a comparison group, the other members take the edited image's new range.
+      propagate(images, idx, ['min', 'max']);
+      if (!row.isConnected) { commitImages(linked); return; }
       showRange();
-      commitImages(images);
+      commitImages(linked);
     };
     const run = compute => MFC_TIFF.track(setRanges(compute)).catch(error => MFC_ERRORS.report(error, { title: 'Could not set the display range' }));
     row.querySelector('.ch-auto').addEventListener('click', () => run((p, h) => h && autoRange(h)));
     row.querySelector('.ch-full').addEventListener('click', () => run((p, h) => { const l = sliderLimits(h, isFloatData(p.data) ? 32 : p.bitDepth); return { min: l.lo, max: l.hi }; }));
     resetBtn.addEventListener('click', () => run(p => (Number.isFinite(p.fileMin) && Number.isFinite(p.fileMax) ? { min: p.fileMin, max: p.fileMax } : null)));
-    const recompositeAll = () => images.forEach(img => recomposite(img));
+    const recompositeAll = () => linked.forEach(img => recomposite(img));
 
     minSlider.addEventListener('input', (e) => { commitMin(parseFloat(e.target.value)); recompositeAll(); });
     maxSlider.addEventListener('input', (e) => { commitMax(parseFloat(e.target.value)); recompositeAll(); });
@@ -224,22 +237,51 @@ export function refreshChannelPanel() {
 
     // "change" fires on blur, and also right after Enter's explicit blur() below — this
     // is how typed values get confirmed (Enter, Tab, or clicking elsewhere all commit).
-    minInput.addEventListener('change', (e) => { commitMin(parseFloat(e.target.value)); commitImages(images); });
-    maxInput.addEventListener('change', (e) => { commitMax(parseFloat(e.target.value)); commitImages(images); });
+    minInput.addEventListener('change', (e) => { commitMin(parseFloat(e.target.value)); commitImages(linked); });
+    maxInput.addEventListener('change', (e) => { commitMax(parseFloat(e.target.value)); commitImages(linked); });
     // Gamma: live while typing or using the arrows, committed to the history on change.
     const commitGamma = v => {
       const g = Number.isFinite(v) ? Math.min(5, Math.max(0.1, Math.round(v * 100) / 100)) : gammaOf(ch);
       peers.forEach(p => { p.gamma = g; });
+      propagate(images, idx, ['gamma']);
       return g;
     };
     gammaInput.addEventListener('input', (e) => { const v = parseFloat(e.target.value); if (Number.isFinite(v) && v >= 0.1 && v <= 5) { commitGamma(v); recompositeAll(); } });
-    gammaInput.addEventListener('change', (e) => { gammaInput.value = commitGamma(parseFloat(e.target.value)); commitImages(images); });
+    gammaInput.addEventListener('change', (e) => { gammaInput.value = commitGamma(parseFloat(e.target.value)); commitImages(linked); });
     gammaInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); gammaInput.blur(); } });
     invertBox.addEventListener('change', (e) => { peers.forEach(p => { p.invert = e.target.checked; }); commitImages(images); });
     minInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); minInput.blur(); } });
     maxInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); maxInput.blur(); } });
   });
 }
+
+/** The comparison group line above the channels: which group, and a warning when its settings differ. */
+function showComparison(listEl, images) {
+  const id = groupOf(images[0]);
+  if (id == null) return;
+  const box = document.createElement('div');
+  box.className = 'channel-compare';
+  const members = groupMembers(id), diverged = divergedChannels(id);
+  const line = document.createElement('p');
+  line.className = 'hint';
+  line.textContent = groupLabel(id) + ' · ' + members.length + ' images: range, LUT and gamma are linked, channel by number.';
+  box.append(line);
+  if (diverged.length) {
+    const warn = document.createElement('p');
+    warn.className = 'compare-warning';
+    warn.setAttribute('role', 'status');
+    warn.textContent = '⚠ The settings of channel' + (diverged.length > 1 ? 's ' : ' ') + diverged.map(i => i + 1).join(', ') + ' differ between the images of this group.';
+    const match = document.createElement('button');
+    match.type = 'button';
+    match.className = 'compare-match';
+    match.textContent = 'Match group to this image';
+    match.title = 'Give every image of ' + groupLabel(id) + ' the range, LUT and gamma of ' + (images[0].mfcFileName || 'this image') + ' (one undo step)';
+    match.addEventListener('click', () => matchGroup(images[0]));
+    box.append(warn, match);
+  }
+  listEl.append(box);
+}
+onComparisonChange(() => refreshChannelPanel());
 
 /** Z / time controls: shown when a selected image is a Z stack or time series. */
 export function refreshStackControls(images) {

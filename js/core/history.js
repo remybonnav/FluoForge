@@ -60,6 +60,7 @@ export function historyChangeKind(a, b) {
   if (a.clipPath && !b.clipPath) return 'Removed shape crop';
   if (changed.has('visible')) return b.visible === false ? 'Hid' : 'Showed';
   if (changed.has('mfcLocked')) return b.mfcLocked ? 'Locked' : 'Unlocked';
+  if (changed.has('mfcCompareGroup')) return b.mfcCompareGroup != null ? 'Linked for comparison' : 'Unlinked';
   if (changed.has('mfcPositionLocked')) return b.mfcPositionLocked ? 'Locked position of' : 'Unlocked position of';
   if (changed.has('display')) {
     const strip = d => { const { zMode, zIndex, tIndex, ...rest } = d || {}; return JSON.stringify(rest); };
