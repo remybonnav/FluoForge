@@ -1,0 +1,340 @@
+{
+  "report": "FluoForge figure report",
+  "reportVersion": 1,
+  "generator": "FluoForge {{version}}",
+  "figure": {
+    "name": "FluoForge reference figure",
+    "pages": 2,
+    "width": 1200,
+    "height": 800,
+    "unit": "px",
+    "dpi": 300,
+    "widthPx": 1200,
+    "heightPx": 800,
+    "widthMm": 101.6,
+    "heightMm": 67.73
+  },
+  "panels": [
+    {
+      "panel": 1,
+      "page": 1,
+      "inset": false,
+      "source": {
+        "fileName": "reference-cells.tif",
+        "sha256": "8be29c7f812b0bac9b7c6ef131df5f6e87336e425e9114623cc90bba897db6dc",
+        "format": "TIFF",
+        "width": 320,
+        "height": 240,
+        "channels": 3,
+        "sizeZ": 1,
+        "sizeT": 1,
+        "bitDepth": 16,
+        "sampleType": "unsigned integer"
+      },
+      "pixelSizeUm": 0.5,
+      "pixelSizeSource": "Entered in FluoForge",
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 240,
+        "wholeImage": true
+      },
+      "fieldOfViewUm": {
+        "width": 160,
+        "height": 120
+      },
+      "shapeMask": null,
+      "projection": null,
+      "channels": [
+        {
+          "channel": 1,
+          "name": "Ch 1",
+          "shown": true,
+          "lut": "grey",
+          "min": 0,
+          "max": 60000,
+          "gamma": 1,
+          "invert": false
+        },
+        {
+          "channel": 2,
+          "name": "Ch 2",
+          "shown": true,
+          "lut": "red",
+          "min": 0,
+          "max": 50000,
+          "gamma": 1,
+          "invert": false
+        },
+        {
+          "channel": 3,
+          "name": "Ch 3",
+          "shown": true,
+          "lut": "green",
+          "min": 0,
+          "max": 60000,
+          "gamma": 1,
+          "invert": false
+        }
+      ],
+      "brightness": 0,
+      "contrast": 0,
+      "rotationDeg": 0,
+      "flipped": false,
+      "printed": {
+        "widthMm": 40.64,
+        "heightMm": 30.48
+      },
+      "effectivePpi": {
+        "x": 200,
+        "y": 200
+      },
+      "exportedPx": {
+        "width": 320,
+        "height": 240
+      },
+      "belowDocumentDpi": true
+    },
+    {
+      "panel": 2,
+      "page": 1,
+      "inset": false,
+      "source": {
+        "fileName": "reference-raster.png",
+        "sha256": "aca445ff8a44eb3ec1daf6d5ea6cc9929be4ca56a857cbfc2583d55bc3f4febc",
+        "format": "Raster image",
+        "width": 160,
+        "height": 120,
+        "channels": 3,
+        "sizeZ": 1,
+        "sizeT": 1,
+        "bitDepth": 8,
+        "sampleType": "unsigned integer"
+      },
+      "pixelSizeUm": null,
+      "pixelSizeSource": null,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "width": 160,
+        "height": 120,
+        "wholeImage": true
+      },
+      "fieldOfViewUm": null,
+      "shapeMask": null,
+      "projection": null,
+      "channels": [
+        {
+          "channel": 1,
+          "name": "Red",
+          "shown": true,
+          "lut": "red",
+          "min": 0,
+          "max": 255,
+          "gamma": 1,
+          "invert": false
+        },
+        {
+          "channel": 2,
+          "name": "Green",
+          "shown": true,
+          "lut": "green",
+          "min": 0,
+          "max": 255,
+          "gamma": 1,
+          "invert": false
+        },
+        {
+          "channel": 3,
+          "name": "Blue",
+          "shown": true,
+          "lut": "blue",
+          "min": 0,
+          "max": 255,
+          "gamma": 1,
+          "invert": false
+        }
+      ],
+      "brightness": 0,
+      "contrast": 0,
+      "rotationDeg": -6,
+      "flipped": false,
+      "printed": {
+        "widthMm": 18.97,
+        "heightMm": 14.22
+      },
+      "effectivePpi": {
+        "x": 214.3,
+        "y": 214.3
+      },
+      "exportedPx": {
+        "width": 160,
+        "height": 120
+      },
+      "belowDocumentDpi": true
+    },
+    {
+      "panel": 3,
+      "page": 1,
+      "inset": true,
+      "source": {
+        "fileName": "reference-cells.tif",
+        "sha256": "8be29c7f812b0bac9b7c6ef131df5f6e87336e425e9114623cc90bba897db6dc",
+        "format": "TIFF",
+        "width": 320,
+        "height": 240,
+        "channels": 3,
+        "sizeZ": 1,
+        "sizeT": 1,
+        "bitDepth": 16,
+        "sampleType": "unsigned integer"
+      },
+      "pixelSizeUm": 0.5,
+      "pixelSizeSource": "Entered in FluoForge",
+      "crop": {
+        "x": 74.33,
+        "y": 47.67,
+        "width": 60,
+        "height": 46.67,
+        "wholeImage": false
+      },
+      "fieldOfViewUm": {
+        "width": 30,
+        "height": 23.333
+      },
+      "shapeMask": null,
+      "projection": null,
+      "channels": [
+        {
+          "channel": 1,
+          "name": "Ch 1",
+          "shown": true,
+          "lut": "grey",
+          "min": 0,
+          "max": 60000,
+          "gamma": 1,
+          "invert": false
+        },
+        {
+          "channel": 2,
+          "name": "Ch 2",
+          "shown": true,
+          "lut": "red",
+          "min": 0,
+          "max": 50000,
+          "gamma": 1,
+          "invert": false
+        },
+        {
+          "channel": 3,
+          "name": "Ch 3",
+          "shown": true,
+          "lut": "green",
+          "min": 0,
+          "max": 60000,
+          "gamma": 1,
+          "invert": false
+        }
+      ],
+      "brightness": 0,
+      "contrast": 0,
+      "rotationDeg": 0,
+      "flipped": false,
+      "printed": {
+        "widthMm": 20.32,
+        "heightMm": 15.8
+      },
+      "effectivePpi": {
+        "x": 75,
+        "y": 75
+      },
+      "exportedPx": {
+        "width": 60,
+        "height": 47
+      },
+      "belowDocumentDpi": true
+    },
+    {
+      "panel": 4,
+      "page": 1,
+      "inset": false,
+      "source": {
+        "fileName": "reference-cells.tif",
+        "sha256": "8be29c7f812b0bac9b7c6ef131df5f6e87336e425e9114623cc90bba897db6dc",
+        "format": "TIFF",
+        "width": 320,
+        "height": 240,
+        "channels": 3,
+        "sizeZ": 1,
+        "sizeT": 1,
+        "bitDepth": 16,
+        "sampleType": "unsigned integer"
+      },
+      "pixelSizeUm": 0.5,
+      "pixelSizeSource": "Entered in FluoForge",
+      "crop": {
+        "x": 31.5,
+        "y": 21.5,
+        "width": 180,
+        "height": 180,
+        "wholeImage": false
+      },
+      "fieldOfViewUm": {
+        "width": 90,
+        "height": 90
+      },
+      "shapeMask": "ellipse",
+      "projection": null,
+      "channels": [
+        {
+          "channel": 1,
+          "name": "Ch 1",
+          "shown": true,
+          "lut": "grey",
+          "min": 0,
+          "max": 60000,
+          "gamma": 1,
+          "invert": false
+        },
+        {
+          "channel": 2,
+          "name": "Ch 2",
+          "shown": true,
+          "lut": "red",
+          "min": 0,
+          "max": 50000,
+          "gamma": 1,
+          "invert": false
+        },
+        {
+          "channel": 3,
+          "name": "Ch 3",
+          "shown": true,
+          "lut": "green",
+          "min": 0,
+          "max": 60000,
+          "gamma": 1,
+          "invert": false
+        }
+      ],
+      "brightness": 0,
+      "contrast": 0,
+      "rotationDeg": 0,
+      "flipped": false,
+      "printed": {
+        "widthMm": 15.24,
+        "heightMm": 15.24
+      },
+      "effectivePpi": {
+        "x": 300,
+        "y": 300
+      },
+      "exportedPx": {
+        "width": 180,
+        "height": 180
+      },
+      "belowDocumentDpi": false
+    }
+  ]
+}

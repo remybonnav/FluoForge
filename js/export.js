@@ -8,6 +8,9 @@ const MFC_EXPORT = (() => {
   const STYLES = { normal: 'Regular', bold: 'Bold', italic: 'Italic', bolditalic: 'BoldItalic' };
   const fontBytes = new Map();
   let exporting = false;
+  // The figure report (an ES module) embedded in SVG and PDF exports.
+  const REPORT_URL = new URL('ui/figure-report.js', document.currentScript?.src || new URL('js/', document.baseURI)).href;
+  const reportModule = () => import(REPORT_URL);
   function download(blob, filename) {
     const url = URL.createObjectURL(blob), a = document.createElement('a');
     a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove();
@@ -161,7 +164,10 @@ const MFC_EXPORT = (() => {
         faces.push(`@font-face{font-family:'${family}';font-style:${style.includes('italic')?'italic':'normal'};font-weight:${style.includes('bold')?'700':'400'};src:url(data:font/ttf;base64,${data}) format('truetype');}`);
       }
       svg = svg.replace('<defs>', '<defs><style type="text/css"><![CDATA[' + faces.join('\n') + ']]></style>');
-      return { svg, width: size.width, height: size.height, dpi: state.docProps.dpi, fonts, imageDetails, page, pageCount };
+      // The figure report of this page (js/ui/figure-report.js), so the file carries its own provenance.
+      const reports = await reportModule(), report = reports.buildReport({ page });
+      svg = svg.replace('<defs>', '<metadata id="fluoforge-report">' + reports.toEmbeddedJSON(report) + '</metadata>\n<defs>');
+      return { svg, report, width: size.width, height: size.height, dpi: state.docProps.dpi, fonts, imageDetails, page, pageCount };
     } finally { canvas.dispose(); }
   }
   /** One PDF page per figure page. */
@@ -172,7 +178,12 @@ const MFC_EXPORT = (() => {
       const output = await buildSVG({ pdf: true, page });
       const widthPt = output.width / output.dpi * 72, heightPt = output.height / output.dpi * 72;
       const orientation = widthPt >= heightPt ? 'landscape' : 'portrait';
-      if (!pdf) pdf = new window.jspdf.jsPDF({ unit: 'pt', format: [widthPt,heightPt], orientation, compress: true, putOnlyUsedFonts: true });
+      if (!pdf) {
+        pdf = new window.jspdf.jsPDF({ unit: 'pt', format: [widthPt,heightPt], orientation, compress: true, putOnlyUsedFonts: true });
+        // Document properties: the figure report of every page as JSON in Subject (ASCII only).
+        pdf.setDocumentProperties({ title: MFC.getDocProps().name || 'Figure', creator: 'FluoForge ' + MFC.getAppVersion(),
+          subject: (await reportModule()).toEmbeddedJSON((await reportModule()).buildReport()), keywords: 'FluoForge figure report' });
+      }
       else pdf.addPage([widthPt,heightPt], orientation);
       for (const {family,style,text} of output.fonts) {
         const filename = FONTS[family] + '-' + STYLES[style] + '.ttf';

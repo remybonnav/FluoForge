@@ -54,6 +54,9 @@ async function compareSVG(actualText, expectedText) {
   const parse = text => {
     const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
     if (doc.querySelector('parsererror')) throw new Error('SVG does not parse');
+    // The figure report (P2-T6) is checked on its own (figure-report-regression); exports written
+    // before it have none.
+    doc.querySelectorAll('metadata#fluoforge-report').forEach(node => node.remove());
     const ids = new Map();
     doc.querySelectorAll('[id]').forEach((el, i) => ids.set(el.id, 'id' + i));
     return { root: doc.documentElement, ids };
@@ -94,12 +97,15 @@ async function compareSVG(actualText, expectedText) {
   return { elements, images };
 }
 
+/** The SVG without its embedded figure report (stored references were exported before P2-T6). */
+const stripFigureReport = svg => svg.replace(/<metadata id="fluoforge-report">[^<]*<\/metadata>\n/, '');
+
 /** Fabric numbers clip paths from one counter for the whole session (CLIPPATH_n, SVGID_n), so the same
     figure gets different ids depending on how many exports came before. Renumber them by order of
     appearance; every other byte must be identical. */
 function renumberFabricIds(svg) {
   const ids = new Map();
-  return svg.replace(/\b(?:CLIPPATH|SVGID)_\d+\b/g, id => { if (!ids.has(id)) ids.set(id, 'FABRICID_' + ids.size); return ids.get(id); });
+  return stripFigureReport(svg).replace(/\b(?:CLIPPATH|SVGID)_\d+\b/g, id => { if (!ids.has(id)) ids.set(id, 'FABRICID_' + ids.size); return ids.get(id); });
 }
 
 function decodeTiffRGBA(bytes) {
@@ -146,7 +152,7 @@ async function runReferenceCheck() {
   assert(`SVG export matches reference.svg structurally (${svg.elements} elements, ${svg.images} embedded images)`, svg.elements > 20 && svg.images >= 4);
   const exact = renumberFabricIds(out.svg), stored = renumberFabricIds(expectedSvg);
   let at = 0; while (at < exact.length && exact[at] === stored[at]) at++;
-  assert(exact === stored ? `SVG export is byte-identical to reference.svg (${exact.length} bytes, Fabric clip-path ids renumbered)`
+  assert(exact === stored ? `SVG export is byte-identical to reference.svg (${exact.length} bytes, Fabric clip-path ids renumbered, embedded figure report left out)`
     : `SVG export differs from reference.svg at byte ${at}: "${exact.slice(Math.max(0, at - 40), at + 40)}" expected "${stored.slice(Math.max(0, at - 40), at + 40)}"`, exact === stored);
 
   const actualTif = decodeTiffRGBA(out.tif), expectedTif = decodeTiffRGBA(await referenceBytes(base + 'reference.tif'));

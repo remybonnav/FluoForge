@@ -13,7 +13,8 @@
    Exits non-zero on any failure.
 
    Options: --browser=chromium|firefox   --suite=<name>   --skip-reference   --reference-only
-            --make-reference   rewrite tests/fixtures/reference.* (only for an intended export change) */
+            --make-reference   rewrite tests/fixtures/reference.* (only for an intended export change)
+            --make-report      rewrite tests/fixtures/reference-report.* (only for an intended report change) */
 import { createServer } from 'node:http';
 import { readFile, writeFile, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -98,6 +99,13 @@ async function referenceStep(origin, results) {
     await page.waitForFunction(() => document.getElementById('app-version')?.textContent);
     await injectScripts(page, ['node_modules/pdfjs-dist/build/pdf.min.js', 'tests/reference-figure.js', 'tests/reference-check.js']);
     await page.evaluate(() => { pdfjsLib.GlobalWorkerOptions.workerSrc = 'node_modules/pdfjs-dist/build/pdf.worker.min.js'; });
+    if (args['make-report']) {
+      await injectScripts(page, ['tests/figure-report-regression.js']);
+      const out = await page.evaluate(() => makeFigureReportOutputs());
+      for (const ext of ['json', 'md', 'csv']) await writeFile(join(ROOT, 'tests', 'fixtures', 'reference-report.' + ext), out[ext]);
+      console.log('Wrote tests/fixtures/reference-report.json, .md and .csv');
+      return log;
+    }
     if (args['make-reference']) {
       const out = await page.evaluate(() => makeReferenceOutputs());
       const dir = join(ROOT, 'tests', 'fixtures');
@@ -151,8 +159,9 @@ let exitCode = 0;
 try {
   generateFixtures();
   const results = [], logs = [];
-  if (!args['make-reference'] && !args.suite && !args['reference-only']) await nodeStep(results);
-  if (args['make-reference']) logs.push(await referenceStep(origin, results));
+  const making = args['make-reference'] || args['make-report'];
+  if (!making && !args.suite && !args['reference-only']) await nodeStep(results);
+  if (making) logs.push(await referenceStep(origin, results));
   else {
     const browsers = [chromium, firefox].filter(b => !args.browser || b.name() === args.browser);
     if (!args['reference-only']) for (const browserType of browsers) logs.push(await runSuites(browserType, origin, results));
@@ -161,7 +170,7 @@ try {
   const external = [...new Set(logs.flatMap(l => l.external))];
   const errors = [...new Set(logs.flatMap(l => l.errors))];
   const failed = results.filter(r => !r.pass);
-  if (!args['make-reference']) {
+  if (!making) {
     console.log(`\nSUMMARY: ${results.length - failed.length}/${results.length} suite runs passed, ${results.reduce((n, r) => n + r.checks, 0)} checks` +
       ` (${[...new Set(results.map(r => r.browser))].join(', ')})`);
     console.log(`Requests to other origins: ${external.length}` + external.map(u => '\n  ' + u).join(''));

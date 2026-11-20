@@ -303,6 +303,11 @@ body:not(.document-open) #side-panel>.panel{display:none;}
 .image-info-channels th{color:var(--text-dim);font-weight:600;}
 .image-info-header{margin:0;max-height:220px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:8px;font-size:12px;}
 .image-info-header:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.figure-report-modal{width:min(600px,92vw);max-height:86vh;overflow:auto;font-size:13px;line-height:1.45;color:var(--text);}
+.figure-report-modal label{display:block;font-weight:600;margin:10px 0 4px;}
+.figure-report-methods{box-sizing:border-box;width:100%;resize:vertical;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:8px;font:inherit;}
+.figure-report-methods:focus-visible,.figure-report-modal button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.figure-report-downloads{align-items:center;gap:6px;}
 .saving-modal{width:220px;display:flex;flex-direction:column;align-items:center;gap:14px;padding:28px 22px;}
 .saving-msg{margin:0;font-size:13px;color:var(--text);text-align:center;}
 .spinner{

@@ -4,10 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.11 (2026-11-20)
+
+- **Figure report (Methods and adjustments).** *Export ▸ Figure report…* lists every image panel: source file name and SHA-256, dimensions, bit depth and pixel size; crop in source pixels and shape mask; Z projection, slice and frame; each channel's LUT, display range, gamma and invert; brightness and contrast; printed size and effective resolution at the document DPI. Copy the ready-made Methods paragraph, or download the report as Markdown, CSV or JSON. SVG exports embed the report of their page in `<metadata>`, PDF exports the whole report in their *Subject* property.
 - The download link to the Fiji macro in import errors now works on the published site: the Pages workflow did not publish `tools/`.
 
 ### Development
 
+- `js/ui/figure-report.js` (`window.MFC_REPORT`: `buildReport`, `toJSON`, `toMarkdown`, `toCSV`, `methodsParagraph`, `toEmbeddedJSON`). The new `figure-report-regression` suite compares the reference project's report with `tests/fixtures/reference-report.json`, `.md` and `.csv`; `node tests/run-headless.mjs --make-report` rewrites them. The reference and compat SVG comparisons leave the embedded report out (stored exports predate it).
 - `release-regression` checks that the Pages workflow publishes the files the app links to.
 
 ## v0.1.10 (2026-11-20)

@@ -330,7 +330,7 @@ Every change is a step in the **History** panel, with a readable name and its ti
 
 ## 19. Exporting the figure
 
-**Export** offers three formats:
+**Export** offers three formats, and a [figure report](#figure-report-methods-and-adjustments):
 
 <img src="images/17-export.png" alt="Export menu with TIFF, SVG and PDF" width="560">
 
@@ -341,6 +341,21 @@ Every change is a step in the **History** panel, with a readable name and its ti
 | **PDF** | One PDF with one page per figure page; vectors stay vectors and the Liberation fonts are embedded. | Submission and sharing. |
 
 Images are always re-composited from the original channel data at full resolution, never from the screen preview. A panel printed smaller than its source is averaged down from the source pixels; a panel printed larger keeps its source resolution and is never enlarged. Dashed outlines keep their dash lengths in Inkscape and when resized. Export files are named after the project (characters that are not allowed in file names are replaced), and multi-page SVG/TIFF exports add `_page-1`, `_page-2`, … Objects on the pasteboard (outside a page) are not exported.
+
+### Figure report (Methods and adjustments)
+
+**Export ▸ Figure report…** lists, for every image panel on the pages (insets included, hidden objects and the pasteboard left out):
+
+- the source file: name, SHA-256 checksum (the same one the project uses to store it), format, dimensions, channels, Z slices, time frames, bit depth, and pixel size with where it came from;
+- the crop, in source pixels (and in µm when the pixel size is set), and the shape of a crop-to-shape mask;
+- the Z projection (maximum or mean of all slices, or the single slice) and the time frame;
+- every channel: name, whether it is shown, LUT, display minimum and maximum, gamma and invert;
+- brightness and contrast, rotation and flip;
+- the printed size in mm and the effective resolution: source pixels per printed inch, against the document DPI, and the size in pixels the export writes. A panel below the document DPI is flagged (exports never enlarge images, so such a panel prints with its own pixels).
+
+The dialog shows a **Methods paragraph** built only from these values: click **Copy paragraph** and paste it into your manuscript, then check it. **Markdown**, **CSV** (one row per channel of each panel, for a spreadsheet) and **JSON** download the full report as `<figure name>_report.md`, `.csv` or `.json`. The report contains no date, so the same figure always gives the same report.
+
+Exports carry the report with them: each **SVG** has the JSON of the panels on its page in a `<metadata id="fluoforge-report">` element, and a **PDF** has the JSON of the whole figure in its *Subject* document property (with the figure name as *Title* and FluoForge as *Creator*), so a figure file keeps its own provenance. File names in the report are as they were imported, so they can reveal how your files are named.
 
 ## 20. Themes
 
