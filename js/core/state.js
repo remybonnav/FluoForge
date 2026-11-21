@@ -7,7 +7,7 @@
 
 export let canvas;                       // fabric.Canvas
 export function setCanvas(c) { canvas = c; }
-export const MFC_VERSION = '0.1.14';
+export const MFC_VERSION = '0.1.15';
 export function getAppVersion() { return MFC_VERSION; }
 
 export let docProps = { name: 'Untitled Figure', width: 1748, height: 1240, unit: 'px', dpi: 300 }; // A4-ish default @300dpi

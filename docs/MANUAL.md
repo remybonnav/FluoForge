@@ -331,17 +331,40 @@ Every change is a step in the **History** panel, with a readable name and its ti
 
 ## 19. Exporting the figure
 
-**Export** offers three formats, and a [figure report](#figure-report-methods-and-adjustments):
+**Export** offers four formats, the **Export…** dialog, **Export panels (zip)** and a [figure report](#figure-report-methods-and-adjustments). The four format items export every page at the document resolution in one click.
 
-<img src="images/17-export.png" alt="Export menu with TIFF, SVG and PDF" width="560">
+<img src="images/17-export.png" alt="Export menu" width="560">
 
 | Format | What you get | Use it for |
 |---|---|---|
-| **TIFF (flattened RGB)** | One RGB image per page at the document DPI, with the DPI written in the file. | Journals that want raster figures; quick previews. |
+| **TIFF (flattened RGB)** | One RGB image per page, losslessly compressed (Deflate by default), with the DPI written in the file. | Journals that want raster figures. |
+| **PNG** | One image per page, with the DPI written in the file. | Slides, the web, quick previews. |
 | **SVG** | One file per page. Text, shapes, paths, arrows, scale bars and clip paths stay as vectors; each image is embedded (cropped) at the output resolution, never enlarged beyond its source pixels. | Final touches in Inkscape or Illustrator. |
 | **PDF** | One PDF with one page per figure page; vectors stay vectors and the Liberation fonts are embedded. | Submission and sharing. |
 
-Images are always re-composited from the original channel data at full resolution, never from the screen preview. A panel printed smaller than its source is averaged down from the source pixels; a panel printed larger keeps its source resolution and is never enlarged. Dashed outlines keep their dash lengths in Inkscape and when resized. Export files are named after the project (characters that are not allowed in file names are replaced), and multi-page SVG/TIFF exports add `_page-1`, `_page-2`, … Objects on the pasteboard (outside a page) are not exported.
+Images are always re-composited from the original channel data at full resolution, never from the screen preview. A panel printed smaller than its source is averaged down from the source pixels; a panel printed larger keeps its source resolution and is never enlarged. Dashed outlines keep their dash lengths in Inkscape and when resized. Export files are named after the project (characters that are not allowed in file names are replaced), and multi-page SVG, TIFF and PNG exports add `_page-1`, `_page-2`, … Objects on the pasteboard (outside a page) are not exported.
+
+### The Export dialog
+
+**Export ▸ Export…** sets everything before exporting, and shows the [figure check](#checking-the-figure-before-export) summary (it never blocks an export):
+
+- **Format**: TIFF, PNG, SVG or PDF.
+- **Pages**: all, the page you are looking at, or a list such as `1-3, 5`. PDF puts them in one file; the others write one file per page.
+- **Resolution (dpi)** for TIFF and PNG, from the document's. Above it, panels printed smaller than their source get more of their source pixels; no image is ever enlarged beyond its source.
+- **Transparent background** for TIFF (RGB with alpha), PNG and SVG: the empty page is left transparent instead of white.
+- **TIFF compression**: Deflate (smallest), LZW (for older software) or none. All three are lossless.
+- **Include the figure report**: also saves `<figure>_report.md` and `<figure>_report.json`.
+
+The dialog remembers your choices until you close the page.
+
+### Exporting the panels
+
+**Export ▸ Export panels (zip)** writes `<figure>_panels.zip` with, for every image panel on the pages:
+
+- `<letter>_merge.png`: the panel's crop at source resolution, as displayed (channels, LUTs, ranges, gamma, invert, brightness and contrast);
+- `<letter>_<channel>.png`: each shown channel alone in grey, through its own display range, gamma and invert.
+
+The letter is the one- or two-letter label (`A`, `b`, `(c)`) nearest the panel's top-left corner; panels without one are named `panel-1`, `panel-2`, … Each PNG records the pixel size when it is set. The zip also holds `figure-report.json` and a `README.txt` describing each file. Crop-to-shape masks are not applied to these PNGs.
 
 ### Figure report (Methods and adjustments)
 

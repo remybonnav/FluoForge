@@ -4,6 +4,17 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.15 (2026-11-21)
+
+- **Export dialog** (Export ▸ Export…): format, pages (all, current or a range such as `1-3, 5`), resolution for TIFF and PNG, transparent background, TIFF compression and the figure report, with the figure check summary.
+- **PNG export**, with its DPI in the file.
+- **Compressed TIFF.** TIFF exports are now losslessly compressed (Deflate by default, or LZW), several times smaller, with the same pixels and resolution tags.
+- **Export panels (zip)**: each image panel at source resolution as displayed, and each shown channel in grey, named from the panel letter and channel name, with the figure report and a README.
+
+### Development
+
+- `js/image/raster-encoders.js`: `encodeTIFF` (Deflate with pako, or LZW; horizontal predictor; RGB or RGBA), `pngWithPhys`, `readPhys`. `MFC_EXPORT` gains `buildPNG`, `parsePageRange`, `exportWith`, and `scale` and `transparent` options (the default SVG is unchanged). New `export-upgrades-regression` suite; the figure check's menu assertion follows the new menu.
+
 ## v0.1.14 (2026-11-21)
 
 - **Snapping fixed.** A dragged object now lands exactly on the edges and centre lines of the page and of the other objects. It used to measure the object where the drag started, so it stopped a few pixels off or did not snap at all. A dashed guide shows the edge it snapped to (on screen only); Alt still moves freely; hidden objects are no longer targets.

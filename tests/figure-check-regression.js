@@ -180,7 +180,7 @@ async function runFigureCheckRegressions() {
   const summary = document.getElementById('export-check-summary');
   assert('The Export menu shows the check summary above the formats, with a Review button; exporting is not blocked',
     !document.getElementById('export-menu').classList.contains('hidden') && /^Figure check: /.test(summary.querySelector('.export-check-text').textContent) &&
-    summary.nextElementSibling.dataset.export === 'tiff' && !summary.querySelector('#export-check-review').disabled &&
+    summary.nextElementSibling.dataset.export === 'dialog' && !summary.querySelector('#export-check-review').disabled &&
     [...document.querySelectorAll('#export-menu [data-export]')].every(b => !b.disabled), summary.textContent);
   document.getElementById('export-check-review').click(); await nextFrame();
   assert('Review closes the menu, opens the Check figure panel and focuses the first finding',

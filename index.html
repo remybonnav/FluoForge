@@ -15,7 +15,7 @@
 <link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#07090C">
-<link rel="stylesheet" href="style.css?v=0.1.14">
+<link rel="stylesheet" href="style.css?v=0.1.15">
 </head>
 <body>
 
@@ -70,9 +70,12 @@
     <button id="btn-export" data-requires-document title="Export">&#8681; Export</button>
     <div id="export-menu" class="dropdown hidden">
       <div id="export-check-summary" class="export-check-summary" role="status"><span class="export-check-text">Figure check</span> <button id="export-check-review" type="button" title="Open the Check figure panel to see the findings (export is never blocked)">Review</button></div>
-      <button data-export="tiff">Export TIFF (flattened RGB)</button>
-      <button data-export="svg">Export SVG</button>
-      <button data-export="pdf">Export PDF</button>
+      <button data-export="dialog" title="Choose the format, pages, resolution, transparent background, TIFF compression and whether to include the figure report">Export…</button>
+      <button data-export="tiff" title="Every page as a TIFF at the document resolution (Deflate-compressed)">Export TIFF (flattened RGB)</button>
+      <button data-export="png" title="Every page as a PNG at the document resolution">Export PNG</button>
+      <button data-export="svg" title="Every page as an SVG">Export SVG</button>
+      <button data-export="pdf" title="All pages in one PDF">Export PDF</button>
+      <button data-export="panels" title="A zip with each image panel at source resolution as displayed, and each shown channel in grey, named from the panel letter and channel name">Export panels (zip)…</button>
       <button data-export="report" title="Methods and adjustments: source files, crop, projection, channel display settings and effective resolution of every panel, as Markdown, CSV or JSON, with a Methods paragraph">Figure report…</button>
     </div>
   </div>
@@ -530,14 +533,14 @@
 <script src="assets/vendor/jszip.min.js"></script>
 
 <!-- ======================= APP ======================= -->
-<script src="js/debug.js?v=0.1.14"></script>
-<script src="js/errors.js?v=0.1.14"></script>
-<script src="js/tiff.js?v=0.1.14"></script>
-<script type="module" src="js/app.js?v=0.1.14"></script>
+<script src="js/debug.js?v=0.1.15"></script>
+<script src="js/errors.js?v=0.1.15"></script>
+<script src="js/tiff.js?v=0.1.15"></script>
+<script type="module" src="js/app.js?v=0.1.15"></script>
 <script defer src="assets/vendor/svg2pdf.umd.min.js"></script>
-<script defer src="js/project.js?v=0.1.14"></script>
-<script defer src="js/autosave.js?v=0.1.14"></script>
-<script defer src="js/export.js?v=0.1.14"></script>
-<script defer src="js/main.js?v=0.1.14"></script>
+<script defer src="js/project.js?v=0.1.15"></script>
+<script defer src="js/autosave.js?v=0.1.15"></script>
+<script defer src="js/export.js?v=0.1.15"></script>
+<script defer src="js/main.js?v=0.1.15"></script>
 </body>
 </html>

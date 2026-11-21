@@ -346,6 +346,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (b.dataset.export === 'tiff') MFC_EXPORT.exportTIFF();
     if (b.dataset.export === 'svg') MFC_EXPORT.exportSVG();
     if (b.dataset.export === 'pdf') MFC_EXPORT.exportPDF();
+    if (b.dataset.export === 'png') MFC_EXPORT.exportPNG();
+    if (b.dataset.export === 'dialog') import(new URL('js/ui/export-dialog.js', document.baseURI).href).then(m => m.showExportDialog());
+    if (b.dataset.export === 'panels') import(new URL('js/ui/export-panels.js', document.baseURI).href).then(m => m.exportPanels());
     if (b.dataset.export === 'report') import(new URL('js/ui/figure-report.js', document.baseURI).href).then(m => m.showReportDialog());
   }));
 

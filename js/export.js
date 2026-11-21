@@ -11,6 +11,9 @@ const MFC_EXPORT = (() => {
   // The figure report (an ES module) embedded in SVG and PDF exports.
   const REPORT_URL = new URL('ui/figure-report.js', document.currentScript?.src || new URL('js/', document.baseURI)).href;
   const reportModule = () => import(REPORT_URL);
+  // TIFF and PNG writers (an ES module): Deflate or LZW TIFF, PNG pHYs.
+  const ENCODERS_URL = new URL('image/raster-encoders.js', document.currentScript?.src || new URL('js/', document.baseURI)).href;
+  const encoders = () => import(ENCODERS_URL);
   function download(blob, filename) {
     const url = URL.createObjectURL(blob), a = document.createElement('a');
     a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove();
@@ -104,8 +107,10 @@ const MFC_EXPORT = (() => {
       return markup.join('');
     };
   }
-  /** Builds the SVG of one page (0-based). Only objects overlapping that page are included. */
-  async function buildSVG({ pdf = false, page = 0 } = {}) {
+  /** Builds the SVG of one page (0-based). Only objects overlapping that page are included.
+      scale > 1 composites the images with more pixels, for a raster export above the document DPI
+      (still never beyond their source pixels); transparent leaves out the white page background. */
+  async function buildSVG({ pdf = false, page = 0, scale = 1, transparent = false } = {}) {
     if (!MFC.hasDocument) throw new Error('Create or open a figure before exporting.');
     const state = MFC_PROJECT.captureState();
     const pageCount = MFC.pageCount(state.docProps);
@@ -114,7 +119,7 @@ const MFC_EXPORT = (() => {
     preflight(state.objects, pdf);
     const size = MFC.docPropsToPixels(state.docProps);
     if (size.width < 1 || size.height < 1 || !Number.isFinite(size.width + size.height)) throw new Error('Invalid document size.');
-    const registry = {}, canvas = new fabric.StaticCanvas(null, { width: size.width, height: size.height, backgroundColor: '#ffffff', renderOnAddRemove: false });
+    const registry = {}, canvas = new fabric.StaticCanvas(null, { width: size.width, height: size.height, backgroundColor: transparent ? null : '#ffffff', renderOnAddRemove: false });
     const imageDetails = [];
     try {
       for (const json of state.objects) {
@@ -140,8 +145,8 @@ const MFC_EXPORT = (() => {
         const matrix = image.calcTransformMatrix();
         // Document pixels are the requested output DPI. Groups, rotations and scaling
         // are included; no panel is enlarged beyond its original source resolution.
-        const outW = Math.max(1, Math.min(Math.ceil(region.width), Math.ceil(image.width * Math.hypot(matrix[0],matrix[1]))));
-        const outH = Math.max(1, Math.min(Math.ceil(region.height), Math.ceil(image.height * Math.hypot(matrix[2],matrix[3]))));
+        const outW = Math.max(1, Math.min(Math.ceil(region.width), Math.ceil(image.width * Math.hypot(matrix[0],matrix[1]) * scale)));
+        const outH = Math.max(1, Math.min(Math.ceil(region.height), Math.ceil(image.height * Math.hypot(matrix[2],matrix[3]) * scale)));
         // Recomposited from the source planes at the output size: area-averaged when the panel
         // is printed smaller than its source region, never enlarged beyond it.
         const raster = await MFC_TIFF.composite(raw, 1, region, outW, outH);
@@ -167,14 +172,15 @@ const MFC_EXPORT = (() => {
       // The figure report of this page (js/ui/figure-report.js), so the file carries its own provenance.
       const reports = await reportModule(), report = reports.buildReport({ page });
       svg = svg.replace('<defs>', '<metadata id="fluoforge-report">' + reports.toEmbeddedJSON(report) + '</metadata>\n<defs>');
-      return { svg, report, width: size.width, height: size.height, dpi: state.docProps.dpi, fonts, imageDetails, page, pageCount };
+      return { svg, report, width: size.width, height: size.height, dpi: state.docProps.dpi, fonts, imageDetails, page, pageCount, transparent };
     } finally { canvas.dispose(); }
   }
-  /** One PDF page per figure page. */
-  async function buildPDF() {
+  /** One PDF page per figure page (or per page of `pages`, 0-based). */
+  async function buildPDF({ pages = null } = {}) {
     let pdf = null, first = null;
     const registered = new Set(), pageCount = MFC.pageCount(MFC.getDocProps());
-    for (let page = 0; page < pageCount; page++) {
+    const list = pages || Array.from({ length: pageCount }, (_, i) => i);
+    for (const page of list) {
       const output = await buildSVG({ pdf: true, page });
       const widthPt = output.width / output.dpi * 72, heightPt = output.height / output.dpi * 72;
       const orientation = widthPt >= heightPt ? 'landscape' : 'portrait';
@@ -199,22 +205,50 @@ const MFC_EXPORT = (() => {
       await pdf.svg(svg, { x:0,y:0,width:widthPt,height:heightPt });
       if (!first) first = output;
     }
-    return { blob: pdf.output('blob'), ...first, pageCount };
+    return { blob: pdf.output('blob'), ...first, pageCount: list.length };
   }
-  async function renderSVG(output) {
+  /** Rasterises an SVG export at scale × its document size; transparent keeps the background clear. */
+  async function renderSVG(output, { scale = 1, transparent = false } = {}) {
     const url = URL.createObjectURL(new Blob([output.svg], { type:'image/svg+xml' }));
     try {
       const image = await new Promise((resolve,reject) => { const i = new Image(); i.onload=()=>resolve(i); i.onerror=()=>reject(new Error('SVG raster rendering failed')); i.src=url; });
-      const canvas = document.createElement('canvas'); canvas.width=output.width; canvas.height=output.height;
-      const ctx=canvas.getContext('2d'); ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0);
+      const canvas = document.createElement('canvas'); canvas.width=Math.round(output.width*scale); canvas.height=Math.round(output.height*scale);
+      const ctx=canvas.getContext('2d');
+      if (!transparent) { ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height); }
+      ctx.drawImage(image,0,0,canvas.width,canvas.height);
       return canvas;
     } finally { URL.revokeObjectURL(url); }
   }
-  async function buildTIFF({ page = 0 } = {}) {
-    const output = await buildSVG({ page }), canvas = await renderSVG(output);
-    const bytes = UTIF.encodeImage(canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height,
-      { t282:[output.dpi],t283:[output.dpi],t296:[2] });
-    return { blob:new Blob([bytes],{type:'image/tiff'}), ...output };
+  /** Raster options: dpi (default: the document's), transparent background. */
+  const rasterScale = dpi => { const docDpi = MFC.getDocProps().dpi; return dpi && dpi > 0 ? dpi / docDpi : 1; };
+  /** TIFF of one page: Deflate-compressed by default (or 'lzw' / 'none'), with the resolution tags. */
+  async function buildTIFF({ page = 0, dpi = null, transparent = false, compression = 'deflate' } = {}) {
+    const scale = rasterScale(dpi), output = await buildSVG({ page, scale, transparent }), canvas = await renderSVG(output, { scale, transparent });
+    const { encodeTIFF } = await encoders();
+    const bytes = encodeTIFF(canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data, canvas.width, canvas.height,
+      { dpi: output.dpi * scale, compression, alpha: transparent, software: 'FluoForge ' + MFC.getAppVersion() });
+    return { blob:new Blob([bytes],{type:'image/tiff'}), ...output, pixelWidth: canvas.width, pixelHeight: canvas.height, outputDpi: output.dpi * scale, compression };
+  }
+  /** PNG of one page, with its DPI in a pHYs chunk. */
+  async function buildPNG({ page = 0, dpi = null, transparent = false } = {}) {
+    const scale = rasterScale(dpi), output = await buildSVG({ page, scale, transparent }), canvas = await renderSVG(output, { scale, transparent });
+    const blob = await new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('PNG encoding failed')), 'image/png'));
+    const { pngWithPhys } = await encoders();
+    const bytes = pngWithPhys(new Uint8Array(await blob.arrayBuffer()), { dpi: output.dpi * scale });
+    return { blob: new Blob([bytes], { type: 'image/png' }), ...output, pixelWidth: canvas.width, pixelHeight: canvas.height, outputDpi: output.dpi * scale };
+  }
+  /** Pages from text such as "1-3, 5" (1-based) as sorted 0-based indices; throws on anything else. */
+  function parsePageRange(text, pageCount) {
+    const pages = new Set(), parts = String(text || '').split(',').map(p => p.trim()).filter(Boolean);
+    if (!parts.length) throw new Error('Enter the pages to export, for example 1-3, 5.');
+    for (const part of parts) {
+      const m = part.match(/^(\d+)(?:\s*-\s*(\d+))?$/);
+      if (!m) throw new Error('"' + part + '" is not a page or a range of pages.');
+      const a = Number(m[1]), b = m[2] ? Number(m[2]) : a;
+      if (a < 1 || b < a || b > pageCount) throw new Error('Pages ' + part + ' are not in this figure (it has ' + pageCount + ' page' + (pageCount > 1 ? 's' : '') + ').');
+      for (let p = a; p <= b; p++) pages.add(p - 1);
+    }
+    return [...pages].sort((x, y) => x - y);
   }
   /** Project name as a safe file name (invalid/control characters replaced), or a default. */
   function exportBaseName() {
@@ -222,27 +256,44 @@ const MFC_EXPORT = (() => {
       .replace(/\s+/g, ' ').trim().replace(/^[.\s]+|[.\s]+$/g, '');
     return (/^(con|prn|aux|nul|com\d|lpt\d)$/i.test(name) ? '_' + name : name).slice(0, 150) || 'figure_export';
   }
-  async function exportFile(kind) {
-    if (exporting) return; exporting=true; MFC_UI.showSavingDialog('Rendering '+kind.toUpperCase()+'…');
+  /** Exports with the export dialog's options: { format: 'tiff' | 'png' | 'svg' | 'pdf', pages (0-based,
+      default all), dpi (raster formats), transparent (TIFF, PNG, SVG), compression (TIFF), includeReport }.
+      Returns the list of files written. */
+  async function exportWith({ format, pages = null, dpi = null, transparent = false, compression = 'deflate', includeReport = false } = {}) {
+    if (exporting) return [];
+    if (!['tiff', 'png', 'svg', 'pdf'].includes(format)) throw new Error('Unknown export format: ' + format);
+    exporting = true; MFC_UI.showSavingDialog('Rendering ' + format.toUpperCase() + '…');
+    const written = [];
+    // Through MFC_EXPORT.download, which a test (or a host page) may replace.
+    const save = (blob, name) => { MFC_EXPORT.download(blob, name); written.push(name); };
     try {
-      if (kind === 'pdf') {
-        const output = await buildPDF();
-        download(output.blob, exportBaseName()+'.pdf');
-        MFC_UI.toast('PDF exported' + (output.pageCount > 1 ? ' (' + output.pageCount + ' pages).' : '.'));
+      const pageCount = MFC.pageCount(MFC.getDocProps()), list = pages || Array.from({ length: pageCount }, (_, i) => i);
+      const base = exportBaseName();
+      if (format === 'pdf') {
+        const output = await buildPDF({ pages: list });
+        save(output.blob, base + '.pdf');
       } else {
-        // SVG and TIFF are single-page formats: one file per page.
-        const pageCount = MFC.pageCount(MFC.getDocProps());
-        for (let page = 0; page < pageCount; page++) {
-          if (pageCount > 1) MFC_UI.showSavingDialog('Rendering '+kind.toUpperCase()+' page '+(page+1)+' of '+pageCount+'…');
-          const output = kind === 'tiff' ? await buildTIFF({ page }) : await buildSVG({ page });
-          download(output.blob || new Blob([output.svg],{type:'image/svg+xml'}),
-            exportBaseName() + (pageCount > 1 ? '_page-' + (page + 1) : '') + '.' + kind);
+        // SVG, TIFF and PNG are single-page formats: one file per page.
+        for (const page of list) {
+          if (list.length > 1) MFC_UI.showSavingDialog('Rendering ' + format.toUpperCase() + ' page ' + (page + 1) + ' (' + (list.indexOf(page) + 1) + ' of ' + list.length + ')…');
+          const output = format === 'tiff' ? await buildTIFF({ page, dpi, transparent, compression }) : format === 'png' ? await buildPNG({ page, dpi, transparent })
+            : await buildSVG({ page, transparent });
+          save(output.blob || new Blob([output.svg], { type: 'image/svg+xml' }), base + (pageCount > 1 ? '_page-' + (page + 1) : '') + '.' + format);
         }
-        MFC_UI.toast(kind.toUpperCase() + (pageCount > 1 ? ' exported: ' + pageCount + ' files, one per page.' : ' exported.'));
       }
-    } catch(error) { console.error(error); MFC_UI.toast(error.message); MFC_PROJECT.status(error.message); }
-    finally { exporting=false; MFC_UI.hideSavingDialog(); }
+      if (includeReport) {
+        const reports = await reportModule(), report = reports.buildReport();
+        save(new Blob([reports.toMarkdown(report)], { type: 'text/markdown' }), base + '_report.md');
+        save(new Blob([reports.toJSON(report)], { type: 'application/json' }), base + '_report.json');
+      }
+      const files = written.length;
+      MFC_UI.toast(format.toUpperCase() + ' exported' + (files > 1 ? ': ' + files + ' files.' : '.'));
+      return written;
+    } catch (error) { console.error(error); MFC_UI.toast(error.message); MFC_PROJECT.status(error.message); return written; }
+    finally { exporting = false; MFC_UI.hideSavingDialog(); }
   }
-  return { download, exportBaseName, buildSVG, buildPDF, buildTIFF, renderSVG,
-    exportPDF:()=>exportFile('pdf'), exportSVG:()=>exportFile('svg'), exportTIFF:()=>exportFile('tiff') };
+  /** One-click export from the menu: every page at the document DPI. */
+  const exportFile = kind => exportWith({ format: kind });
+  return { download, exportBaseName, buildSVG, buildPDF, buildTIFF, buildPNG, renderSVG, parsePageRange, exportWith,
+    exportPDF:()=>exportFile('pdf'), exportSVG:()=>exportFile('svg'), exportTIFF:()=>exportFile('tiff'), exportPNG:()=>exportFile('png') };
 })();
