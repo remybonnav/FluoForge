@@ -172,6 +172,7 @@ Each image is fitted into its cell without distortion. The headers and row label
 Use the **Select** tool (`V`). Click an object to select it; Shift+click or drag a rectangle to select several.
 
 - **Move**: drag the object, or nudge it with the arrow keys (1 px; Shift+arrow moves 10 px).
+- **Snapping**: while you drag, an object snaps to the edges and centre lines of the pages and of the other objects, and a dashed pink guide shows the edge it snapped to (on screen only, never exported). Hold Alt to move freely. Which edges snap (left, centre, right, top, middle, bottom), the snap distance and the guides are set in [Preferences](#preferences).
 - **Resize / rotate**: drag the handles. Hold Shift while rotating to snap to 45°.
 - **Exact values**: type **X**, **Y**, **W**, **H** and the rotation **∠** in the selection bar (page pixels). With **Ratio** ticked, the height follows the width. **↺ 90° / ↻ 90°** rotate by a quarter turn.
 - **Duplicate** (Ctrl+D), **Copy / Paste** (Ctrl+C / Ctrl+V), **Delete** (Delete or Backspace).
@@ -391,6 +392,21 @@ To dismiss a finding for this project, click **Dismiss…**, type why (for examp
 
 It is a view only. The figure, the project, undo and the exports do not change, and the choice is not remembered: FluoForge always starts in normal colours. While a preview is on, a badge over the canvas says so; click its **Normal** button (or choose Normal) to turn it off. The simulations use the matrices of Machado, Oliveira and Fernandes (2009) at full severity; grey-scale uses relative luminance (Rec. 709).
 
+### Preferences
+
+**Preferences** (the sliders button in the top bar, next to Open project, or Ctrl+,) opens a window above the canvas and the panels. Changes apply at once.
+
+| Section | Preference | Default |
+|---|---|---|
+| Snapping | Snap while dragging | On |
+| | Snap to the page; snap to other objects | On; on |
+| | Snap these edges: left, centre (the vertical centre line), right, top, middle (the horizontal centre line), bottom. Left, centre and right line up horizontally; top, middle and bottom vertically. Tick only *Top*, for example, to align tops and nothing else. | All |
+| | Snap distance, in pixels on screen (the same at every zoom) | 8 |
+| | Show snap guides | On |
+| Text | Default font, size (document px) and colour of new text boxes | Liberation Sans, 24, black |
+
+A preference is **global**: it is saved in this browser and used by every project. Tick **This project only** on a row to give the open project its own value: it overrides the global preference in this project only, is saved with the project and follows undo and redo, and the row shows the global value beside it. Untick it to go back to the global value. **Reset global preferences** sets every global value back to its default; values of the open project are kept.
+
 ## 21. Keyboard shortcuts
 
 | Keys | Action |
@@ -403,6 +419,8 @@ It is a view only. The figure, the project, undo and the exports do not change, 
 | `P` | Pen / Path tool |
 | `I` | Inset tool |
 | `+` / `-` | Zoom in / out (around the selection) |
+| Ctrl+, | Preferences |
+| Alt (while dragging) | Move without snapping |
 | `0` | Zoom to 100 % |
 | Shift+2 | Fit the selection in the view |
 | Ctrl + mouse wheel | Zoom around the selection or the cursor |

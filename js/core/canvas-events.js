@@ -7,7 +7,8 @@
 import { pushHistory } from './history.js';
 import { canvas, currentTool, documentOpen, isHelper, setCanvas, takeId } from './state.js';
 import { setZoom, zoomAnchor, zoomLevel } from './zoom.js';
-import { snapObjectPosition } from '../layout/snap.js';
+import { clearSnapGuides, drawSnapGuides, snapObjectPosition } from '../layout/snap.js';
+import { getPreference } from './preferences.js';
 import { cropAspectMode, cropRect, syncCropFieldsFromRect } from '../tools/crop.js';
 import { endInsetDrag, moveInsetDrag, placeFixedInsetContour, refreshInsetPanel, startInsetDrag, syncAttachments, syncInsetFromContour, updateInsetReadout } from '../tools/inset.js';
 import { beginPathPointer, endPathPointer, enterPathEdit, finishPathDrawing, insertPathNode, movePathPointer, pathDraft } from '../tools/path.js';
@@ -73,11 +74,14 @@ export function init() {
   });
   canvas.on('mouse:move', onCanvasMouseMove);
   canvas.on('mouse:up', onCanvasMouseUp);
+  canvas.on('mouse:up', clearSnapGuides);
+  canvas.on('after:render', opt => drawSnapGuides(opt && opt.ctx ? opt.ctx : canvas.getContext()));
   canvas.on('mouse:dblclick', onCanvasDoubleClick);
 
   canvas.on('object:moving', (e) => {
     if (!e.target || e.target === cropRect) return;
     if (!(e.e && e.e.altKey)) snapObjectPosition(e.target); // hold Alt to move freely without snapping
+    else clearSnapGuides();
     if (e.target.mfcType === 'mfcImage') { syncAttachments(e.target); }
     if (e.target.mfcType === 'insetContour') { syncInsetFromContour(e.target); updateInsetReadout(e.target); }
     if (e.target.type === 'activeSelection') {
@@ -141,9 +145,10 @@ export function onCanvasMouseDown(opt) {
     const p = canvas.getPointer(opt.e);
     const t = new fabric.Textbox('Text', {
       left: p.x, top: p.y, width: 200,
-      fontFamily: document.getElementById('text-font').value,
-      fontSize: parseInt(document.getElementById('text-size').value, 10),
-      fill: document.getElementById('text-color').value,
+      // Preferences → Text (a project can override them).
+      fontFamily: getPreference('text.fontFamily'),
+      fontSize: getPreference('text.fontSize'),
+      fill: getPreference('text.color'),
       textAlign: 'left'
     });
     t.mfcId = 'txt' + takeId();

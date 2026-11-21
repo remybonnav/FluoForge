@@ -4,6 +4,15 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.14 (2026-11-21)
+
+- **Snapping fixed.** A dragged object now lands exactly on the edges and centre lines of the page and of the other objects. It used to measure the object where the drag started, so it stopped a few pixels off or did not snap at all. A dashed guide shows the edge it snapped to (on screen only); Alt still moves freely; hidden objects are no longer targets.
+- **Preferences** (top bar, or Ctrl+,): a window above the canvas and the panels. Snapping: on or off, to the page, to other objects, which edges (left, centre, right, top, middle, bottom), distance and guides. Text: default font, size and colour of new text boxes. Each preference is global (saved in this browser) unless *This project only* is ticked, which gives the open project its own value, saved with it and undoable.
+
+### Development
+
+- `js/core/preferences.js`: a registry of preferences (one entry each: key, section, label, type, default, limits, help), checked values, project value > global value > default, change events, unknown keys kept. The dialog (`js/ui/preferences-dialog.js`) builds its rows from it. Project values are an optional `docProps.preferences` (no schema change). `js/layout/snap.js`: pure `computeSnap`, live bounding boxes, guides drawn in `after:render`. New suites `snapping-regression` and `preferences-regression`.
+
 ## v0.1.13 (2026-11-21)
 
 - **Colour-vision and grey-scale preview.** **Vision** in the top bar shows the canvas as seen with deuteranopia, protanopia or tritanopia, or in grey-scale. It is view only: the figure, the project, undo and exports do not change, and a badge over the canvas says when a preview is on.
