@@ -34,6 +34,7 @@ body{font:14px system-ui;background:#eef0f5;color:#172031;margin:16px}button{pad
 <button data-suite="snapping-regression">Snapping</button>
 <button data-suite="preferences-regression">Preferences</button>
 <button data-suite="export-upgrades-regression">Export upgrades</button>
+<button data-suite="copy-external-regression">Copy for other software</button>
 <pre id="result" role="status">Choose a suite. Each run uses a fresh test frame and isolated recovery storage.</pre>
 <div id="frame"></div>
 <script>
@@ -45,7 +46,7 @@ const suites={ 'dev-interface-regression':'runDevInterfaceRegressions', 'path-re
   'image-info-regression':'runImageInfoRegressions', 'compat-regression':'runCompatRegressions',
   'errors-storage-regression':'runErrorsStorageRegressions', 'compositor-regression':'runCompositorRegressions',
   'lut-calibration-regression':'runLutCalibrationRegressions', 'histogram-display-regression':'runHistogramDisplayRegressions', 'comparison-regression':'runComparisonRegressions',
-  'file-formats-regression':'runFileFormatsRegressions', 'figure-report-regression':'runFigureReportRegressions', 'figure-check-regression':'runFigureCheckRegressions', 'vision-preview-regression':'runVisionPreviewRegressions', 'snapping-regression':'runSnappingRegressions', 'preferences-regression':'runPreferencesRegressions', 'export-upgrades-regression':'runExportUpgradesRegressions' };
+  'file-formats-regression':'runFileFormatsRegressions', 'figure-report-regression':'runFigureReportRegressions', 'figure-check-regression':'runFigureCheckRegressions', 'vision-preview-regression':'runVisionPreviewRegressions', 'snapping-regression':'runSnappingRegressions', 'preferences-regression':'runPreferencesRegressions', 'export-upgrades-regression':'runExportUpgradesRegressions', 'copy-external-regression':'runCopyExternalRegressions' };
 document.querySelectorAll('button').forEach(button=>button.onclick=async()=>{
   const result=document.getElementById('result'); result.textContent='Running '+button.dataset.suite+'…';
   const frame=document.createElement('iframe');frame.src='../?test=regression-'+Date.now();document.getElementById('frame').replaceChildren(frame);

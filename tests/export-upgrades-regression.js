@@ -115,8 +115,8 @@ async function runExportUpgradesRegressions() {
   // ---- Dialog ----
   document.getElementById('btn-export').click();
   const menu = document.getElementById('export-menu');
-  assert('The Export menu has Export…, TIFF, PNG, SVG, PDF, Export panels and Figure report, all with titles',
-    [...menu.querySelectorAll('[data-export]')].map(b => b.dataset.export).join() === 'dialog,tiff,png,svg,pdf,panels,report' && [...menu.querySelectorAll('[data-export]')].every(b => b.title.length > 10));
+  assert('The Export menu has Export…, TIFF, PNG, SVG, PDF, Copy for other software, Export panels and Figure report, all with titles',
+    [...menu.querySelectorAll('[data-export]')].map(b => b.dataset.export).join() === 'dialog,tiff,png,svg,pdf,copy,panels,report' && [...menu.querySelectorAll('[data-export]')].every(b => b.title.length > 10));
   menu.querySelector('[data-export="dialog"]').click();
   for (let i = 0; i < 50 && !document.querySelector('.export-modal'); i++) await new Promise(r => setTimeout(r, 10));
   await nextExportFrame();

@@ -49,6 +49,7 @@ import './ui/vision-preview.js'; // the Vision selector in the top bar (view-onl
 import './ui/preferences-dialog.js'; // the Preferences dialog (top bar, Ctrl+,)
 import './ui/export-dialog.js'; // Export ▸ Export… (js/main.js imports it on demand)
 import './ui/export-panels.js'; // Export ▸ Export panels (zip)
+import './ui/copy-external.js'; // Export ▸ Copy for other software (Ctrl+Shift+C)
 import { groupSelection, refreshLayersPanel, setAllLayersVisible, toggleLayerLock, toggleLayerPositionLock, toggleLayerVisibility, ungroupSelection } from './ui/layers.js';
 import { applyLockState, isTransformLocked, setPositionLock, togglePositionLockSelection } from './ui/locks.js';
 import { applyObjectPositionFromFields, applyObjectSizeFromFields, refreshObjectSizePanel, refreshSelectionBar, rotateSelected, selectedObjects, setObjectAngle, uncropImage } from './ui/selection-bar.js';

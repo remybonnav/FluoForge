@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.16 (2026-11-21)
+
+- **Copy for other software** (Export ▸ Copy for other software…, Ctrl+Shift+C): copies the page or the selection (cropped to it) to the clipboard as an SVG picture, a PNG at the chosen resolution, both, or SVG code, to paste into PowerPoint, Word, Keynote, Inkscape, Illustrator or Figma. Rendered from the source data like an export. Browsers without SVG on the clipboard (Firefox) copy the SVG code or the PNG instead and say so.
+
+### Development
+
+- `js/ui/copy-external.js` (`copyFigure`, `showCopyDialog`); `MFC_EXPORT.buildSVG` and `buildPNG` take `bounds` and `only` to draw a selection cropped to its box (page exports unchanged). New `copy-external-regression` suite (the clipboard is replaced by a recorder); the export menu assertion of `export-upgrades-regression` includes the new item.
+
 ## v0.1.15 (2026-11-21)
 
 - **Export dialog** (Export ▸ Export…): format, pages (all, current or a range such as `1-3, 5`), resolution for TIFF and PNG, transparent background, TIFF compression and the figure report, with the figure check summary.

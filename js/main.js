@@ -348,6 +348,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (b.dataset.export === 'pdf') MFC_EXPORT.exportPDF();
     if (b.dataset.export === 'png') MFC_EXPORT.exportPNG();
     if (b.dataset.export === 'dialog') import(new URL('js/ui/export-dialog.js', document.baseURI).href).then(m => m.showExportDialog());
+    if (b.dataset.export === 'copy') import(new URL('js/ui/copy-external.js', document.baseURI).href).then(m => m.showCopyDialog());
     if (b.dataset.export === 'panels') import(new URL('js/ui/export-panels.js', document.baseURI).href).then(m => m.exportPanels());
     if (b.dataset.export === 'report') import(new URL('js/ui/figure-report.js', document.baseURI).href).then(m => m.showReportDialog());
   }));
@@ -589,6 +590,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (ctrl && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); MFC.undo(); }
     else if (ctrl && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) { e.preventDefault(); MFC.redo(); }
     else if (ctrl && e.key.toLowerCase() === 'd') { e.preventDefault(); MFC.duplicateSelection(); }
+    else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'c') { e.preventDefault(); import(new URL('js/ui/copy-external.js', document.baseURI).href).then(m => m.showCopyDialog()); }
     else if (ctrl && e.key.toLowerCase() === 'c') { MFC.copySelection(); }
     else if (ctrl && e.key.toLowerCase() === 'v') { MFC.pasteSelection(); }
     else if (ctrl && e.key.toLowerCase() === 'g' && e.shiftKey) { e.preventDefault(); MFC.ungroupSelection(); }

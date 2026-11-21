@@ -109,15 +109,18 @@ const MFC_EXPORT = (() => {
   }
   /** Builds the SVG of one page (0-based). Only objects overlapping that page are included.
       scale > 1 composites the images with more pixels, for a raster export above the document DPI
-      (still never beyond their source pixels); transparent leaves out the white page background. */
-  async function buildSVG({ pdf = false, page = 0, scale = 1, transparent = false } = {}) {
+      (still never beyond their source pixels); transparent leaves out the white page background.
+      With `bounds` (document px) and `only` (top-level mfcIds), it draws just those objects, cropped to
+      that box instead of a page: used to copy a selection to other software. */
+  async function buildSVG({ pdf = false, page = 0, scale = 1, transparent = false, bounds: area = null, only = null } = {}) {
     if (!MFC.hasDocument) throw new Error('Create or open a figure before exporting.');
     const state = MFC_PROJECT.captureState();
+    if (only) state.objects = state.objects.filter(json => only.has(json.mfcId));
     const pageCount = MFC.pageCount(state.docProps);
-    if (!(page >= 0 && page < pageCount)) throw new Error('There is no page ' + (page + 1) + '.');
-    const bounds = MFC.pageBounds(page, state.docProps);
+    if (!area && !(page >= 0 && page < pageCount)) throw new Error('There is no page ' + (page + 1) + '.');
+    const bounds = area || MFC.pageBounds(page, state.docProps);
     preflight(state.objects, pdf);
-    const size = MFC.docPropsToPixels(state.docProps);
+    const size = area ? { width: Math.max(1, Math.ceil(area.width)), height: Math.max(1, Math.ceil(area.height)) } : MFC.docPropsToPixels(state.docProps);
     if (size.width < 1 || size.height < 1 || !Number.isFinite(size.width + size.height)) throw new Error('Invalid document size.');
     const registry = {}, canvas = new fabric.StaticCanvas(null, { width: size.width, height: size.height, backgroundColor: transparent ? null : '#ffffff', renderOnAddRemove: false });
     const imageDetails = [];
@@ -170,8 +173,9 @@ const MFC_EXPORT = (() => {
       }
       svg = svg.replace('<defs>', '<defs><style type="text/css"><![CDATA[' + faces.join('\n') + ']]></style>');
       // The figure report of this page (js/ui/figure-report.js), so the file carries its own provenance.
-      const reports = await reportModule(), report = reports.buildReport({ page });
-      svg = svg.replace('<defs>', '<metadata id="fluoforge-report">' + reports.toEmbeddedJSON(report) + '</metadata>\n<defs>');
+      // (Not for a selection copied to other software: the report describes whole pages.)
+      const reports = await reportModule(), report = area ? null : reports.buildReport({ page });
+      if (report) svg = svg.replace('<defs>', '<metadata id="fluoforge-report">' + reports.toEmbeddedJSON(report) + '</metadata>\n<defs>');
       return { svg, report, width: size.width, height: size.height, dpi: state.docProps.dpi, fonts, imageDetails, page, pageCount, transparent };
     } finally { canvas.dispose(); }
   }
@@ -230,8 +234,8 @@ const MFC_EXPORT = (() => {
     return { blob:new Blob([bytes],{type:'image/tiff'}), ...output, pixelWidth: canvas.width, pixelHeight: canvas.height, outputDpi: output.dpi * scale, compression };
   }
   /** PNG of one page, with its DPI in a pHYs chunk. */
-  async function buildPNG({ page = 0, dpi = null, transparent = false } = {}) {
-    const scale = rasterScale(dpi), output = await buildSVG({ page, scale, transparent }), canvas = await renderSVG(output, { scale, transparent });
+  async function buildPNG({ page = 0, dpi = null, transparent = false, bounds = null, only = null } = {}) {
+    const scale = rasterScale(dpi), output = await buildSVG({ page, scale, transparent, bounds, only }), canvas = await renderSVG(output, { scale, transparent });
     const blob = await new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('PNG encoding failed')), 'image/png'));
     const { pngWithPhys } = await encoders();
     const bytes = pngWithPhys(new Uint8Array(await blob.arrayBuffer()), { dpi: output.dpi * scale });

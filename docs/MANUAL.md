@@ -366,6 +366,20 @@ The dialog remembers your choices until you close the page.
 
 The letter is the one- or two-letter label (`A`, `b`, `(c)`) nearest the panel's top-left corner; panels without one are named `panel-1`, `panel-2`, … Each PNG records the pixel size when it is set. The zip also holds `figure-report.json` and a `README.txt` describing each file. Crop-to-shape masks are not applied to these PNGs.
 
+### Copying to other software
+
+**Export ▸ Copy for other software…** (Ctrl+Shift+C) puts the figure on the clipboard, rendered from the source data like an export, to paste into PowerPoint, Word, Keynote, Inkscape, Illustrator, Figma or an e-mail with Ctrl+V.
+
+- **What**: the page you are looking at, or the selected objects, cropped to their box (chosen when something is selected).
+- **As**:
+  - **Vector picture (SVG)**: stays sharp at any size, for PowerPoint, Word, Keynote, Inkscape and Illustrator.
+  - **Bitmap (PNG)**: pixels at the resolution you choose (the document's by default), for any program.
+  - **Both**: SVG and PNG together; each program pastes the one it reads. The default.
+  - **SVG code (text)**: the SVG source, which Figma, Inkscape and Illustrator paste as editable vectors.
+- **Transparent background**: leave the background clear instead of white.
+
+Browsers allow copying pictures only on `https://` and `localhost` pages, so a FluoForge opened as a file (`file://`) cannot copy: use Export there. Firefox cannot put SVG pictures on the clipboard; it copies the SVG code instead (and, for **Both**, the PNG). When an SVG picture is copied, the browser removes its embedded fonts: the text keeps its font name, and the other program uses that font if it is installed on the computer (install the Liberation fonts, or paste the PNG, for an exact look).
+
 ### Figure report (Methods and adjustments)
 
 **Export ▸ Figure report…** lists, for every image panel on the pages (insets included, hidden objects and the pasteboard left out):
@@ -443,6 +457,7 @@ A preference is **global**: it is saved in this browser and used by every projec
 | `I` | Inset tool |
 | `+` / `-` | Zoom in / out (around the selection) |
 | Ctrl+, | Preferences |
+| Ctrl+Shift+C | Copy for other software |
 | Alt (while dragging) | Move without snapping |
 | `0` | Zoom to 100 % |
 | Shift+2 | Fit the selection in the view |
