@@ -225,8 +225,8 @@ async function runHistogramDisplayRegressions() {
   canvas.upperCanvasEl.dispatchEvent(ev);
   let menu = document.querySelector('.context-menu');
   const items = () => [...menu.querySelectorAll('.context-item')];
-  assert('Right-clicking an image selects it and opens a menu with Copy and Paste display settings, instead of the browser\'s menu',
-    ev.defaultPrevented && menu && canvas.getActiveObject() === t2 && items().map(b => b.textContent).join() === 'Copy display settings,Paste display settings' &&
+  assert('Right-clicking an image selects it and opens a menu with Copy and Paste display settings (and Copy for other software), instead of the browser\'s menu',
+    ev.defaultPrevented && menu && canvas.getActiveObject() === t2 && items().map(b => b.textContent).join() === 'Copy display settings,Paste display settings,Copy for other software…' &&
     items().every(b => b.getAttribute('role') === 'menuitem' && b.title) && menu.getAttribute('role') === 'menu',
     [ev.defaultPrevented, !!menu, canvas.getActiveObject() && canvas.getActiveObject().mfcFileName].join());
   assert('The first item has the focus; the menu is inside the window', document.activeElement === items()[0] &&

@@ -96,12 +96,14 @@ function el(tag, className, text) {
 }
 const describe = types => types.map(t => ({ 'image/svg+xml': 'SVG picture', 'image/png': 'PNG', 'text/plain': 'SVG code' })[t] || t).join(' and ');
 
-/** Opens the dialog. */
-export function showCopyDialog() {
+/** Opens the dialog. options: { scope: 'page' | 'selection', page } choose what it starts with
+    (default: the selection when there is one, and the page in view). */
+export function showCopyDialog({ scope = null, page: chosenPage = null } = {}) {
   if (document.querySelector('.copy-backdrop')) return;
   if (!MFC.hasDocument) { MFC_UI.toast('Create or open a figure first.'); return; }
-  const opener = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.getElementById('btn-export');
-  const selection = selectionArea(), page = visiblePage();
+  const opener = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.getElementById('btn-copy-external');
+  const selection = selectionArea(), page = Number.isInteger(chosenPage) ? chosenPage : visiblePage();
+  const startWith = scope === 'page' || !selection ? 'page' : 'selection';
   const backdrop = el('div', 'modal-backdrop copy-backdrop'), dialog = el('form', 'modal copy-modal');
   dialog.noValidate = true;
   dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-labelledby', 'copy-title');
@@ -112,7 +114,7 @@ export function showCopyDialog() {
   scopeBox.title = 'Copy the page you are looking at, or only the selected objects (cropped to them)';
   for (const [value, text, disabled] of [['page', `Page ${page + 1}`, false], ['selection', selection ? `Selection (${selection.count} object${selection.count > 1 ? 's' : ''})` : 'Selection (nothing selected)', !selection]]) {
     const label = el('label'), radio = el('input'); radio.type = 'radio'; radio.name = 'copy-scope'; radio.value = value; radio.id = 'copy-scope-' + value; radio.disabled = disabled;
-    radio.checked = value === (selection ? 'selection' : 'page'); // with a selection, copying it is the likely intent
+    radio.checked = value === startWith; // with a selection, copying it is the likely intent
     label.append(radio, document.createTextNode(' ' + text)); scopeBox.append(label);
   }
   const formatBox = el('fieldset', 'copy-choices copy-formats'); formatBox.append(el('legend', null, 'As'));
@@ -165,3 +167,5 @@ export function showCopyDialog() {
   ok.focus();
   if (document.activeElement !== ok) requestAnimationFrame(() => { if (backdrop.isConnected) ok.focus(); });
 }
+
+document.getElementById('btn-copy-external')?.addEventListener('click', () => showCopyDialog());

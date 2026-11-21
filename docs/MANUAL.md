@@ -368,9 +368,9 @@ The letter is the one- or two-letter label (`A`, `b`, `(c)`) nearest the panel's
 
 ### Copying to other software
 
-**Export ▸ Copy for other software…** (Ctrl+Shift+C) puts the figure on the clipboard, rendered from the source data like an export, to paste into PowerPoint, Word, Keynote, Inkscape, Illustrator, Figma or an e-mail with Ctrl+V.
+**Copy out** (top bar, next to Export), **Export ▸ Copy for other software…**, the right-click menu or Ctrl+Shift+C put the figure on the clipboard, rendered from the source data like an export, to paste into PowerPoint, Word, Keynote, Inkscape, Illustrator, Figma or an e-mail with Ctrl+V.
 
-- **What**: the page you are looking at, or the selected objects, cropped to their box (chosen when something is selected).
+- **What**: the page you are looking at, or the selected objects, cropped to their box (chosen when something is selected). Right-click an object for **Copy for other software…** on the selection, or an empty part of a page to copy that page; the Menu key and Shift+F10 open the same menu.
 - **As**:
   - **Vector picture (SVG)**: stays sharp at any size, for PowerPoint, Word, Keynote, Inkscape and Illustrator.
   - **Bitmap (PNG)**: pixels at the resolution you choose (the document's by default), for any program.

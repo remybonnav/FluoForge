@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.17 (2026-11-21)
+
+- **Copy out button and right-click menu.** Copy for other software has its own button in the top bar (next to Export) and an item in the right-click menu: on an image after its display settings, on any other object (it is selected and copied), and on an empty part of a page (that page is copied). The menu also opens with the Menu key or Shift+F10. The pasteboard keeps the browser's own menu.
+
+### Development
+
+- `openImageMenu(x, y, copy)` builds the canvas menu for images, other objects and the page; `showCopyDialog({ scope, page })` takes what to start with. New `copy-entry-points-regression` suite; `histogram-display-regression` expects the new menu item.
+
 ## v0.1.16 (2026-11-21)
 
 - **Copy for other software** (Export ▸ Copy for other software…, Ctrl+Shift+C): copies the page or the selection (cropped to it) to the clipboard as an SVG picture, a PNG at the chosen resolution, both, or SVG code, to paste into PowerPoint, Word, Keynote, Inkscape, Illustrator or Figma. Rendered from the source data like an export. Browsers without SVG on the clipboard (Firefox) copy the SVG code or the PNG instead and say so.

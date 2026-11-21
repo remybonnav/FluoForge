@@ -8,10 +8,12 @@
    extra channels on either side are left as they are. One paste is one History step.
    The copied settings live in memory only, for this tab. */
 
-import { canvas, registry } from '../core/state.js';
+import { canvas, isHelper, registry } from '../core/state.js';
 import { commitImages, refreshChannelPanel, selectedImages } from './channels.js';
 import { FILE_LUT } from './luts.js';
 import { groupOf, linkImages, unlinkImages } from './comparison.js';
+import { showCopyDialog } from '../ui/copy-external.js';
+import { pageIndexForBox } from '../core/pages.js';
 
 let copied = null;
 
@@ -84,7 +86,8 @@ export function refreshDisplayButtons() {
     : 'Paste display settings: copy them from an image first';
 }
 
-// ---- context menu (right click on an image, or the Menu key / Shift+F10 with an image selected) ----
+// ---- context menu (right click on the canvas, or the Menu key / Shift+F10) ----
+// Images get their display-settings items; every object and the empty page get "Copy for other software".
 let menu = null, menuReturn = null;
 export function closeImageMenu(restoreFocus = true) {
   if (!menu) return;
@@ -95,16 +98,18 @@ export function closeImageMenu(restoreFocus = true) {
 }
 const outside = event => { if (menu && !menu.contains(event.target)) closeImageMenu(false); };
 
-/** Opens the image context menu at client coordinates (x, y). */
-export function openImageMenu(x, y) {
+/** Opens the canvas context menu at client coordinates (x, y). With images selected it starts with
+    their display-settings items. copy: what "Copy for other software" copies, { scope, page }
+    (default: the selection if there is one, else the page in view). */
+export function openImageMenu(x, y, copy = null) {
   closeImageMenu(false);
   const images = selectedImages();
-  if (!images.length) return null;
+  if (!images.length && !copy) return null;
   menuReturn = document.activeElement;
   menu = document.createElement('div');
   menu.className = 'context-menu';
   menu.setAttribute('role', 'menu');
-  menu.setAttribute('aria-label', 'Image');
+  menu.setAttribute('aria-label', images.length ? 'Image' : 'Figure');
   const item = (label, title, enabled, run) => {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'context-item'; b.setAttribute('role', 'menuitem');
@@ -112,8 +117,14 @@ export function openImageMenu(x, y) {
     b.addEventListener('click', () => { closeImageMenu(); run(); });
     menu.append(b);
   };
-  item('Copy display settings', 'Copy the LUTs, ranges, gamma and invert of this image\'s channels, and its brightness and contrast', images.length === 1, () => copyDisplaySettings(images));
-  item('Paste display settings', copied ? 'Paste the copied display settings, channel by number (one undo step)' : 'Copy display settings from an image first', !!copied, () => pasteDisplaySettings(images));
+  if (images.length) {
+    item('Copy display settings', 'Copy the LUTs, ranges, gamma and invert of this image\'s channels, and its brightness and contrast', images.length === 1, () => copyDisplaySettings(images));
+    item('Paste display settings', copied ? 'Paste the copied display settings, channel by number (one undo step)' : 'Copy display settings from an image first', !!copied, () => pasteDisplaySettings(images));
+    const line = document.createElement('div'); line.className = 'context-separator'; line.setAttribute('role', 'separator'); menu.append(line);
+  }
+  const target = copy || (canvas.getActiveObject() ? { scope: 'selection' } : { scope: 'page' });
+  item('Copy for other software…', 'Copy ' + (target.scope === 'selection' ? 'the selection' : 'page ' + ((target.page ?? 0) + 1)) +
+    ' to the clipboard as an SVG picture, a PNG or SVG code, to paste into PowerPoint, Word, Inkscape, Illustrator or Figma (Ctrl+Shift+C)', true, () => showCopyDialog(target));
   menu.addEventListener('keydown', event => {
     const items = [...menu.querySelectorAll('.context-item:not(:disabled)')];
     const at = items.indexOf(document.activeElement);
@@ -140,13 +151,20 @@ export function installImageMenu() {
   if (!upper || upper.__mfcImageMenu) return;
   upper.__mfcImageMenu = true;
   upper.addEventListener('contextmenu', event => {
+    if (!MFC.hasDocument) return;
     const target = canvas.findTarget(event, false);
-    const hit = target && (target.mfcType === 'mfcImage' ? target
-      : target.type === 'activeSelection' && target.getObjects().some(o => o.mfcType === 'mfcImage') ? target : null);
-    if (!hit || !(hit.type === 'activeSelection' || registry[hit.mfcId])) return; // the browser's own menu elsewhere
+    const hit = target && !isHelper(target) && (target.type === 'activeSelection' || target.mfcId) && !target.mfcLocked && target.visible !== false ? target : null;
+    const p = canvas.getPointer(event), page = pageIndexForBox({ left: p.x, top: p.y, width: 1, height: 1 });
+    if (!hit && page < 0) return; // the pasteboard keeps the browser's own menu
     event.preventDefault();
-    if (hit !== canvas.getActiveObject()) { canvas.setActiveObject(hit); canvas.requestRenderAll(); }
-    openImageMenu(event.clientX, event.clientY);
+    if (hit) {
+      if (hit !== canvas.getActiveObject()) { canvas.setActiveObject(hit); canvas.requestRenderAll(); }
+      openImageMenu(event.clientX, event.clientY, { scope: 'selection' });
+      return;
+    }
+    // The empty page: copy the page under the pointer.
+    canvas.discardActiveObject(); canvas.requestRenderAll();
+    openImageMenu(event.clientX, event.clientY, { scope: 'page', page });
   });
 }
 
@@ -154,11 +172,13 @@ window.addEventListener('keydown', event => {
   if (!(event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))) return;
   const tag = (document.activeElement && document.activeElement.tagName) || '';
   if (['INPUT', 'SELECT', 'TEXTAREA'].includes(tag) || document.querySelector('.modal-backdrop')) return;
-  if (!MFC.hasDocument || !selectedImages().length) return;
+  if (!MFC.hasDocument) return;
   event.preventDefault();
-  const box = canvas.getActiveObject().getBoundingRect(), r = canvas.upperCanvasEl.getBoundingClientRect();
+  const active = canvas.getActiveObject(), r = canvas.upperCanvasEl.getBoundingClientRect(), wrap = document.getElementById('canvas-wrap').getBoundingClientRect();
+  if (!active) { openImageMenu(wrap.left + wrap.width / 2, wrap.top + wrap.height / 3, { scope: 'page' }); return; }
+  const box = active.getBoundingRect();
   // getBoundingRect() is in pixels of the canvas element (zoom and scroll included).
-  openImageMenu(r.left + box.left + box.width / 2, r.top + box.top + box.height / 2);
+  openImageMenu(r.left + box.left + box.width / 2, r.top + box.top + box.height / 2, { scope: 'selection' });
 });
 
 document.getElementById('obj-copy-display')?.addEventListener('click', () => copyDisplaySettings());
