@@ -243,6 +243,7 @@ Choose **Pen / Path** (`P`) to draw lines, arrows and free outlines.
 - Double-click or press Enter to finish, and Escape to cancel. Clicking the first node closes the path.
 - Shift constrains to 45° angles. Ctrl snaps to nearby nodes and object edges or centres.
 - Style: colour, width, opacity, dash style, line cap and join, and an **arrow** at the start and/or end.
+- An arrowhead is 4 times the line width long (at least 10 px), and 0.9 times its length wide. Like the line width, it keeps its size on the page when you resize the path, also when you stretch it unevenly or resize a group holding it. With round or square line caps the line stops half a line width before the tip, so the cap does not stick out of the arrowhead.
 
 To change a path later, select it and click **Edit nodes**: drag nodes and handles, double-click a segment to insert a node, and use **Corner / Smooth**, **Delete node**, **Straight segment / Curve segment** and **Close path**. Hold Alt while dragging a smooth node's handle to break the symmetry. **Done editing** returns to normal selection.
 

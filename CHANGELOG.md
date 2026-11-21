@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.18 (2026-11-21)
+
+- **Arrowheads fixed when a path is resized.** Arrowheads shrank or grew with the path while its line kept its width, so a smaller arrow got a head thinner than its line, which seemed to grow out of the tip. They now keep their size on the page (4 × the line width, at least 10 px) at any size, when stretched unevenly and inside resized groups, on screen and in exports. With round or square caps, the line no longer sticks out past the tip. Arrows at their original size are unchanged.
+
+### Development
+
+- `js/tools/path.js`: `pathArrowGeometry` sizes arrowheads in page units for `strokeUniform` paths; new `pathStrokeCommands` pulls capped arrow ends back by half the line width (used when drawing, in the path's SVG, and by `js/export.js` for baked uniform strokes). New `arrowhead-regression` suite.
+
 ## v0.1.17 (2026-11-21)
 
 - **Copy out button and right-click menu.** Copy for other software has its own button in the top bar (next to Export) and an item in the right-click menu: on an image after its display settings, on any other object (it is selected and copied), and on an empty part of a page (that page is copied). The menu also opens with the Menu key or Shift+F10. The pasteboard keeps the browser's own menu.

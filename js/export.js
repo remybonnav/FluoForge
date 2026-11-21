@@ -14,6 +14,9 @@ const MFC_EXPORT = (() => {
   // TIFF and PNG writers (an ES module): Deflate or LZW TIFF, PNG pHYs.
   const ENCODERS_URL = new URL('image/raster-encoders.js', document.currentScript?.src || new URL('js/', document.baseURI)).href;
   const encoders = () => import(ENCODERS_URL);
+  // Pen path helpers (arrow ends of capped lines), loaded before an SVG is built.
+  const PATH_URL = new URL('tools/path.js', document.currentScript?.src || new URL('js/', document.baseURI)).href;
+  let pathTools = null;
   function download(blob, filename) {
     const url = URL.createObjectURL(blob), a = document.createElement('a');
     a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove();
@@ -66,7 +69,8 @@ const MFC_EXPORT = (() => {
   // outlines are written as paths already in their parent's coordinates instead: no
   // transform, no vector-effect, dashes and stroke width in plain document units.
   function outlineCommands(obj) {
-    if (obj.type === 'path') return obj.path.map(([type, ...v]) => [type.toUpperCase(),
+    // Pen paths with arrowheads and round or square caps end half a line width before the tip.
+    if (obj.type === 'path') return ((pathTools && pathTools.pathStrokeCommands(obj)) || obj.path).map(([type, ...v]) => [type.toUpperCase(),
       ...v.map((n, i) => n - (i % 2 ? obj.pathOffset.y : obj.pathOffset.x))]);
     if (obj.type === 'rect' && !(obj.rx > 0) && !(obj.ry > 0)) {
       const w = obj.width / 2, h = obj.height / 2;
@@ -114,6 +118,7 @@ const MFC_EXPORT = (() => {
       that box instead of a page: used to copy a selection to other software. */
   async function buildSVG({ pdf = false, page = 0, scale = 1, transparent = false, bounds: area = null, only = null } = {}) {
     if (!MFC.hasDocument) throw new Error('Create or open a figure before exporting.');
+    pathTools ||= await import(PATH_URL);
     const state = MFC_PROJECT.captureState();
     if (only) state.objects = state.objects.filter(json => only.has(json.mfcId));
     const pageCount = MFC.pageCount(state.docProps);

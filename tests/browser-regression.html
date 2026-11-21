@@ -12,6 +12,7 @@ body{font:14px system-ui;background:#eef0f5;color:#172031;margin:16px}button{pad
 <h1>FluoForge browser regressions</h1>
 <button data-suite="dev-interface-regression">Interface and real mouse drags</button>
 <button data-suite="path-regression">Pen / Path</button>
+<button data-suite="arrowhead-regression">Arrowheads when resized</button>
 <button data-suite="regression">Existing interactions</button>
 <button data-suite="project-export-regression">Projects and exports</button>
 <button data-suite="ui-fixes-regression">UI fixes (locks, text box, zoom, insets)</button>
@@ -39,7 +40,7 @@ body{font:14px system-ui;background:#eef0f5;color:#172031;margin:16px}button{pad
 <pre id="result" role="status">Choose a suite. Each run uses a fresh test frame and isolated recovery storage.</pre>
 <div id="frame"></div>
 <script>
-const suites={ 'dev-interface-regression':'runDevInterfaceRegressions', 'path-regression':'runPathRegressions',
+const suites={ 'dev-interface-regression':'runDevInterfaceRegressions', 'path-regression':'runPathRegressions', 'arrowhead-regression':'runArrowheadRegressions',
   regression:'runMfcRegressions', 'project-export-regression':'runProjectExportRegressions',
   'ui-fixes-regression':'runUiFixesRegressions', 'v024-regression':'runV024Regressions',
   'zstack-regression':'runZStackRegressions', 'about-regression':'runAboutRegressions',

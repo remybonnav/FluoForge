@@ -216,24 +216,70 @@ export function cancelPathDrawing() {
   setPathStatus('Unfinished path cancelled.');return true;
 }
 
-export function pathArrowGeometry(path,atStart) {
+/** How the path is scaled on the page, for sizes that must not follow it. A path with strokeUniform
+    keeps its line width in page pixels when it is resized, so its arrowheads must too (otherwise a
+    smaller path gets an arrowhead thinner than its line, which then pokes out of the tip). Paths
+    whose stroke scales with them keep arrowheads in their own units, as before. */
+function arrowScale(path) {
+  if (!path.strokeUniform) return { x: 1, y: 1 };
+  const s = path.group ? path.getObjectScaling() : { scaleX: path.scaleX, scaleY: path.scaleY };
+  return { x: Math.abs(s.scaleX) || 1, y: Math.abs(s.scaleY) || 1 };
+}
+
+/** The tip node and the direction towards it, in page-scaled units: { tip, vx, vy, sx, sy }. */
+function arrowFrame(path,atStart) {
   const nodes=path.mfcPathNodes||[];if(nodes.length<2)return null;
   const tip=atStart?nodes[0]:nodes[nodes.length-1];
   let reference;
   if(atStart){const next=nodes[1];reference=tip.handleOut||next.handleIn||next;}
   else{const previous=nodes[nodes.length-2];reference=tip.handleIn||previous.handleOut||previous;}
-  let dx=atStart?tip.x-reference.x:tip.x-reference.x,dy=atStart?tip.y-reference.y:tip.y-reference.y;
-  let length=Math.hypot(dx,dy);if(length<.001)return null;dx/=length;dy/=length;
+  const {x:sx,y:sy}=arrowScale(path);
+  let vx=(tip.x-reference.x)*sx,vy=(tip.y-reference.y)*sy;
+  const length=Math.hypot(vx,vy);if(length<.001)return null;
+  return {tip,vx:vx/length,vy:vy/length,sx,sy};
+}
+
+/** Arrowhead triangle [tip, corner, corner] in the path's own coordinates. Its length is
+    max(10, 4 × line width) and its half-width 0.45 × that, measured on the page for paths whose line
+    width does not scale (and in the path's units otherwise). */
+export function pathArrowGeometry(path,atStart) {
+  const f=arrowFrame(path,atStart);if(!f)return null;
+  const {tip,vx,vy,sx,sy}=f;
   const size=Math.max(10,(path.strokeWidth||1)*4),half=size*.45;
-  const base=point(tip.x-dx*size,tip.y-dy*size),perp=point(-dy*half,dx*half);
-  return [tip,point(base.x+perp.x,base.y+perp.y),point(base.x-perp.x,base.y-perp.y)];
+  const local=(a,b)=>point(tip.x+a/sx,tip.y+b/sy);
+  return [tip,local(-vx*size-vy*half,-vy*size+vx*half),local(-vx*size+vy*half,-vy*size-vx*half)];
+}
+
+/** The path's commands with each arrow end pulled back by half the line width when the line has
+    round or square caps, which would otherwise stick out past the tip. null when nothing changes. */
+export function pathStrokeCommands(path) {
+  const cap=path.strokeLineCap;
+  if(cap!=='round'&&cap!=='square')return null;
+  const ends=[['mfcArrowStart',true],['mfcArrowEnd',false]].filter(([key])=>path[key]==='arrow');
+  if(!ends.length||path.mfcPathClosed||!Array.isArray(path.path)||path.path.length<2)return null;
+  const commands=path.path.map(c=>c.slice()),t=(path.strokeWidth||1)/2;
+  for(const [,atStart] of ends){
+    const f=arrowFrame(path,atStart);if(!f)continue;
+    const dx=-f.vx*t/f.sx,dy=-f.vy*t/f.sy; // towards the line, in path units
+    if(atStart){
+      const first=commands[0];first[first.length-2]+=dx;first[first.length-1]+=dy;
+      const next=commands[1];if(next&&next[0].toUpperCase()==='C'){next[1]+=dx;next[2]+=dy;}
+    }else{
+      const last=commands[commands.length-1],n=last.length;last[n-2]+=dx;last[n-1]+=dy;
+      if(last[0].toUpperCase()==='C'){last[3]+=dx;last[4]+=dy;}
+    }
+  }
+  return commands;
 }
 
 export function installPathRendering(path) {
   if(path.__mfcPathRendering)return;path.__mfcPathRendering=true;path.objectCaching=false;
   const baseRender=path._render;
   path._render=function(ctx){
-    baseRender.call(this,ctx);ctx.save();ctx.fillStyle=this.stroke||'#000';
+    const trimmed=pathStrokeCommands(this),original=this.path;
+    if(trimmed)this.path=trimmed;
+    try{baseRender.call(this,ctx);}finally{this.path=original;}
+    ctx.save();ctx.fillStyle=this.stroke||'#000';
     const draw=geometry=>{if(!geometry)return;ctx.beginPath();ctx.moveTo(geometry[0].x-this.pathOffset.x,geometry[0].y-this.pathOffset.y);
       ctx.lineTo(geometry[1].x-this.pathOffset.x,geometry[1].y-this.pathOffset.y);ctx.lineTo(geometry[2].x-this.pathOffset.x,geometry[2].y-this.pathOffset.y);ctx.closePath();ctx.fill();};
     if(this.mfcArrowStart==='arrow')draw(pathArrowGeometry(this,true));
@@ -241,7 +287,10 @@ export function installPathRendering(path) {
   };
   const baseSVG=path._toSVG;
   path._toSVG=function(){
-    const parts=baseSVG.call(this),color=String(this.stroke||'#000').replace(/"/g,'');
+    const trimmed=pathStrokeCommands(this),original=this.path;
+    if(trimmed)this.path=trimmed;
+    let parts;try{parts=baseSVG.call(this);}finally{this.path=original;}
+    const color=String(this.stroke||'#000').replace(/"/g,'');
     const polygon=geometry=>geometry?`<polygon points="${geometry.map(p=>`${p.x},${p.y}`).join(' ')}" transform="translate(${-this.pathOffset.x} ${-this.pathOffset.y})" fill="${color}" stroke="none" opacity="${this.opacity}" />\n`:'';
     if(this.mfcArrowStart==='arrow')parts.push(polygon(pathArrowGeometry(this,true)));
     if(this.mfcArrowEnd==='arrow')parts.push(polygon(pathArrowGeometry(this,false)));
