@@ -357,6 +357,28 @@ The dialog shows a **Methods paragraph** built only from these values: click **C
 
 Exports carry the report with them: each **SVG** has the JSON of the panels on its page in a `<metadata id="fluoforge-report">` element, and a **PDF** has the JSON of the whole figure in its *Subject* document property (with the figure name as *Title* and FluoForge as *Creator*), so a figure file keeps its own provenance. File names in the report are as they were imported, so they can reveal how your files are named.
 
+### Checking the figure before export
+
+The **Check figure** panel in the Inspector reviews the figure every time it changes (click **Check now** to run it at once), and the top of the **Export** menu shows the same summary with a **Review** button. Nothing here blocks an export.
+
+| Finding | Severity |
+|---|---|
+| An image has a pixel size but no scale bar, on it or on another panel of its row | Warning |
+| An image has no pixel size | Info |
+| Red and green are both shown in one merged panel (use magenta and green) | Warning |
+| A panel has no text label near it, at the start of its row or above its column | Warning |
+| Panels of a comparison group show a different range, LUT or gamma | Error |
+| More than 1 % of a shown channel's pixels (in the panel's crop) are at or above its maximum, or at or below its minimum | Warning |
+| A channel's gamma is not 1, or brightness or contrast is not 0: state it in the legend or Methods | Info |
+| A panel is printed larger than its source pixels, or below 300 dpi | Warning |
+| Text is smaller than 5 pt or larger than 8 pt at print size | Warning |
+| An inset's outline on its source panel is hidden or deleted | Warning |
+| An object is on the pasteboard and will not be exported | Info |
+
+Errors come first, then warnings, then information. Click a finding to select its object (or every panel of a comparison group). The font and resolution limits come from the default preset for now; journal presets will set them.
+
+To dismiss a finding for this project, click **Dismiss…**, type why (for example "printed at the journal's column width") and press Enter. Dismissed findings are listed under **Dismissed**, where **Restore** brings one back. They are saved with the project, follow undo and redo, and appear with their notes in the figure report.
+
 ## 20. Themes
 
 **Theme** (top right) switches the interface between Light · Lavender, Light · Sage, Dark · Plum and Dark · Slate. It does not change the figure, and the choice is remembered in this browser.

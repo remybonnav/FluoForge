@@ -53,7 +53,7 @@ Each `versions/<id>.json` is one figure state. States hold no pixels: images ref
 |---|---|
 | `schema` | The state format (section 6). Currently `4`. |
 | `documentOpen` | `false` only for an empty workspace. |
-| `docProps` | The page: `name`, `width`, `height`, `unit` (`"px"`, `"cm"` or `"in"`), `dpi` and `pages` (missing in projects from before multi-page figures, which have one page). |
+| `docProps` | The page: `name`, `width`, `height`, `unit` (`"px"`, `"cm"` or `"in"`), `dpi` and `pages` (missing in projects from before multi-page figures, which have one page). Optional `checkDismissals` (since 0.1.12): figure check findings dismissed in this project, each `{ key, rule, severity, objects, message, note }`; absent means none. |
 | `nextId` | The counter for new object ids. |
 | `objects` | The objects, back to front (section 4). |
 
@@ -196,6 +196,7 @@ A project whose `manifest.version` or `schema` is higher than this version knows
 | before 2026-11-17 | by v0.22 | Manifest version 3 with `versions/`, `sources/` and states of schema 1. |
 | 2026-11-17 | 0.1.0 | Repository restarted; format 3, schema 1 unchanged. Files named `.mfcproj.zip`. |
 | 2026-11-18 | 0.1.3 | New projects are named `.fluoforge`. The content is unchanged. |
+| 2026-11-21 | 0.1.12 | No schema change: `docProps` may hold `checkDismissals`, an optional list of dismissed figure check findings with their notes. Older versions open such a project unchanged; their Document properties *Apply* drops the list. |
 | 2026-11-20 | 0.1.10 | Schema 5: images record the TIFF decoder that made their channels (`display.decoder`, `schema-4-to-5.js`); new imports use decoder 2 (OME-TIFF, RGB, float, signed and packed samples). 0.1.5 to 0.1.9 open such a project with "some content may not display" and decode with their own reader: images that decoder 2 reads differently (RGB, OME-TIFF stacks, float, signed or packed samples) show only the settings of the channels that reader finds. |
 | 2026-11-20 | 0.1.9 | Schema 4: images may carry `mfcCompareGroup`, the comparison group whose range, LUT and gamma they share (`schema-3-to-4.js`). 0.1.5 to 0.1.8 open such a project with "some content may not display" and show it unchanged, but do not link edits. |
 | 2026-11-19 | 0.1.7 | Schema 3: channel colours may name any LUT of the library or `file`, with a file's own LUT kept in `lut`; new object type `calibrationBar` (`schema-2-to-3.js`). 0.1.5 and 0.1.6 open such a project with "some content may not display": a channel in a new LUT is shown in grey, and the bar keeps its last colours and labels. |

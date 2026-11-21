@@ -68,18 +68,23 @@ function projectionOf(raw) {
     zStepUm: round(stack.zStepUm || null, 6) };
 }
 
-function panelEntry(image, number, pages) {
-  const entry = registry[image.mfcId], raw = entry.rawImage, dpi = docProps.dpi;
-  const info = raw.meta && raw.meta.decodeInfo;
-  // The same crop and output size as MFC_EXPORT.buildSVG.
+/** A panel's crop in source pixels, printed size in document pixels and effective resolution: the
+    same crop and output size as MFC_EXPORT.buildSVG. Also used by the figure check. */
+export function panelGeometry(image, dpi = docProps.dpi) {
+  const entry = registry[image.mfcId], raw = entry.rawImage;
   const previewW = Math.round(raw.width * entry.workingScale), previewH = Math.round(raw.height * entry.workingScale);
   const rx = raw.width / previewW, ry = raw.height / previewH;
   const region = { x: (image.cropX || 0) * rx, y: (image.cropY || 0) * ry, width: image.width * rx, height: image.height * ry };
-  const matrix = image.calcTransformMatrix(), parts = fabric.util.qrDecompose(matrix);
+  const matrix = image.calcTransformMatrix();
   const docW = image.width * Math.hypot(matrix[0], matrix[1]), docH = image.height * Math.hypot(matrix[2], matrix[3]);
-  const outW = Math.max(1, Math.min(Math.ceil(region.width), Math.ceil(docW)));
-  const outH = Math.max(1, Math.min(Math.ceil(region.height), Math.ceil(docH)));
-  const ppiX = region.width / (docW / dpi), ppiY = region.height / (docH / dpi);
+  return { region, matrix, docW, docH, ppiX: region.width / (docW / dpi), ppiY: region.height / (docH / dpi),
+    outW: Math.max(1, Math.min(Math.ceil(region.width), Math.ceil(docW))), outH: Math.max(1, Math.min(Math.ceil(region.height), Math.ceil(docH))) };
+}
+
+function panelEntry(image, number, pages) {
+  const entry = registry[image.mfcId], raw = entry.rawImage, dpi = docProps.dpi;
+  const info = raw.meta && raw.meta.decodeInfo;
+  const { region, matrix, docW, docH, outW, outH, ppiX, ppiY } = panelGeometry(image, dpi), parts = fabric.util.qrDecompose(matrix);
   const um = raw.voxelSizeUm;
   const id = String(entry.sourceId || '');
   const depths = [...new Set(raw.channels.map(c => c.bitDepth).filter(Boolean))];
@@ -121,6 +126,8 @@ function panelEntry(image, number, pages) {
 /** The report of the open figure. With `page` (0-based), only the panels drawn on that page. */
 export function buildReport({ page = null } = {}) {
   const props = docProps, size = docPropsToPixels(props), count = pageCount(props), panels = [];
+  const dismissals = (Array.isArray(props.checkDismissals) ? props.checkDismissals : []).map(d => ({
+    rule: String(d.rule || ''), severity: String(d.severity || ''), message: String(d.message || ''), note: String(d.note || '') }));
   for (const { image, top } of figurePanels()) {
     const box = top.getBoundingRect(true, true), pages = [];
     for (let i = 0; i < count; i++) if (overlaps(box, pageBounds(i, props))) pages.push(i);
@@ -133,7 +140,9 @@ export function buildReport({ page = null } = {}) {
       width: props.width, height: props.height, unit: props.unit, dpi: props.dpi,
       widthPx: size.width, heightPx: size.height,
       widthMm: round(mm(size.width, props.dpi), 2), heightMm: round(mm(size.height, props.dpi), 2) },
-    panels
+    panels,
+    // Figure check findings dismissed in this project, with the note given (P2-T7). Absent when there are none.
+    ...(dismissals.length ? { checkDismissals: dismissals } : {})
   };
 }
 
@@ -218,6 +227,11 @@ export function toMarkdown(report) {
     lines.push(mdRow(['Property', 'Value']), mdRow(['---', '---']), ...rows.map(mdRow), '');
     lines.push(mdRow(['Channel', 'Name', 'Shown', 'LUT', 'Min', 'Max', 'Gamma', 'Invert']), mdRow(Array(8).fill('---')));
     for (const c of p.channels) lines.push(mdRow([c.channel, mdEscape(c.name), c.shown ? 'yes' : 'no', mdEscape(c.lut), c.min, c.max, c.gamma, c.invert ? 'yes' : 'no']));
+    lines.push('');
+  }
+  if (report.checkDismissals) {
+    lines.push('## Dismissed figure checks', '', mdRow(['Severity', 'Finding', 'Note']), mdRow(['---', '---', '---']));
+    for (const d of report.checkDismissals) lines.push(mdRow([mdEscape(d.severity), mdEscape(d.message), mdEscape(d.note || '(no note)')]));
     lines.push('');
   }
   return lines.join('\n');

@@ -44,6 +44,7 @@ import { applyTextAlign, applyTextBorder, applyTextBoxSize, applyTextStyle, appl
 import { setTool } from './tools/tool-switch.js';
 import './ui/image-info.js'; // wires the Image info button of the Channels panel
 import './ui/figure-report.js'; // the figure report (Export menu); js/export.js and js/main.js import it
+import './ui/figure-check.js'; // wires the Check figure panel and the summary in the Export menu
 import { groupSelection, refreshLayersPanel, setAllLayersVisible, toggleLayerLock, toggleLayerPositionLock, toggleLayerVisibility, ungroupSelection } from './ui/layers.js';
 import { applyLockState, isTransformLocked, setPositionLock, togglePositionLockSelection } from './ui/locks.js';
 import { applyObjectPositionFromFields, applyObjectSizeFromFields, refreshObjectSizePanel, refreshSelectionBar, rotateSelected, selectedObjects, setObjectAngle, uncropImage } from './ui/selection-bar.js';

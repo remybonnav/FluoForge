@@ -19,7 +19,7 @@ Import TIFF stacks straight from ImageJ/Fiji, choose which channels to show and 
 3. **Import Image**: multichannel TIFFs (8, 12, 16 or 32-bit float, RGB), ImageJ hyperstacks and OME-TIFFs (Z, time), or JPEG, PNG and BMP. For CZI, LIF and ND2, the Fiji macro `tools/Export_for_FluoForge.ijm` converts a folder to OME-TIFF.
 4. Set each image's channels, colours and display range in the **Channels** panel (with a histogram and ImageJ-style **Auto** contrast), then arrange the panels with the **Grid** tool.
 5. Add scale bars, insets, text, shapes and arrows.
-6. **Save Project** (a `.fluoforge` file you can reopen and edit), then **Export** as TIFF, SVG or PDF. **Export ▸ Figure report…** lists each panel's source file (with its SHA-256), crop, projection and channel display settings as Markdown, CSV or JSON, with a ready-to-paste Methods paragraph; SVG and PDF exports embed it.
+6. **Save Project** (a `.fluoforge` file you can reopen and edit), then **Export** as TIFF, SVG or PDF. **Export ▸ Figure report…** lists each panel's source file (with its SHA-256), crop, projection and channel display settings as Markdown, CSV or JSON, with a ready-to-paste Methods paragraph; SVG and PDF exports embed it. The **Check figure** panel flags missing scale bars and labels, red-green merges, clipped channels, low resolution, text outside 5–8 pt and more before you export.
 
 The **[user manual](docs/MANUAL.md)** explains every tool step by step, with screenshots.
 

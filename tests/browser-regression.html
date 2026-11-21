@@ -29,6 +29,7 @@ body{font:14px system-ui;background:#eef0f5;color:#172031;margin:16px}button{pad
 <button data-suite="comparison-regression">Comparison groups</button>
 <button data-suite="file-formats-regression">File formats</button>
 <button data-suite="figure-report-regression">Figure report</button>
+<button data-suite="figure-check-regression">Figure check</button>
 <pre id="result" role="status">Choose a suite. Each run uses a fresh test frame and isolated recovery storage.</pre>
 <div id="frame"></div>
 <script>
@@ -40,7 +41,7 @@ const suites={ 'dev-interface-regression':'runDevInterfaceRegressions', 'path-re
   'image-info-regression':'runImageInfoRegressions', 'compat-regression':'runCompatRegressions',
   'errors-storage-regression':'runErrorsStorageRegressions', 'compositor-regression':'runCompositorRegressions',
   'lut-calibration-regression':'runLutCalibrationRegressions', 'histogram-display-regression':'runHistogramDisplayRegressions', 'comparison-regression':'runComparisonRegressions',
-  'file-formats-regression':'runFileFormatsRegressions', 'figure-report-regression':'runFigureReportRegressions' };
+  'file-formats-regression':'runFileFormatsRegressions', 'figure-report-regression':'runFigureReportRegressions', 'figure-check-regression':'runFigureCheckRegressions' };
 document.querySelectorAll('button').forEach(button=>button.onclick=async()=>{
   const result=document.getElementById('result'); result.textContent='Running '+button.dataset.suite+'…';
   const frame=document.createElement('iframe');frame.src='../?test=regression-'+Date.now();document.getElementById('frame').replaceChildren(frame);

@@ -279,6 +279,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('doc-apply').addEventListener('click', () => {
     const props = {
+      ...MFC.getDocProps(), // keeps other document fields, such as dismissed figure checks
       name: document.getElementById('doc-name').value.trim() || 'Untitled Figure',
       width: parseFloat(document.getElementById('doc-width').value),
       height: parseFloat(document.getElementById('doc-height').value),

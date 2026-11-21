@@ -308,6 +308,22 @@ body:not(.document-open) #side-panel>.panel{display:none;}
 .figure-report-methods{box-sizing:border-box;width:100%;resize:vertical;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:8px;font:inherit;}
 .figure-report-methods:focus-visible,.figure-report-modal button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 .figure-report-downloads{align-items:center;gap:6px;}
+.check-list{list-style:none;margin:6px 0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.check-item{display:flex;flex-direction:column;gap:4px;border:1px solid var(--border);border-radius:6px;padding:6px;background:var(--bg2);color:var(--text);font-size:12px;}
+.check-finding{display:flex;gap:6px;align-items:flex-start;text-align:left;width:100%;background:transparent;border:0;padding:0;color:var(--text);font:inherit;cursor:pointer;}
+.check-finding:focus-visible,.check-item button:focus-visible,.check-dismiss-form input:focus-visible,.export-check-summary button:focus-visible,#check-dismissed-box summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.check-severity{flex:none;font-size:11px;font-weight:600;border-radius:4px;padding:0 5px;border:1px solid var(--border);color:var(--text);}
+.check-error{border-color:var(--danger);color:var(--danger);}
+.check-warning{background:var(--pastel-c);}
+.check-info{background:var(--accent-dim);}
+.check-message{overflow-wrap:anywhere;}
+.check-note{color:var(--text-dim);overflow-wrap:anywhere;}
+.check-dismiss,.check-restore{align-self:flex-end;width:auto;padding:2px 8px;font-size:11px;}
+.check-dismiss-form{display:flex;gap:4px;flex-wrap:wrap;}
+.check-dismiss-form input{flex:1 1 140px;min-width:0;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:4px;}
+.export-check-summary{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:6px 8px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text);}
+.export-check-summary.has-errors .export-check-text{color:var(--danger);}
+.export-check-summary button{width:auto;padding:2px 8px;font-size:11px;}
 .saving-modal{width:220px;display:flex;flex-direction:column;align-items:center;gap:14px;padding:28px 22px;}
 .saving-msg{margin:0;font-size:13px;color:var(--text);text-align:center;}
 .spinner{

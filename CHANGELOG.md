@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.12 (2026-11-21)
+
+- **Check figure.** A new Inspector panel reviews the figure: missing scale bars and pixel sizes, red and green in one panel, panels without a label, comparison groups that diverged (error), channels with more than 1 % of pixels clipped, gamma, brightness or contrast to report, panels enlarged or below 300 dpi, text outside 5–8 pt at print size, inset outlines hidden or deleted, and objects on the pasteboard. The Export menu shows the same summary with a Review button, without blocking anything. Click a finding to select its object; dismiss one with a note, which is saved with the project and listed in the figure report.
+
+### Development
+
+- Each rule is a pure function in `js/image/figure-check-rules.js` over a plain context built by `js/ui/figure-check.js`. Dismissals are an optional `docProps.checkDismissals` (no schema change). `figure-report.js` exports `panelGeometry` (shared with the check) and adds `checkDismissals` to the report when there are any. The new `figure-check-regression` suite tests every rule and the panel.
+
 ## v0.1.11 (2026-11-20)
 
 - **Figure report (Methods and adjustments).** *Export ▸ Figure report…* lists every image panel: source file name and SHA-256, dimensions, bit depth and pixel size; crop in source pixels and shape mask; Z projection, slice and frame; each channel's LUT, display range, gamma and invert; brightness and contrast; printed size and effective resolution at the document DPI. Copy the ready-made Methods paragraph, or download the report as Markdown, CSV or JSON. SVG exports embed the report of their page in `<metadata>`, PDF exports the whole report in their *Subject* property.
