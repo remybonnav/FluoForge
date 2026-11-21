@@ -385,6 +385,12 @@ To dismiss a finding for this project, click **Dismiss…**, type why (for examp
 
 ![The Dark · Slate theme](images/20-dark-theme.jpg)
 
+### Colour-vision and grey-scale preview
+
+**Vision** (next to Theme) shows the canvas as people with a colour-vision deficiency see it: **Deuteranopia** (no green cones, the most common), **Protanopia** (no red cones) and **Tritanopia** (no blue cones), or in **Grey-scale**, as in a black-and-white print. Use it to check that red and green, or a LUT, can still be told apart.
+
+It is a view only. The figure, the project, undo and the exports do not change, and the choice is not remembered: FluoForge always starts in normal colours. While a preview is on, a badge over the canvas says so; click its **Normal** button (or choose Normal) to turn it off. The simulations use the matrices of Machado, Oliveira and Fernandes (2009) at full severity; grey-scale uses relative luminance (Rec. 709).
+
 ## 21. Keyboard shortcuts
 
 | Keys | Action |

@@ -18,6 +18,7 @@
     { "name": "v0.1.9", "kind": "release", "what": "reference figure saved by FluoForge 0.1.9 (schema 4)" },
     { "name": "v0.1.10", "kind": "release", "what": "reference figure saved by FluoForge 0.1.10 (schema 5)" },
     { "name": "v0.1.11", "kind": "release", "what": "reference figure saved by FluoForge 0.1.11 (schema 5; its export.svg embeds the figure report)" },
-    { "name": "v0.1.12", "kind": "release", "what": "reference figure saved by FluoForge 0.1.12 (schema 5)" }
+    { "name": "v0.1.12", "kind": "release", "what": "reference figure saved by FluoForge 0.1.12 (schema 5)" },
+    { "name": "v0.1.13", "kind": "release", "what": "reference figure saved by FluoForge 0.1.13 (schema 5)" }
   ]
 }

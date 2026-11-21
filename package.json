@@ -1,6 +1,6 @@
 {
   "name": "fluoforge",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "private": true,
   "description": "Browser-only figure editor for multichannel microscopy images. This file is for development only: it installs the headless test tools. The app itself needs no build and no Node.",
   "license": "AGPL-3.0-only",

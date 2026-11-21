@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.13 (2026-11-21)
+
+- **Colour-vision and grey-scale preview.** **Vision** in the top bar shows the canvas as seen with deuteranopia, protanopia or tritanopia, or in grey-scale. It is view only: the figure, the project, undo and exports do not change, and a badge over the canvas says when a preview is on.
+
+### Development
+
+- `js/ui/vision-preview.js` puts an SVG `feColorMatrix` filter (in `index.html`: Machado et al. 2009 at full severity, Rec. 709 luminance for grey-scale, in linear RGB) on `#canvas-scroll`. The new `vision-preview-regression` suite checks the filters by rendering colours through them, and that state, history, canvas pixels and the SVG export are unchanged.
+
 ## v0.1.12 (2026-11-21)
 
 - **Check figure.** A new Inspector panel reviews the figure: missing scale bars and pixel sizes, red and green in one panel, panels without a label, comparison groups that diverged (error), channels with more than 1 % of pixels clipped, gamma, brightness or contrast to report, panels enlarged or below 300 dpi, text outside 5–8 pt at print size, inset outlines hidden or deleted, and objects on the pasteboard. The Export menu shows the same summary with a Review button, without blocking anything. Click a finding to select its object; dismiss one with a note, which is saved with the project and listed in the figure report.

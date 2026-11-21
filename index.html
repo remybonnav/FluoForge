@@ -15,7 +15,7 @@
 <link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#07090C">
-<link rel="stylesheet" href="style.css?v=0.1.12">
+<link rel="stylesheet" href="style.css?v=0.1.13">
 </head>
 <body>
 
@@ -75,14 +75,25 @@
       <button data-export="report" title="Methods and adjustments: source files, crop, projection, channel display settings and effective resolution of every panel, as Markdown, CSV or JSON, with a Methods paragraph">Figure report…</button>
     </div>
   </div>
-  <label class="theme-control">Theme
-    <select id="theme-select" aria-label="Color theme">
-      <option value="light">Light · Lavender</option>
-      <option value="sage">Light · Sage</option>
-      <option value="dark">Dark · Plum</option>
-      <option value="slate">Dark · Slate</option>
-    </select>
-  </label>
+  <div class="view-controls">
+    <label class="theme-control vision-control" title="Preview the canvas as people with colour-vision deficiency, or in grey-scale, see it. View only: the figure, the project and exports do not change">Vision
+      <select id="vision-select" aria-label="Colour-vision preview (view only)">
+        <option value="normal">Normal</option>
+        <option value="deuteranopia">Deuteranopia</option>
+        <option value="protanopia">Protanopia</option>
+        <option value="tritanopia">Tritanopia</option>
+        <option value="greyscale">Grey-scale</option>
+      </select>
+    </label>
+    <label class="theme-control">Theme
+      <select id="theme-select" aria-label="Color theme">
+        <option value="light">Light · Lavender</option>
+        <option value="sage">Light · Sage</option>
+        <option value="dark">Dark · Plum</option>
+        <option value="slate">Dark · Slate</option>
+      </select>
+    </label>
+  </div>
 </header>
 
 <!-- ======================= SELECTION BAR (always reserved while a document is open) ======================= -->
@@ -126,6 +137,15 @@
 
 <!-- ======================= MAIN LAYOUT ======================= -->
 <div id="main">
+  <!-- Colour-vision preview (js/ui/vision-preview.js): applied to the canvas container only, in linear RGB.
+       Deuteranopia, protanopia, tritanopia: Machado, Oliveira and Fernandes (2009), severity 1.0.
+       Grey-scale: Rec. 709 relative luminance. -->
+  <svg id="vision-filters" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden">
+    <filter id="vision-deuteranopia" color-interpolation-filters="linearRGB"><feColorMatrix type="matrix" values="0.367322 0.860646 -0.227968 0 0  0.280085 0.672501 0.047413 0 0  -0.011820 0.042940 0.968881 0 0  0 0 0 1 0"/></filter>
+    <filter id="vision-protanopia" color-interpolation-filters="linearRGB"><feColorMatrix type="matrix" values="0.152286 1.052583 -0.204868 0 0  0.114503 0.786281 0.099216 0 0  -0.003882 -0.048116 1.051998 0 0  0 0 0 1 0"/></filter>
+    <filter id="vision-tritanopia" color-interpolation-filters="linearRGB"><feColorMatrix type="matrix" values="1.255528 -0.076749 -0.178779 0 0  -0.078411 0.930809 0.147602 0 0  0.004733 0.691367 0.303900 0 0  0 0 0 1 0"/></filter>
+    <filter id="vision-greyscale" color-interpolation-filters="linearRGB"><feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0 0 0 1 0"/></filter>
+  </svg>
 
   <!-- Canvas area -->
   <div id="canvas-wrap">
@@ -139,6 +159,7 @@
       </div>
       <span class="hint">Microscopy panels, editable annotations, publication exports.</span>
     </div>
+    <div id="vision-badge" class="vision-badge" hidden><span class="vision-pill"><span id="vision-badge-text" role="status"></span> <button id="vision-normal" type="button" title="Show the canvas in normal colours again">Normal</button></span></div>
     <div id="canvas-scroll">
       <canvas id="mfc-canvas"></canvas>
     </div>
@@ -508,14 +529,14 @@
 <script src="assets/vendor/jszip.min.js"></script>
 
 <!-- ======================= APP ======================= -->
-<script src="js/debug.js?v=0.1.12"></script>
-<script src="js/errors.js?v=0.1.12"></script>
-<script src="js/tiff.js?v=0.1.12"></script>
-<script type="module" src="js/app.js?v=0.1.12"></script>
+<script src="js/debug.js?v=0.1.13"></script>
+<script src="js/errors.js?v=0.1.13"></script>
+<script src="js/tiff.js?v=0.1.13"></script>
+<script type="module" src="js/app.js?v=0.1.13"></script>
 <script defer src="assets/vendor/svg2pdf.umd.min.js"></script>
-<script defer src="js/project.js?v=0.1.12"></script>
-<script defer src="js/autosave.js?v=0.1.12"></script>
-<script defer src="js/export.js?v=0.1.12"></script>
-<script defer src="js/main.js?v=0.1.12"></script>
+<script defer src="js/project.js?v=0.1.13"></script>
+<script defer src="js/autosave.js?v=0.1.13"></script>
+<script defer src="js/export.js?v=0.1.13"></script>
+<script defer src="js/main.js?v=0.1.13"></script>
 </body>
 </html>
