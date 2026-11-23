@@ -4,6 +4,15 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.24 (2026-11-23)
+
+- **Square crops stay square.** In the Crop tool's Square mode, resizing the region on a non-square image made it spring back to the image's rectangle. It now stays square: a side handle sets both sides, a corner resizes from the opposite corner. Square now starts from the image's shorter side, so the square fits inside the image, and a square that reaches past the image's edge is applied as a square of the part that fits instead of being cut to a rectangle.
+- The crop region's Width and Height no longer count its 1 px outline (a 480 px wide image showed 481, and Apply cropped one pixel more than asked).
+
+### Development
+
+- `js/tools/crop.js`: `setCropSquare` and `keepCropSquare` size the square by the region's box (a different scale per axis, since the region's own width and height are the image's), keeping the side opposite the dragged handle in place; used by the `object:scaling` handler in `js/core/canvas-events.js`. The region is measured as `width × scaleX` (no outline). `applyCrop` keeps a square in Square mode. New `crop-regression` suite with real mouse drags of the handles.
+
 ## v0.1.23 (2026-11-23)
 
 - **Channel legend tool.** Select an image and choose **Legend** (`L`): a text box lists its shown channels, each name in its channel's colour ("FLAG" in green, "WGA" in red). It is as wide as the image is displayed, right above it, or as long as it is tall, turned 90° on its left side. The Channel legend panel sets up the next legend: background (black, white or transparent), border (on by default, black) and which side of the image sizes the box. The result is an ordinary text box, not linked to the image: rename channels or change its look with the Text panel, and the legend options never overwrite those edits.

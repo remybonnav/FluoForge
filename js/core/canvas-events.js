@@ -9,7 +9,7 @@ import { canvas, currentTool, documentOpen, isHelper, setCanvas, takeId } from '
 import { setZoom, zoomAnchor, zoomLevel } from './zoom.js';
 import { clearSnapGuides, drawSnapGuides, snapObjectPosition } from '../layout/snap.js';
 import { getPreference } from './preferences.js';
-import { cropAspectMode, cropRect, syncCropFieldsFromRect } from '../tools/crop.js';
+import { cropAspectMode, cropRect, keepCropSquare, syncCropFieldsFromRect } from '../tools/crop.js';
 import { endInsetDrag, moveInsetDrag, placeFixedInsetContour, refreshInsetPanel, startInsetDrag, syncAttachments, syncInsetFromContour, updateInsetReadout } from '../tools/inset.js';
 import { beginPathPointer, endPathPointer, enterPathEdit, finishPathDrawing, insertPathNode, movePathPointer, pathDraft, takePathFinishDoubleClick } from '../tools/path.js';
 import { refreshScaleBarPreview } from '../tools/scalebar.js';
@@ -108,10 +108,7 @@ export function init() {
     if (obj === cropRect) {
       // crop rect resizing is handled by its own logic (free rectangle by default,
       // forced 1:1 only in "square" mode) — see setCropAspectMode/applyCrop section.
-      if (cropAspectMode === 'square') {
-        const s = Math.max(obj.scaleX, obj.scaleY);
-        obj.scaleX = s; obj.scaleY = s;
-      }
+      if (cropAspectMode === 'square') keepCropSquare(obj, e.transform);
       syncCropFieldsFromRect();
       return;
     }

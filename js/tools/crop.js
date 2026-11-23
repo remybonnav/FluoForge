@@ -13,6 +13,8 @@ import { refreshSelectionBar } from '../ui/selection-bar.js';
 
 // ---- crop tool ----
 export let cropRect = null, cropTargetImg = null, cropAspectMode = 'rect'; // 'rect' | 'square'
+/** The crop region's size on the page: its box, without the 1 px outline Fabric adds to getScaledWidth. */
+const regionWidth = r => r.width * r.scaleX, regionHeight = r => r.height * r.scaleY;
 
 
 export function startCrop() {
@@ -41,8 +43,8 @@ export function startCrop() {
 /** Pull the crop rectangle's current on-screen size into the numeric fields (called live while dragging handles). */
 export function syncCropFieldsFromRect() {
   if (!cropRect) return;
-  document.getElementById('crop-width').value = Math.round(cropRect.getScaledWidth());
-  document.getElementById('crop-height').value = Math.round(cropRect.getScaledHeight());
+  document.getElementById('crop-width').value = Math.round(regionWidth(cropRect));
+  document.getElementById('crop-height').value = Math.round(regionHeight(cropRect));
 }
 
 /** Push numeric field values back onto the crop rectangle (called when the user types a size). */
@@ -63,14 +65,32 @@ export function applyCropFieldsToRect() {
   canvas.requestRenderAll();
 }
 
+/** Makes the crop region a square of `side` (page px) while keeping the point of it at (originX, originY)
+    in place. The region's own width and height differ for a non-square image, so a square needs a
+    different scale on each axis (equal scales would bring back the image's proportions). */
+export function setCropSquare(rect, side, originX = 'left', originY = 'top') {
+  const anchor = rect.translateToOriginPoint(rect.getCenterPoint(), originX, originY);
+  rect.set({ scaleX: side / rect.width, scaleY: side / rect.height });
+  rect.setPositionByOrigin(anchor, originX, originY);
+  rect.setCoords();
+}
+
+/** While a handle of the crop region is dragged in Square mode: the side being dragged sets the size
+    (a corner: the larger side), and the side or corner opposite the handle stays where it is. */
+export function keepCropSquare(rect, transform) {
+  const corner = transform && transform.corner;
+  const w = regionWidth(rect), h = regionHeight(rect);
+  const side = corner === 'ml' || corner === 'mr' ? w : corner === 'mt' || corner === 'mb' ? h : Math.max(w, h);
+  setCropSquare(rect, side, transform ? transform.originX : 'left', transform ? transform.originY : 'top');
+}
+
 export function setCropAspectMode(mode) {
   cropAspectMode = mode;
   document.getElementById('crop-mode-rect').classList.toggle('active', mode === 'rect');
   document.getElementById('crop-mode-square').classList.toggle('active', mode === 'square');
   if (mode === 'square' && cropRect) {
-    const s = Math.max(cropRect.getScaledWidth(), cropRect.getScaledHeight());
-    cropRect.set({ scaleX: s / cropRect.width, scaleY: s / cropRect.height });
-    cropRect.setCoords();
+    // The smaller side, so the square fits inside a non-square image.
+    setCropSquare(cropRect, Math.min(regionWidth(cropRect), regionHeight(cropRect)));
     canvas.requestRenderAll();
     syncCropFieldsFromRect();
   }
@@ -79,20 +99,26 @@ export function setCropAspectMode(mode) {
 /** Crop always applies exactly what's currently shown by the crop rectangle's handles/fields. */
 export function applyCrop() {
   if (!cropRect || !cropTargetImg) return;
-  const w = cropRect.getScaledWidth();
-  const h = cropRect.getScaledHeight();
+  const w = regionWidth(cropRect);
+  const h = regionHeight(cropRect);
   const img = cropTargetImg;
 
   // translate crop rect position into the image's local (unscaled) coordinate space
   const localLeft = (cropRect.left - img.left) / img.scaleX;
   const localTop = (cropRect.top - img.top) / img.scaleY;
   const before = { cropX: img.cropX || 0, cropY: img.cropY || 0, width: img.width, height: img.height };
+  let width = Math.min(img.width - Math.max(0, localLeft), w / img.scaleX);
+  let height = Math.min(img.height - Math.max(0, localTop), h / img.scaleY);
+  if (cropAspectMode === 'square') {
+    // A region overhanging the image would be cut to a rectangle: keep a square of the smaller side.
+    const side = Math.min(width * img.scaleX, height * img.scaleY);
+    width = side / img.scaleX; height = side / img.scaleY;
+  }
 
   img.set({
     cropX: Math.max(0, localLeft),
     cropY: Math.max(0, localTop),
-    width: Math.min(img.width - Math.max(0, localLeft), w / img.scaleX),
-    height: Math.min(img.height - Math.max(0, localTop), h / img.scaleY),
+    width, height,
     left: cropRect.left, top: cropRect.top
   });
   keepClipOnContent(img, before);

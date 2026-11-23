@@ -192,7 +192,9 @@ Align, distribute and the grid leave locked objects where they are, and a select
 
 ## 8. Cropping an image
 
-Select an image and choose **Crop** (`C`). Drag the blue handles, or type an exact **Width** and **Height** in pixels; **Square** keeps the crop square. Click **Apply Crop** (or **Cancel**).
+Select an image and choose **Crop** (`C`). Drag the blue handles, or type an exact **Width** and **Height** in pixels. Click **Apply Crop** (or **Cancel**).
+
+**Square** makes the region a square of the image's shorter side, inside the image, and keeps it square while you resize it: dragging a side handle sets both sides to that length (the opposite side stays in place), and a corner handle resizes it from the opposite corner. If the square reaches past the edge of the image, **Apply Crop** keeps a square of the part that fits.
 
 ![The Crop tool on an image, with a 700 × 520 px region and the Crop panel](images/12-crop.jpg)
 
