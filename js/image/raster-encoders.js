@@ -5,7 +5,7 @@
 /* Raster file writers for the exports.
    - encodeTIFF: 8-bit RGB or RGBA (unassociated alpha) baseline TIFF, in strips, compressed with
      Deflate (pako, vendored) or LZW, with the horizontal differencing predictor, and the resolution
-     tags (XResolution, YResolution, ResolutionUnit = inch) as before. Uncompressed is still possible.
+     tags (XResolution, YResolution, ResolutionUnit = inch, or centimetre on request). Uncompressed is still possible.
    - pngWithPhys: adds a pHYs chunk (pixels per metre) to a PNG from canvas.toBlob, for a DPI or for
      a physical pixel size in µm. */
 
@@ -52,9 +52,11 @@ function predict(rows, width, samples) {
   return out;
 }
 
-/** 8-bit RGB(A) TIFF from RGBA pixels. options: { dpi, compression: 'deflate' | 'lzw' | 'none', alpha, software }. */
-export function encodeTIFF(rgba, width, height, { dpi = 300, compression = 'deflate', alpha = false, software = 'FluoForge' } = {}) {
+/** 8-bit RGB(A) TIFF from RGBA pixels. options: { dpi, unit: 'inch' | 'cm', compression: 'deflate' | 'lzw' | 'none',
+    alpha, software }. With unit 'cm' the resolution tags hold pixels per centimetre (dpi / 2.54), ResolutionUnit 3. */
+export function encodeTIFF(rgba, width, height, { dpi = 300, unit = 'inch', compression = 'deflate', alpha = false, software = 'FluoForge' } = {}) {
   if (!(TIFF_COMPRESSION[compression])) throw new Error('Unknown TIFF compression: ' + compression);
+  if (unit !== 'inch' && unit !== 'cm') throw new Error('Unknown TIFF resolution unit: ' + unit);
   const samples = alpha ? 4 : 3, rowBytes = width * samples;
   const rowsPerStrip = Math.max(1, Math.min(height, Math.floor(ROWS_PER_STRIP_BYTES / rowBytes) || 1));
   const strips = [];
@@ -67,13 +69,13 @@ export function encodeTIFF(rgba, width, height, { dpi = 300, compression = 'defl
     const data = compression === 'none' ? raw : predict(raw, width, samples);
     strips.push(compression === 'deflate' ? pako.deflate(data) : compression === 'lzw' ? lzwEncode(data) : data);
   }
-  const dpiRational = [Math.round(dpi * 10000), 10000];
+  const dpiRational = [Math.round((unit === 'cm' ? dpi / 2.54 : dpi) * 10000), 10000];
   const tags = [
     [256, TYPE.LONG, [width]], [257, TYPE.LONG, [height]], [258, TYPE.SHORT, Array(samples).fill(8)],
     [259, TYPE.SHORT, [TIFF_COMPRESSION[compression]]], [262, TYPE.SHORT, [2]],
     [273, TYPE.LONG, strips.map(() => 0)], [277, TYPE.SHORT, [samples]], [278, TYPE.LONG, [rowsPerStrip]],
     [279, TYPE.LONG, strips.map(s => s.length)], [282, TYPE.RATIONAL, dpiRational], [283, TYPE.RATIONAL, dpiRational],
-    [284, TYPE.SHORT, [1]], [296, TYPE.SHORT, [2]], [305, TYPE.ASCII, software],
+    [284, TYPE.SHORT, [1]], [296, TYPE.SHORT, [unit === 'cm' ? 3 : 2]], [305, TYPE.ASCII, software],
     ...(compression !== 'none' ? [[317, TYPE.SHORT, [2]]] : []), ...(alpha ? [[338, TYPE.SHORT, [2]]] : [])
   ].sort((a, b) => a[0] - b[0]);
   const size = { [TYPE.BYTE]: 1, [TYPE.ASCII]: 1, [TYPE.SHORT]: 2, [TYPE.LONG]: 4, [TYPE.RATIONAL]: 8 };

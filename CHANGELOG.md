@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.21 (2026-11-23)
+
+- **Export resolution in dpi, ppi, dpc or ppc.** The Export… dialog has a unit list next to the resolution: dots or pixels per inch, or per centimetre. Changing the unit converts the value (300 dpi is 118.11 ppc), and the limits and messages use the chosen unit. A TIFF exported per centimetre stores its resolution in pixels per centimetre; a PNG stores pixels per metre as before. The dialog remembers the unit.
+
+### Development
+
+- `js/ui/export-dialog.js`: `RESOLUTION_UNITS`, `dpiInUnit`; `readExportOptions` returns `dpi` (still pixels per inch) and `resolutionUnit` (`'inch'` or `'cm'`). `MFC_EXPORT.exportWith` and `buildTIFF` take `resolutionUnit`; `encodeTIFF` takes `unit: 'inch' | 'cm'` (ResolutionUnit 2 or 3). `export-upgrades-regression` checks the units, conversion, limits, the TIFF tags per centimetre, the PNG pHYs and the remembered unit.
+
 ## v0.1.20 (2026-11-23)
 
 - **Arrowheads on curves follow the line.** On a curved arrow the head used to follow the direction of the curve at the very tip. On small or tightly bent arrows it then pointed away from the line, and could even look detached from it. The head now follows the line drawn under it: the middle of its base sits on the curve. Straight arrows are unchanged. Arrows drawn with earlier versions are fixed too, without changing the saved project.

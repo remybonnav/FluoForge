@@ -351,7 +351,7 @@ Images are always re-composited from the original channel data at full resolutio
 
 - **Format**: TIFF, PNG, SVG or PDF.
 - **Pages**: all, the page you are looking at, or a list such as `1-3, 5`. PDF puts them in one file; the others write one file per page.
-- **Resolution (dpi)** for TIFF and PNG, from the document's. Above it, panels printed smaller than their source get more of their source pixels; no image is ever enlarged beyond its source.
+- **Resolution** for TIFF and PNG, from the document's, in the unit chosen next to it: **dpi** or **ppi** (per inch; for a digital image they are the same number) or **dpc** or **ppc** (per centimetre). Changing the unit converts the value, so 300 dpi becomes 118.11 ppc. The allowed range is 30 to 2400 dpi (11.81 to 944.88 per cm). A TIFF exported in dpc or ppc stores its resolution in pixels per centimetre, so ImageJ and other programs show the value you typed; a PNG always stores pixels per metre, at the same resolution. Above the document's resolution, panels printed smaller than their source get more of their source pixels; no image is ever enlarged beyond its source.
 - **Transparent background** for TIFF (RGB with alpha), PNG and SVG: the empty page is left transparent instead of white.
 - **TIFF compression**: Deflate (smallest), LZW (for older software) or none. All three are lossless.
 - **Include the figure report**: also saves `<figure>_report.md` and `<figure>_report.json`.

@@ -103,6 +103,9 @@ button.active,.toggle-btn.active{background:var(--accent-dim);border-color:var(-
 .export-modal input:disabled,.export-modal select:disabled{opacity:.45;cursor:not-allowed;}
 .export-field > input[type=checkbox]{justify-self:start;margin:0;}
 .export-field[hidden]{display:none;}
+.export-resolution{display:flex;gap:6px;min-width:0;}
+.export-resolution > input[type=number]{flex:1 1 auto;width:0;min-width:0;}
+.export-resolution > select{flex:0 0 auto;}
 .export-modal select,.export-modal input[type=number],.export-modal input[type=text]{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px;}
 .export-pages{border:1px solid var(--border);border-radius:6px;margin:8px 0;padding:6px 10px;display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--text);}
 .export-pages legend{color:var(--text-dim);padding:0 4px;}

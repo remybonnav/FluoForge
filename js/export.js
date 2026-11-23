@@ -230,12 +230,13 @@ const MFC_EXPORT = (() => {
   }
   /** Raster options: dpi (default: the document's), transparent background. */
   const rasterScale = dpi => { const docDpi = MFC.getDocProps().dpi; return dpi && dpi > 0 ? dpi / docDpi : 1; };
-  /** TIFF of one page: Deflate-compressed by default (or 'lzw' / 'none'), with the resolution tags. */
-  async function buildTIFF({ page = 0, dpi = null, transparent = false, compression = 'deflate' } = {}) {
+  /** TIFF of one page: Deflate-compressed by default (or 'lzw' / 'none'), with the resolution tags, in
+      pixels per inch, or per centimetre with resolutionUnit 'cm'. */
+  async function buildTIFF({ page = 0, dpi = null, transparent = false, compression = 'deflate', resolutionUnit = 'inch' } = {}) {
     const scale = rasterScale(dpi), output = await buildSVG({ page, scale, transparent }), canvas = await renderSVG(output, { scale, transparent });
     const { encodeTIFF } = await encoders();
     const bytes = encodeTIFF(canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data, canvas.width, canvas.height,
-      { dpi: output.dpi * scale, compression, alpha: transparent, software: 'FluoForge ' + MFC.getAppVersion() });
+      { dpi: output.dpi * scale, unit: resolutionUnit, compression, alpha: transparent, software: 'FluoForge ' + MFC.getAppVersion() });
     return { blob:new Blob([bytes],{type:'image/tiff'}), ...output, pixelWidth: canvas.width, pixelHeight: canvas.height, outputDpi: output.dpi * scale, compression };
   }
   /** PNG of one page, with its DPI in a pHYs chunk. */
@@ -266,9 +267,10 @@ const MFC_EXPORT = (() => {
     return (/^(con|prn|aux|nul|com\d|lpt\d)$/i.test(name) ? '_' + name : name).slice(0, 150) || 'figure_export';
   }
   /** Exports with the export dialog's options: { format: 'tiff' | 'png' | 'svg' | 'pdf', pages (0-based,
-      default all), dpi (raster formats), transparent (TIFF, PNG, SVG), compression (TIFF), includeReport }.
+      default all), dpi (raster formats, pixels per inch), resolutionUnit ('inch' or 'cm': the unit the TIFF's
+      resolution tags are written in), transparent (TIFF, PNG, SVG), compression (TIFF), includeReport }.
       Returns the list of files written. */
-  async function exportWith({ format, pages = null, dpi = null, transparent = false, compression = 'deflate', includeReport = false } = {}) {
+  async function exportWith({ format, pages = null, dpi = null, resolutionUnit = 'inch', transparent = false, compression = 'deflate', includeReport = false } = {}) {
     if (exporting) return [];
     if (!['tiff', 'png', 'svg', 'pdf'].includes(format)) throw new Error('Unknown export format: ' + format);
     exporting = true; MFC_UI.showSavingDialog('Rendering ' + format.toUpperCase() + '…');
@@ -285,7 +287,7 @@ const MFC_EXPORT = (() => {
         // SVG, TIFF and PNG are single-page formats: one file per page.
         for (const page of list) {
           if (list.length > 1) MFC_UI.showSavingDialog('Rendering ' + format.toUpperCase() + ' page ' + (page + 1) + ' (' + (list.indexOf(page) + 1) + ' of ' + list.length + ')…');
-          const output = format === 'tiff' ? await buildTIFF({ page, dpi, transparent, compression }) : format === 'png' ? await buildPNG({ page, dpi, transparent })
+          const output = format === 'tiff' ? await buildTIFF({ page, dpi, transparent, compression, resolutionUnit }) : format === 'png' ? await buildPNG({ page, dpi, transparent })
             : await buildSVG({ page, transparent });
           save(output.blob || new Blob([output.svg], { type: 'image/svg+xml' }), base + (pageCount > 1 ? '_page-' + (page + 1) : '') + '.' + format);
         }

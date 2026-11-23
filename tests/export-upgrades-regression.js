@@ -8,7 +8,8 @@
    - The TIFF export is compressed and has the same pixels as before; PNG export with its DPI (pHYs),
      at a higher resolution, with a transparent background; page ranges; a PDF of chosen pages;
      the figure report next to the export.
-   - The export dialog: its fields per format, the figure check line, errors, Esc, focus, themes.
+   - The export dialog: its fields per format, the figure check line, errors, Esc, focus, themes; the
+     resolution unit (dpi, ppi, dpc, ppc): conversion, limits, TIFF tags in px/cm, remembered.
    - Export panels: the zip's PNGs at source resolution as displayed and each channel in grey, named
      from the panel letter and channel name, with the pixel size, the figure report and a README. */
 
@@ -44,6 +45,10 @@ async function runExportUpgradesRegressions() {
   const lzwRgba = new Uint8Array(100 * 100 * 4); for (let i = 0; i < lzwRgba.length; i++) lzwRgba[i] = i % 4 === 3 ? 255 : big[i % big.length];
   assert('LZW: codes widen to 12 bits and the table is cleared, still read back exactly (100 × 100 random)', same(decodeTiff(E.encodeTIFF(lzwRgba, 100, 100, { compression: 'lzw' })).rgba, lzwRgba));
   assert('LZW of an empty input is a clear code and an end code', E.lzwEncode(new Uint8Array(0)).length === 3);
+  const cmTiff = decodeTiff(E.encodeTIFF(lzwRgba, 100, 100, { dpi: 600, unit: 'cm' })).ifd;
+  assert('TIFF with unit cm: ResolutionUnit 3 (centimetre) and 236.22 px/cm for 600 dpi', cmTiff.t296[0] === 3 && Math.abs(cmTiff.t282[0] - 600 / 2.54) < 1e-4 && Math.abs(cmTiff.t283[0] - 600 / 2.54) < 1e-4, `${cmTiff.t296} ${cmTiff.t282}`);
+  let badUnit = ''; try { E.encodeTIFF(lzwRgba, 100, 100, { unit: 'mm' }); } catch (e) { badUnit = e.message; }
+  assert('An unknown TIFF resolution unit is refused', /resolution unit/.test(badUnit), badUnit);
 
   // ---- Exports of the reference figure ----
   const bytes = await (await fetch('tests/fixtures/reference.mfcproj.zip', { cache: 'no-store' })).arrayBuffer();
@@ -56,6 +61,9 @@ async function runExportUpgradesRegressions() {
     tIfd.t259[0] === 8 && tIfd.t317[0] === 2 && Math.abs(tIfd.t282[0] - 300) < 1e-6 && tIfd.t296[0] === 2 && tIfd.width === 1200 && same(tRgba, refRgba));
   const stored = await (await fetch('tests/fixtures/reference.tif', { cache: 'no-store' })).arrayBuffer();
   assert(`The compressed TIFF is much smaller than the uncompressed reference.tif (${tBytes.length} against ${stored.byteLength} bytes)`, tBytes.length < stored.byteLength / 2);
+  const perCm = decodeTiff(new Uint8Array(await (await MFC_EXPORT.buildTIFF({ resolutionUnit: 'cm' })).blob.arrayBuffer()));
+  assert('A TIFF export in pixels per centimetre has the same pixels, 118.11 px/cm and ResolutionUnit 3',
+    perCm.ifd.t296[0] === 3 && Math.abs(perCm.ifd.t282[0] - 300 / 2.54) < 1e-4 && same(perCm.rgba, refRgba), `${perCm.ifd.t296} ${perCm.ifd.t282}`);
   const lzw = decodeTiff(new Uint8Array(await (await MFC_EXPORT.buildTIFF({ compression: 'lzw' })).blob.arrayBuffer()));
   assert('An LZW TIFF export has the same pixels', lzw.ifd.t259[0] === 5 && same(lzw.rgba, refRgba));
 
@@ -127,10 +135,35 @@ async function runExportUpgradesRegressions() {
   setFormat('pdf');
   assert('PDF: no resolution, transparency or TIFF compression', $('#export-dpi').disabled && $('#export-transparent').disabled && $('#export-compression').closest('label').hidden);
   setFormat('svg');
-  assert('SVG: transparency yes, resolution no', $('#export-dpi').disabled && !$('#export-transparent').disabled);
+  assert('SVG: transparency yes, resolution no', $('#export-dpi').disabled && $('#export-dpi-unit').disabled && !$('#export-transparent').disabled);
   setFormat('tiff');
   assert('TIFF: resolution, transparency and compression (Deflate by default), starting at the document DPI',
     !$('#export-dpi').disabled && !$('#export-transparent').disabled && !$('#export-compression').closest('label').hidden && $('#export-compression').value === 'deflate' && $('#export-dpi').value === '300');
+  const unit = $('#export-dpi-unit'), setUnit = u => { unit.value = u; unit.dispatchEvent(new Event('change')); };
+  assert('The resolution has a unit list: dpi, ppi, dpc, ppc, dpi first, with a title, enabled for TIFF',
+    [...unit.options].map(o => o.value).join() === 'dpi,ppi,dpc,ppc' && unit.value === 'dpi' && unit.title.length > 10 && !unit.disabled && $('#export-dpi').step === '1');
+  setUnit('ppc');
+  assert('Choosing ppc converts 300 dpi to 118.11 and gives the limits and the note in ppc',
+    $('#export-dpi').value === '118.11' && $('#export-dpi').min === '11.81' && $('#export-dpi').max === '944.88' && $('#export-dpi').step === '0.01' &&
+    /^118\.11 ppc \(300 dpi\) is the document's resolution/.test($('.export-note').textContent), `${$('#export-dpi').value} ${$('#export-dpi').min}-${$('#export-dpi').max} ${$('.export-note').textContent}`);
+  const readOptions = (await import(new URL('js/ui/export-dialog.js', document.baseURI).href)).readExportOptions;
+  let o = readOptions(dialog);
+  assert('118.11 ppc exports at 300 dpi (within 0.01) with the TIFF tags in centimetres', Math.abs(o.dpi - 300) < 0.01 && o.resolutionUnit === 'cm', JSON.stringify(o));
+  setUnit('dpc');
+  assert('dpc is the same number as ppc', $('#export-dpi').value === '118.11' && readOptions(dialog).resolutionUnit === 'cm');
+  setUnit('ppi');
+  o = readOptions(dialog);
+  assert('Back to ppi: 300 again, the same as dpi, with the TIFF tags in inches', $('#export-dpi').value === '300' && o.dpi === 300 && o.resolutionUnit === 'inch' && $('#export-dpi').step === '1', $('#export-dpi').value);
+  setUnit('ppc'); $('#export-dpi').value = '5'; $('#export-ok').click(); await nextExportFrame();
+  assert('Out of range in ppc: the error gives the limits in ppc', document.querySelector('.export-modal') && /between 11\.81 and 944\.88 ppc/.test($('.export-error').textContent), $('.export-error').textContent);
+  $('#export-dpi').value = '11.81';
+  assert('The lowest value shown in ppc (11.81) is accepted, as 30 dpi', readOptions(dialog).dpi === 30);
+  $('#export-dpi').value = '1e2';
+  let refused = ''; try { readOptions(dialog); } catch (e) { refused = e.message; }
+  assert('A resolution that is not a plain number is refused', /between 11\.81 and 944\.88 ppc/.test(refused), refused);
+  setFormat('pdf');
+  assert('PDF: the unit list is disabled too', unit.disabled);
+  setFormat('tiff'); setUnit('dpi'); $('#export-dpi').value = '300';
   $('#export-range').value = '9'; $('#export-range').dispatchEvent(new Event('input'));
   $('#export-ok').click(); await nextExportFrame();
   assert('A bad page range shows an error and keeps the dialog open', document.querySelector('.export-modal') && /not in this figure/.test($('.export-error').textContent));
@@ -144,7 +177,8 @@ async function runExportUpgradesRegressions() {
   for (const theme of ['light', 'sage', 'dark', 'slate']) {
     document.documentElement.dataset.theme = theme;
     const d = getComputedStyle(dialog), f = getComputedStyle($('.export-field')), sel = getComputedStyle($('#export-format')), line = getComputedStyle($('.export-check-line'));
-    ratios.push(contrast(f.color, d.backgroundColor), contrast(sel.color, sel.backgroundColor), contrast(line.color, line.backgroundColor));
+    const unitStyle = getComputedStyle($('#export-dpi-unit'));
+    ratios.push(contrast(f.color, d.backgroundColor), contrast(sel.color, sel.backgroundColor), contrast(line.color, line.backgroundColor), contrast(unitStyle.color, unitStyle.backgroundColor));
   }
   if (savedTheme) document.documentElement.dataset.theme = savedTheme; else delete document.documentElement.dataset.theme;
   assert('The dialog is readable in all four themes (contrast ≥ 4.5)', ratios.every(r => r >= 4.5), ratios.map(r => r.toFixed(1)).join());
@@ -161,6 +195,22 @@ async function runExportUpgradesRegressions() {
   document.getElementById('btn-export').click(); menu.querySelector('[data-export="dialog"]').click();
   for (let i = 0; i < 50 && !document.querySelector('.export-modal'); i++) await new Promise(r => setTimeout(r, 10));
   assert('The dialog remembers the last choices', document.querySelector('#export-dpi').value === '150' && document.querySelector('#export-pages-current').checked);
+  // A real export in pixels per centimetre: 59.06 ppc is 150 dpi, half the document's pixels.
+  const inCm = []; MFC_EXPORT.download = (blob, name) => inCm.push({ blob, name });
+  try {
+    const d2 = document.querySelector('.export-modal'), u2 = d2.querySelector('#export-dpi-unit');
+    u2.value = 'ppc'; u2.dispatchEvent(new Event('change'));
+    const converted = d2.querySelector('#export-dpi').value; d2.querySelector('#export-ok').click();
+    for (let i = 0; i < 200 && !inCm.length; i++) await new Promise(r => setTimeout(r, 20));
+    const t = decodeTiff(new Uint8Array(await inCm[0].blob.arrayBuffer())).ifd;
+    assert('Exporting at 59.06 ppc (150 dpi converted) writes a 600 px wide TIFF tagged 59.06 px/cm',
+      converted === '59.06' && t.width === 600 && t.t296[0] === 3 && Math.abs(t.t282[0] - 59.06) < 1e-4, `${converted} ${t.width} ${t.t296} ${t.t282}`);
+  } finally { MFC_EXPORT.download = realDownload; }
+  const pngCm = E.readPhys(new Uint8Array(await (await MFC_EXPORT.buildPNG({ dpi: 59.06 * 2.54 })).blob.arrayBuffer()));
+  assert('A PNG at 59.06 ppc says 5906 px/m (pHYs is always per metre)', pngCm.ppmX === 5906 && pngCm.unit === 1, JSON.stringify(pngCm));
+  document.getElementById('btn-export').click(); menu.querySelector('[data-export="dialog"]').click();
+  for (let i = 0; i < 50 && !document.querySelector('.export-modal'); i++) await new Promise(r => setTimeout(r, 10));
+  assert('The dialog remembers the unit and the value in it', document.querySelector('#export-dpi-unit').value === 'ppc' && document.querySelector('#export-dpi').value === '59.06');
   document.querySelector('.export-modal').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
   assert('Escape closes it without exporting', !document.querySelector('.export-modal'));
 
