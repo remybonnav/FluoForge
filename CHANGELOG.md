@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.20 (2026-11-23)
+
+- **Arrowheads on curves follow the line.** On a curved arrow the head used to follow the direction of the curve at the very tip. On small or tightly bent arrows it then pointed away from the line, and could even look detached from it. The head now follows the line drawn under it: the middle of its base sits on the curve. Straight arrows are unchanged. Arrows drawn with earlier versions are fixed too, without changing the saved project.
+
+### Development
+
+- New `js/tools/path-arrows.js` holds the arrowhead geometry (`pathArrowGeometry`, `pathStrokeCommands`, re-exported by `js/tools/path.js`, which had grown past 600 lines). The head is aimed from the point of the path one head length (straight distance) before the tip; the line is cut where it comes within 3/4 of the head length of the tip (straight distance), at most half the path from each end. `arrowhead-regression` checks four curve shapes at three sizes and widths 6 and 10: the head's base on the curve, the line's end inside the head.
+
 ## v0.1.19 (2026-11-23)
 
 - **Arrow lines no longer run through their arrowhead.** The line now stops inside the arrowhead, near its base, instead of running up to the tip. Before, the line showed through the head, and a round or square line cap bulged out of the narrow tip. This applies on screen and in every export, for all line caps. Arrows drawn with earlier versions are fixed too, without changing the saved project.

@@ -79,8 +79,8 @@ async function runArrowheadRegressions() {
   const onCurve = q => { let best = Infinity; for (let i = 0; i <= 2000; i++) { const t = i / 2000, u = 1 - t;
     const x = u * u * u * 0 + 3 * u * u * t * 60 + 3 * u * t * t * 140 + t * t * t * 200, y = 3 * u * u * t * -80 + 3 * u * t * t * 80; best = Math.min(best, Math.hypot(x - q.x, y - q.y)); } return best; };
   const endPt = { x: last[5], y: last[6] }, startPt = { x: curve[0][1], y: curve[0][2] };
-  assert('On a curve, both line ends stay on the curve, about 18 px (measured along it) before each tip', last[0] === 'C' && curve.length === 2 &&
-    onCurve(endPt) < 0.05 && onCurve(startPt) < 0.05 && Math.hypot(200 - endPt.x, endPt.y) > 16 && Math.hypot(200 - endPt.x, endPt.y) <= 18.01 && Math.hypot(startPt.x, startPt.y) > 16 && Math.hypot(startPt.x, startPt.y) <= 18.01,
+  assert('On a curve, both line ends stay on the curve, 18 px (straight distance) before each tip', last[0] === 'C' && curve.length === 2 &&
+    onCurve(endPt) < 0.05 && onCurve(startPt) < 0.05 && near(Math.hypot(200 - endPt.x, endPt.y), 18, 0.1) && near(Math.hypot(startPt.x, startPt.y), 18, 0.1),
     JSON.stringify(curve));
   clear(); path = make({ nodes: [{ x: 0, y: 0, type: 'corner' }, { x: 200, y: 0, type: 'corner' }, { x: 220, y: 0, type: 'corner' }] });
   const short = P.pathStrokeCommands(path);
@@ -92,6 +92,35 @@ async function runArrowheadRegressions() {
   clear(); path = make({ nodes: [{ x: 0, y: 0, type: 'corner' }, { x: 20, y: 0, type: 'corner' }] });
   const tiny = P.pathStrokeCommands(path);
   assert('A path shorter than its heads loses at most half its length at each end', near(tiny[0][1], 10) && near(tiny.at(-1)[1], 10), JSON.stringify(tiny));
+
+  // ---- Curves: the head follows the line under it, at any size ----
+  // The head is aimed from the point of the curve one head length before the tip, so the middle of its base
+  // lies on the drawn curve (it used to follow the tangent at the tip, and small or tightly bent arrows got a
+  // head turned away from their line, even detached from it), and the line's cut end lies inside the head.
+  const curveShapes = {
+    hook: [{ x: 0, y: 220, type: 'smooth', handleOut: { x: 0, y: 0 } }, { x: 300, y: 180, type: 'smooth', handleIn: { x: 300, y: 0 } }],
+    'steep end': [{ x: 0, y: 150, type: 'smooth', handleOut: { x: 200, y: 150 } }, { x: 300, y: 150, type: 'smooth', handleIn: { x: 200, y: -50 } }],
+    'short handle': [{ x: 0, y: 200, type: 'smooth', handleOut: { x: 150, y: 200 } }, { x: 300, y: 100, type: 'smooth', handleIn: { x: 290, y: 180 } }],
+    's-bend': [{ x: 0, y: 220, type: 'smooth', handleOut: { x: 250, y: 220 } }, { x: 300, y: 0, type: 'smooth', handleIn: { x: 50, y: 0 } }]
+  };
+  const bezierAt = (nodes, t) => { const [a, b] = nodes, c1 = a.handleOut, c2 = b.handleIn, u = 1 - t;
+    return { x: u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x, y: u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y }; };
+  const sideDistance = (q, p1, p2) => Math.abs((p2.x - p1.x) * (p1.y - q.y) - (p1.x - q.x) * (p2.y - p1.y)) / Math.hypot(p2.x - p1.x, p2.y - p1.y);
+  const insideTriangle = (q, [t, a, b]) => { const sgn = (p1, p2) => (q.x - p2.x) * (p1.y - p2.y) - (p1.x - p2.x) * (q.y - p2.y);
+    const d1 = sgn(t, a), d2 = sgn(a, b), d3 = sgn(b, t); return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0)); };
+  for (const [name, nodes] of Object.entries(curveShapes)) for (const [scale, width] of [[1, 6], [0.4, 6], [0.2, 6], [1, 10], [0.4, 10]]) {
+    clear(); path = make({ nodes: nodes.map(q => ({ ...q, handleIn: q.handleIn ? { ...q.handleIn } : null, handleOut: q.handleOut ? { ...q.handleOut } : null })), width, cap: 'round', scaleX: scale });
+    const samples = [...Array(2001).keys()].map(i => toPage(path, bezierAt(nodes, i / 2000)));
+    const offCurve = q => Math.min(...samples.map(p => Math.hypot(p.x - q.x, p.y - q.y)));
+    const cut = P.pathStrokeCommands(path), ends = [{ x: cut[0][1], y: cut[0][2] }, { x: cut.at(-1).at(-2), y: cut.at(-1).at(-1) }].map(q => toPage(path, q));
+    for (const atStart of [true, false]) {
+      const tri = P.pathArrowGeometry(path, atStart).map(q => toPage(path, q)), base = { x: (tri[1].x + tri[2].x) / 2, y: (tri[1].y + tri[2].y) / 2 };
+      const end = atStart ? ends[0] : ends[1], margin = Math.min(sideDistance(end, tri[0], tri[1]), sideDistance(end, tri[0], tri[2]));
+      assert(`${name} at ${scale}×, width ${width}, ${atStart ? 'start' : 'end'}: the head's base sits on the curve and the line ends inside the head`,
+        offCurve(base) < 0.3 && insideTriangle(end, tri) && margin >= width / 2 - 0.05,
+        `base ${offCurve(base).toFixed(2)} px off the curve, line end inside ${insideTriangle(end, tri)}, ${margin.toFixed(2)} px from a side`);
+    }
+  }
 
   // ---- Finishing a path with a double-click ----
   const eventAt = (x, y, type, detail) => { const sp = fabric.util.transformPoint(new fabric.Point(x, y), canvas.viewportTransform), r = canvas.upperCanvasEl.getBoundingClientRect();
