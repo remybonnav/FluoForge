@@ -167,6 +167,17 @@ The usual layout of a fluorescence figure is single channels next to the merge, 
 
 Each image is fitted into its cell without distortion. The headers and row labels are ordinary text boxes that you then edit (here: DAPI, ERG, EdU, CD31, Merge and Cohort 3 / Cohort 2). Locked images are left in place.
 
+### Quick figure (split-channel montage)
+
+**Quick figure** does the same in one step, from the image itself. Select one or more images and click **Quick figure** in the top bar. Each image becomes a row: one panel per channel, then the merge (the image itself), with column headers above the first row naming each channel in its colour.
+
+- **Channels**: which channels get a panel and appear in the merge (by default, the ones shown).
+- **Channel panels**: in colour, or in grey (the merge keeps the colours, and the headers name each colour).
+- **Merge**: last or first.
+- **Gap (mm)**: the space between panels on the printed figure (1 mm by default).
+
+The row fits the page's width. The panels are views of the same image, stored once in the project, and stay linked: changing a channel's range, LUT, gamma or invert, or the brightness and contrast, on any panel changes it on all of them (a grey panel stays grey). Cropping one panel (or **Uncrop**) crops the whole row, which is laid out again with the same gap. Turning channels on or off stays per panel. The headers are ordinary text boxes. An image that is rotated, inside a group or cropped to a shape is not used; straighten or ungroup it first.
+
 ## 7. Selecting, moving, aligning and locking
 
 Use the **Select** tool (`V`). Click an object to select it; Shift+click or drag a rectangle to select several.

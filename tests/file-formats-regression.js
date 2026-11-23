@@ -238,7 +238,7 @@ async function runFileFormatsRegressions() {
   assert('Decoder 1 reads signed 16-bit as unsigned, as before', old.channels[0].data instanceof Uint16Array && at(old.channels[0].data, 24, 0, 0) === 65536 - 12000);
   const state = MFC_PROJECT.captureState();
   const imageOf = (st, name) => st.objects.find(o => o.mfcFileName === name);
-  assert('Saved images record decoder 2; the state is schema 5', state.schema === 5 &&
+  assert('Saved images record decoder 2; the state is schema 5 or later (decoders since 5)', state.schema >= 5 &&
     ['float32.tif', 'rgb8.tif', 'ome-tiff.ome.tif'].every(n => imageOf(state, n).display.decoder === 2) && imageOf(state, 'rgb8.tif').display.channels.length === 3);
   const channelsOf = name => MFC.getRegistry()[MFC.getCanvas().getObjects().find(o => o.mfcFileName === name).mfcId].rawImage.channels;
   const older = JSON.parse(JSON.stringify(state));

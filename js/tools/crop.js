@@ -7,6 +7,7 @@
 import { pushHistory } from '../core/history.js';
 import { canvas, currentTool, takeId } from '../core/state.js';
 import { canvasCorners, syncAttachments } from './inset.js';
+import { cropMontageLike } from '../image/montage.js';
 import { refreshLayersPanel } from '../ui/layers.js';
 import { applyLockState, refuseLocked } from '../ui/locks.js';
 import { refreshSelectionBar } from '../ui/selection-bar.js';
@@ -107,6 +108,7 @@ export function applyCrop() {
   const localLeft = (cropRect.left - img.left) / img.scaleX;
   const localTop = (cropRect.top - img.top) / img.scaleY;
   const before = { cropX: img.cropX || 0, cropY: img.cropY || 0, width: img.width, height: img.height };
+  const placed = { left: img.left, top: img.top, width: img.getScaledWidth(), height: img.getScaledHeight() };
   let width = Math.min(img.width - Math.max(0, localLeft), w / img.scaleX);
   let height = Math.min(img.height - Math.max(0, localTop), h / img.scaleY);
   if (cropAspectMode === 'square') {
@@ -123,6 +125,7 @@ export function applyCrop() {
   });
   keepClipOnContent(img, before);
   img.setCoords();
+  cropMontageLike(img, placed); // a montage panel: the whole row takes the same crop
   canvas.remove(cropRect);
   cropRect = null; cropTargetImg = null;
   document.getElementById('panel-crop').classList.add('hidden');

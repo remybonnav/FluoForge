@@ -12,7 +12,7 @@ import { refreshLayersPanel } from '../ui/layers.js';
 import { LUT_GROUPS, LUT_LABELS, FILE_LUT, channelLUT, lutGradient } from './luts.js';
 import { addCalibrationBar } from '../tools/calibration-bar.js';
 import { autoRange, logBins, sliderLimits } from './composite-core.js';
-import { divergedChannels, groupLabel, groupMembers, groupOf, matchGroup, onComparisonChange, propagate, withGroupMembers } from './comparison.js';
+import { divergedChannels, groupLabel, groupMembers, groupOf, matchGroup, onComparisonChange, propagate, withGroupMembers, withMontageMembers } from './comparison.js';
 
 // ---- channel panel ----
 // With several images selected, the panel shows the first one and every edit is
@@ -249,7 +249,8 @@ export function refreshChannelPanel() {
     gammaInput.addEventListener('input', (e) => { const v = parseFloat(e.target.value); if (Number.isFinite(v) && v >= 0.1 && v <= 5) { commitGamma(v); recompositeAll(); } });
     gammaInput.addEventListener('change', (e) => { gammaInput.value = commitGamma(parseFloat(e.target.value)); commitImages(linked); });
     gammaInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); gammaInput.blur(); } });
-    invertBox.addEventListener('change', (e) => { peers.forEach(p => { p.invert = e.target.checked; }); commitImages(images); });
+    // Invert is per image, except across the panels of a montage (propagate reaches only those).
+    invertBox.addEventListener('change', (e) => { peers.forEach(p => { p.invert = e.target.checked; }); propagate(images, idx, ['invert']); commitImages(withMontageMembers(images)); });
     minInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); minInput.blur(); } });
     maxInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); maxInput.blur(); } });
   });
@@ -353,7 +354,8 @@ export function applyAlphaToggle(enabled) {
 
 /** Applies the panel's current brightness/contrast values to the selected image(s)' whole composite (see the tone-curve pass in js/image/composite-core.js — works the same for RGB imports and TIFF composites alike). */
 export function applyBrightnessContrast(brightness, contrast) {
-  const images = selectedImages();
+  // The panels of a montage share brightness and contrast (they are views of one image).
+  const images = withMontageMembers(selectedImages());
   if (!images.length) return;
   const clamp = v => Math.max(-100, Math.min(100, v));
   const b = isFinite(brightness) ? clamp(brightness) : 0, c = isFinite(contrast) ? clamp(contrast) : 0;
@@ -379,7 +381,7 @@ export function commitBrightnessContrast() {
 }
 
 export function resetToneCurve() {
-  selectedImages().forEach(img => { const raw = registry[img.mfcId].rawImage; raw.brightness = 0; raw.contrast = 0; });
+  withMontageMembers(selectedImages()).forEach(img => { const raw = registry[img.mfcId].rawImage; raw.brightness = 0; raw.contrast = 0; });
   applyBrightnessContrast(0, 0);
   commitBrightnessContrast();
 }

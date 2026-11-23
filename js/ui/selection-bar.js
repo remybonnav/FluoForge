@@ -11,6 +11,7 @@ import { followSourceImage, refreshInsetPanel, syncAttachments, syncInsetFromCon
 import { refreshPathPanel } from '../tools/path.js';
 import { refreshScaleBarPanel, refreshScaleBarPreview, refreshScaleBarRefList, updateScaleBarsForImage } from '../tools/scalebar.js';
 import { refreshShapePanel } from '../tools/shape.js';
+import { cropMontageLike } from '../image/montage.js';
 import { refreshPanel as refreshLegendPanel } from '../tools/legend.js';
 import { applyTextBoxSize, refreshTextPanel } from '../tools/text.js';
 import { LAYER_ICONS, layerLabel, refreshLayersPanel } from './layers.js';
@@ -121,6 +122,7 @@ export function uncropImage(img) {
   const fullH = Math.max(1, Math.round(entry.rawImage.height * entry.workingScale));
   const cx = img.cropX || 0, cy = img.cropY || 0;
   const before = { cropX: cx, cropY: cy, width: img.width, height: img.height };
+  const placed = { left: img.left, top: img.top, width: img.getScaledWidth(), height: img.getScaledHeight() };
   img.set({
     left: img.left - cx * img.scaleX,
     top: img.top - cy * img.scaleY,
@@ -129,6 +131,7 @@ export function uncropImage(img) {
   });
   keepClipOnContent(img, before);
   img.setCoords();
+  cropMontageLike(img, placed); // a montage panel: the whole row is uncropped
   canvas.requestRenderAll();
   canvas.fire('object:modified', { target: img });
   updateScaleBarsForImage(img);

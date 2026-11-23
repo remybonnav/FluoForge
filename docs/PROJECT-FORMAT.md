@@ -51,7 +51,7 @@ Each `versions/<id>.json` is one figure state. States hold no pixels: images ref
 
 | Field | Meaning |
 |---|---|
-| `schema` | The state format (section 6). Currently `4`. |
+| `schema` | The state format (section 6). Currently `6`. |
 | `documentOpen` | `false` only for an empty workspace. |
 | `docProps` | The page: `name`, `width`, `height`, `unit` (`"px"`, `"cm"` or `"in"`), `dpi` and `pages` (missing in projects from before multi-page figures, which have one page). Optional `checkDismissals` (since 0.1.12): figure check findings dismissed in this project, each `{ key, rule, severity, objects, message, note }`; absent means none. Optional `preferences` (since 0.1.14): the project's own values of preferences (Preferences → This project only), `{ key: value }`, overriding the global ones; absent means none, and keys a version does not know are kept. |
 | `nextId` | The counter for new object ids. |
@@ -138,6 +138,20 @@ Fabric text fields (`text`, `styles` for per-character styling, `fontFamily`, `f
 | `mfcCalWidth`, `mfcCalHeight`, `mfcCalFontSize`, `mfcCalGap`, `mfcCalColor`, `mfcCalStrokeWidth` | The bar's size, the labels' size and distance, and the colour of the frame and labels. |
 | `objects` | The gradient (an `image`, 1 × 256 px, the max at the top), the frame (`rect`) and the max and min labels (`text`). They are rebuilt from the channel whenever its display changes; when the image is gone, the bar keeps its last state. |
 
+### Split-channel montage (Quick figure, schema 6)
+
+A montage is not an object of its own: its panels are images and its column headers are text boxes, linked by these fields.
+
+| Field | On | Meaning |
+|---|---|---|
+| `mfcMontageGroup` | panels and headers | The montage's id (a string such as `"mtg12"`), shared by every panel of one row and the headers above it. |
+| `mfcMontageChannel` | panels and headers | The channel number the panel shows (or the header names); `-1` for the merge. |
+| `mfcMontageColumn` | panels and headers | The column, from 0 on the left. Cropping a panel lays the row out again by column. |
+| `mfcMontageGrey` | panels | The channel panels show their channel in grey (their `color` is `grey`); a LUT change on another panel does not reach them. |
+| `mfcMontageGap` | panels | The gap between panels, in page pixels. |
+
+Every panel is an ordinary image with its own `display` (which channels are on, and their settings). The channel panels use the same source (`sourceId`) as the merge, so the source is stored once. While editing, range, LUT, gamma and invert of a channel, brightness and contrast, and the crop are kept equal on every panel of a montage; this is not checked when a project opens.
+
 ### Group: `type: "group"`, `mfcType: "group"`
 
 `objects` holds the children, saved the same way, in group coordinates. Children of a scale bar or a group may be plain Fabric objects without `mfcType`.
@@ -167,7 +181,8 @@ Schemas:
 | 2 | 0.1.6: image channels also store `gamma` and `invert`. `schema-1-to-2.js` adds gamma 1 and invert false, which is how schema-1 figures were always drawn. |
 | 3 | 0.1.7: the LUT library's names in `color`, a file's LUT in `lut`, and calibration bars. All additions, so `schema-2-to-3.js` only changes the number. |
 | 4 | 0.1.9: images may carry `mfcCompareGroup` (comparison groups). An addition, so `schema-3-to-4.js` only changes the number. |
-| 5 | The current state format, since 0.1.10: images record their TIFF decoder in `display.decoder`. `schema-4-to-5.js` sets `decoder: 1` on every image (also inside groups), which is how schema-4 figures were decoded, so they open exactly as before. |
+| 5 | 0.1.10: images record their TIFF decoder in `display.decoder`. `schema-4-to-5.js` sets `decoder: 1` on every image (also inside groups), which is how schema-4 figures were decoded, so they open exactly as before. |
+| 6 | The current state format, since 0.1.25: split-channel montages (Quick figure): images and text boxes may carry the `mfcMontage…` fields (section 4). An addition, so `schema-5-to-6.js` only changes the number. |
 
 ## 7. Legacy formats
 

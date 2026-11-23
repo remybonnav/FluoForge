@@ -7,7 +7,9 @@
    An image in a group carries `mfcCompareGroup` (the group's number); like every mfc* property it
    is saved with the project and kept by undo. On/off, invert, names, brightness and contrast stay
    per image. Pasting display settings onto one member is deliberately not passed on, so a group
-   can diverge; the layers panel then shows a warning badge and offers to match the group again. */
+   can diverge; the layers panel then shows a warning badge and offers to match the group again.
+   The panels of a split-channel montage (`mfcMontageGroup`, js/image/montage.js) are linked the same
+   way, and also on invert: they are views of one image. A grey channel panel keeps its grey LUT. */
 
 import { pushHistory } from '../core/history.js';
 import { canvas, registry } from '../core/state.js';
@@ -33,9 +35,20 @@ export const groupMembers = id => (id == null ? [] : allImages().filter(img => g
 export const groupLabel = id => 'Comparison group ' + id;
 const channelsOf = img => registry[img.mfcId].rawImage.channels;
 
-/** The images an edit of `images` reaches: those images and every member of their groups. */
-export function withGroupMembers(images) {
+export const montageOf = img => (img && typeof img.mfcMontageGroup === 'string' ? img.mfcMontageGroup : null);
+export const montageMembers = id => (id == null ? [] : allImages().filter(img => montageOf(img) === id));
+/** `images` and every panel of their montages (for settings a montage shares, such as brightness and contrast). */
+export function withMontageMembers(images) {
   const out = new Set(images);
+  for (const id of new Set(images.map(montageOf).filter(Boolean))) montageMembers(id).forEach(img => out.add(img));
+  return [...out];
+}
+/** A grey channel panel of a montage showing channel `idx`: its LUT stays grey. */
+const keepsGrey = (img, idx) => !!(montageOf(img) && img.mfcMontageGrey && img.mfcMontageChannel === idx);
+
+/** The images an edit of `images` reaches: those images, every member of their groups and every panel of their montages. */
+export function withGroupMembers(images) {
+  const out = new Set(withMontageMembers(images));
   for (const id of new Set(images.map(groupOf).filter(g => g != null))) groupMembers(id).forEach(img => out.add(img));
   return [...out];
 }
@@ -64,7 +77,9 @@ function copyChannel(source, target, fields) {
 export function propagate(images, idx, fields) {
   const changed = [];
   const done = new Set();
-  for (const source of images) {
+  // A comparison group links only LINKED_FIELDS (invert, for one, stays per image).
+  const groupFields = fields.filter(f => LINKED_FIELDS.includes(f));
+  for (const source of groupFields.length ? images : []) {
     const id = groupOf(source);
     if (id == null || done.has(id)) continue;
     done.add(id);
@@ -74,8 +89,27 @@ export function propagate(images, idx, fields) {
       if (member === source || images.includes(member)) continue;
       const to = channelsOf(member)[idx];
       if (!to) continue;
-      copyChannel(from, to, fields);
+      copyChannel(from, to, groupFields);
       changed.push(member);
+    }
+  }
+  // Montage panels: the same channel on every panel of the row (a grey panel keeps grey, and its
+  // grey is not passed on).
+  const doneMontages = new Set();
+  for (const source of images) {
+    const id = montageOf(source);
+    if (!id || doneMontages.has(id)) continue;
+    doneMontages.add(id);
+    const from = channelsOf(source)[idx];
+    if (!from) continue;
+    for (const member of montageMembers(id)) {
+      if (member === source || images.includes(member)) continue;
+      const to = channelsOf(member)[idx];
+      if (!to) continue;
+      const own = keepsGrey(source, idx) || keepsGrey(member, idx) ? fields.filter(f => f !== 'color' && f !== 'lut') : fields;
+      if (!own.length) continue;
+      copyChannel(from, to, own);
+      if (!changed.includes(member)) changed.push(member);
     }
   }
   return changed;

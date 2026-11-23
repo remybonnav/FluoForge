@@ -4,6 +4,15 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.25 (2026-11-23)
+
+- **Quick figure: split-channel montages in one click (P3-T1).** Select one or more images and click **Quick figure**: each image becomes a row of panels, one per channel plus the merge, with column headers naming each channel in its colour. Options: channels in colour or grey, merge first or last, the gap in mm, and which channels to include. The panels are linked views of one image, stored once in the project: a change to a channel's range, LUT, gamma or invert, to brightness or contrast, or to the crop on one panel applies to the whole row.
+
+### Development
+
+- New `js/image/montage.js` (`quickFigure`, `cropMontageLike`) and `js/ui/quick-figure-dialog.js`. Channel panels are built like insets (own registry entry, shared pixel arrays and `sourceId`). `js/image/comparison.js` links montage panels (`montageOf`, `montageMembers`, `withMontageMembers`; `propagate` and `withGroupMembers` reach them, a grey panel keeps grey; comparison groups still link only range, LUT and gamma). `js/image/channels.js` passes invert and brightness/contrast to the montage; `applyCrop` and `uncropImage` crop the whole row.
+- Project format: schema 6 (`schema-5-to-6.js`, number only) for the `mfcMontage…` fields; format lock recorded again (the format functions are unchanged). New `montage-regression` suite; `migrations-regression` checks 5→6; `file-formats-regression` accepts schema 5 or later for the decoder check.
+
 ## v0.1.24 (2026-11-23)
 
 - **Square crops stay square.** In the Crop tool's Square mode, resizing the region on a non-square image made it spring back to the image's rectangle. It now stays square: a side handle sets both sides, a corner resizes from the opposite corner. Square now starts from the image's shorter side, so the square fits inside the image, and a square that reaches past the image's edge is applied as a square of the part that fits instead of being cut to a rectangle.

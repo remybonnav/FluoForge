@@ -163,6 +163,15 @@ export async function runMigrationRegressions() {
     JSON.stringify(v5.objects[1].objects[1]) === JSON.stringify(v4state.objects[1].objects[1]) && v5.futureLike.kept === 1 && v5.nextId === 9 &&
     JSON.stringify({ ...v5, schema: 4, objects: null }) === JSON.stringify({ ...v4state, objects: null }));
 
+  // --- schema-5-to-6.js alone ---------------------------------------------------------------
+  const { migrate: m56 } = await import(pathToFileURL(join(ROOT, 'js/migrations/schema-5-to-6.js')).href);
+  const v5state = deepFrozen({ schema: 5, docProps: { pages: 2 }, nextId: 12, objects: [
+    { type: 'image', mfcType: 'mfcImage', mfcId: 'a', display: { channels: [{ min: 0, max: 255 }], decoder: 2 } },
+    { type: 'textbox', mfcType: 'text', text: 'A' }] });
+  const v6 = m56(v5state);
+  assert('5→6: only the number changes (montages are an addition) and the input is untouched',
+    v6.schema === 6 && v5state.schema === 5 && JSON.stringify({ ...v6, schema: 5 }) === JSON.stringify(v5state));
+
   assert('Migrations use no browser objects', !/\b(window|document|fabric|MFC\w*)\b/.test(files.map(f => readFileSync(join(ROOT, 'js/migrations', f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')).join('\n')));
 
   // --- The fixture library ------------------------------------------------------------------

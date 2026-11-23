@@ -104,6 +104,8 @@ button.active,.toggle-btn.active{background:var(--accent-dim);border-color:var(-
 .export-field > input[type=checkbox]{justify-self:start;margin:0;}
 .export-field[hidden]{display:none;}
 .export-resolution{display:flex;gap:6px;min-width:0;}
+.qf-channels label{display:inline-flex;align-items:center;gap:4px;margin:2px 12px 2px 0;}
+.qf-swatch{display:inline-block;width:10px;height:10px;border-radius:2px;border:1px solid var(--border);}
 .export-resolution > input[type=number]{flex:1 1 auto;width:0;min-width:0;}
 .export-resolution > select{flex:0 0 auto;}
 .export-modal select,.export-modal input[type=number],.export-modal input[type=text]{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px;}
