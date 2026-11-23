@@ -22,7 +22,7 @@ export function isTransformLocked(o) {
   if (o.type === 'activeSelection') return o.getObjects().some(isTransformLocked);
   return !!(o.mfcLocked || o.mfcPositionLocked);
 }
-export function selectionToolActive() { return currentTool === 'select' || currentTool === 'scalebar'; }
+export function selectionToolActive() { return currentTool === 'select' || currentTool === 'scalebar' || currentTool === 'legend'; }
 export function applyLockState(o) {
   if (!o || isHelper(o)) return;
   const full = !!o.mfcLocked, fixed = full || !!o.mfcPositionLocked;

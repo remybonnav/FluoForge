@@ -75,7 +75,7 @@ const MFC_UI = (function () {
     if (force) { setPanelExpanded(panel, true); panel.scrollIntoView({ block: 'nearest' }); }
   }
   function focusSelection(object, tool, force = false) {
-    const tools = {crop:'panel-crop',text:'panel-text',scalebar:'panel-scalebar',shape:'panel-shape',path:'panel-path',inset:'panel-inset'};
+    const tools = {crop:'panel-crop',text:'panel-text',scalebar:'panel-scalebar',shape:'panel-shape',path:'panel-path',inset:'panel-inset',legend:'panel-legend'};
     let panel = tool !== 'select' ? tools[tool] : null;
     if (!panel && object) {
       panel = object.mfcShapeKind === 'path' ? 'panel-path' :
@@ -603,6 +603,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     else if (e.key.toLowerCase() === 'r' && !ctrl) { MFC.setTool('shape'); }
     else if (e.key.toLowerCase() === 'p' && !ctrl) { MFC.setTool('path'); }
     else if (e.key.toLowerCase() === 'i' && !ctrl) { MFC.setTool('inset'); }
+    else if (e.key.toLowerCase() === 'l' && !ctrl) { MFC.setTool('legend'); }
     else if (!ctrl && (e.key === '+' || e.key === '=')) { e.preventDefault(); MFC.zoomIn(); }
     else if (!ctrl && (e.key === '-' || e.key === '_')) { e.preventDefault(); MFC.zoomOut(); }
     else if (!ctrl && e.key === '0') { MFC.zoomReset(); }
@@ -636,7 +637,7 @@ function attachColorPalettesToAllInputs() {
   const IMAGEJ = [['#FF0000', 'Red'], ['#00FF00', 'Green'], ['#0000FF', 'Blue'], ['#FF00FF', 'Magenta'], ['#00FFFF', 'Cyan'], ['#FFFF00', 'Yellow']];
   const PALETTE = [...IMAGEJ, null, ...NORMAL, ...PASTEL, ...DARK, ...GRAYS];
 
-  ['text-color', 'text-bg-color', 'text-border-color', 'shape-stroke-color', 'shape-fill-color', 'path-stroke-color', 'sb-color', 'inset-stroke-color'].forEach(id => {
+  ['text-color', 'text-bg-color', 'text-border-color', 'shape-stroke-color', 'shape-fill-color', 'path-stroke-color', 'sb-color', 'inset-stroke-color', 'legend-border-color'].forEach(id => {
     const input = document.getElementById(id);
     if (input) attachColorPalette(input, PALETTE);
   });

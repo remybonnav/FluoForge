@@ -263,6 +263,20 @@ Choose **Text** (`T`) and click where the label should go, including on top of a
 
 ![A caption box with a grey background and border, centred vertically](images/09b-text-box.jpg)
 
+### Channel legend
+
+Select an image, then choose **Legend** (`L`): a text box lists the image's shown channels, each name in its channel's colour (for example **FLAG** in green and **WGA** in red). The colour is the channel's colour table at its maximum, so a green channel is written in pure green and a viridis channel in yellow. Hidden channels are left out. Select several images to add a legend to each.
+
+While the tool is active, the **Channel legend** panel sets up the next legend:
+
+- **Background**: black (default), white or transparent. On black or white, a colour that would not show (white or yellow on white, black on black) is written in black or white instead.
+- **Border**: on (default) or off, and its colour (black by default).
+- **Size from**: **Image width** puts the box right above the image, as wide as the image is displayed (after cropping and resizing, not its source pixels). **Image height** turns the box 90° against the image's left side, as long as the image is tall.
+
+With the tool active, click another image and **Add legend to selected image**. The text shrinks if the names would not fit on one line.
+
+The tool only creates the legend: the result is an ordinary text box, not linked to the image. Rename the channels, change colours, background or border afterwards with the [Text panel](#13-text-and-captions), like any text; the legend options never change an existing text box, so your edits are kept.
+
 ## 14. Cropping an image to a shape
 
 To show an image inside a circle, an ellipse or any closed outline:
@@ -456,6 +470,7 @@ A preference is **global**: it is saved in this browser and used by every projec
 | `R` | Shape tool |
 | `P` | Pen / Path tool |
 | `I` | Inset tool |
+| `L` | Channel legend tool |
 | `+` / `-` | Zoom in / out (around the selection) |
 | Ctrl+, | Preferences |
 | Ctrl+Shift+C | Copy for other software |

@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.23 (2026-11-23)
+
+- **Channel legend tool.** Select an image and choose **Legend** (`L`): a text box lists its shown channels, each name in its channel's colour ("FLAG" in green, "WGA" in red). It is as wide as the image is displayed, right above it, or as long as it is tall, turned 90° on its left side. The Channel legend panel sets up the next legend: background (black, white or transparent), border (on by default, black) and which side of the image sizes the box. The result is an ordinary text box, not linked to the image: rename channels or change its look with the Text panel, and the legend options never overwrite those edits.
+
+### Development
+
+- New `js/tools/legend.js` (`addChannelLegend`, `setLegendOption`, `legendColor`, `legendEntries`; the tool interface `activate`, `deactivate`, `refreshPanel`), wired in `tool-switch.js`, `locks.js` (images stay selectable with the tool), `selection-bar.js`, `app.js` and `main.js` (panel, `L`). A legend is a plain text box (`mfcType: "text"`, no extra fields), so the saved format is unchanged. New `legend-regression` suite; `module-api-regression` checks the new tool's interface.
+
 ## v0.1.22 (2026-11-23)
 
 - **SVG exports open at the right size in Inkscape and Illustrator.** The SVG gave its page size in pixels without a unit, which these programs read as 96 pixels per inch. A figure at 300 dpi opened about 3 times too large, and one at 600 dpi 6.25 times too large, so a PDF saved from Inkscape had a huge page with low-resolution images. The SVG now states the page's real size (for example 210 mm × 297 mm for A4); everything inside is unchanged. TIFF, PNG and PDF exports are unchanged.

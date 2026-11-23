@@ -15,7 +15,7 @@
 <link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#07090C">
-<link rel="stylesheet" href="style.css?v=0.1.22">
+<link rel="stylesheet" href="style.css?v=0.1.23">
 </head>
 <body>
 
@@ -28,6 +28,7 @@
     <button id="tool-crop" data-requires-document class="tool-btn" data-tool="crop" title="Crop tool (C)">&#9984; Crop</button>
     <button id="tool-text" data-requires-document class="tool-btn" data-tool="text" title="Text tool (T)">A Text</button>
     <button id="tool-scalebar" data-requires-document class="tool-btn" data-tool="scalebar" title="Scale bar tool (S)">&#8213; Scale bar</button>
+    <button id="tool-legend" data-requires-document class="tool-btn" data-tool="legend" title="Channel legend tool (L): select an image, then this tool, to add a text box with its channel names in their colours">&#9636; Legend</button>
     <button id="tool-shape" data-requires-document class="tool-btn" data-tool="shape" title="Rectangle/square tool (R)">&#9633; Shape</button>
     <button id="tool-path" data-requires-document class="tool-btn" data-tool="path" title="Pen / Path tool (P)">&#9998; Pen / Path</button>
     <button id="tool-inset" data-requires-document class="tool-btn" data-tool="inset" title="Inset tool — draw an outline on an image (I)">&#8862; Inset</button>
@@ -346,6 +347,27 @@
       <p class="hint">Scale bars are always placed by attaching to a corner of an image — select the reference image (or several) above, pick a corner, and click a button. Attached bars automatically follow that image if you move or resize it, and stay correctly calibrated if you rescale it.</p>
     </section>
 
+    <section id="panel-legend" class="panel hidden">
+      <h3>Channel legend</h3>
+      <p class="hint">Select an image, then choose Legend (L): a text box lists its shown channels, each name in its channel's colour. These options set up the next legend; the text box it makes is an ordinary one, edited with the Text panel.</p>
+      <label title="Box background: black, white or none">Background
+        <select id="legend-background">
+          <option value="black">Black</option>
+          <option value="white">White</option>
+          <option value="transparent">Transparent</option>
+        </select>
+      </label>
+      <label title="Draw a border around the legend box"><input type="checkbox" id="legend-border" checked> Border</label>
+      <label title="Colour of the legend's border">Border color <input type="color" id="legend-border-color" value="#000000"></label>
+      <label title="Width: the box is as wide as the image is displayed, above it. Height: as long as the image is tall, turned 90° on its left side">Size from
+        <select id="legend-fit">
+          <option value="width">Image width (above)</option>
+          <option value="height">Image height (left side)</option>
+        </select>
+      </label>
+      <button id="legend-add" title="Add a channel legend to each selected image">Add legend to selected image</button>
+      <p id="legend-status" class="hint" role="status"></p>
+    </section>
     <section id="panel-shape" class="panel hidden">
       <h3>Shape</h3>
       <div class="btn-row">
@@ -535,14 +557,14 @@
 <script src="assets/vendor/jszip.min.js"></script>
 
 <!-- ======================= APP ======================= -->
-<script src="js/debug.js?v=0.1.22"></script>
-<script src="js/errors.js?v=0.1.22"></script>
-<script src="js/tiff.js?v=0.1.22"></script>
-<script type="module" src="js/app.js?v=0.1.22"></script>
+<script src="js/debug.js?v=0.1.23"></script>
+<script src="js/errors.js?v=0.1.23"></script>
+<script src="js/tiff.js?v=0.1.23"></script>
+<script type="module" src="js/app.js?v=0.1.23"></script>
 <script defer src="assets/vendor/svg2pdf.umd.min.js"></script>
-<script defer src="js/project.js?v=0.1.22"></script>
-<script defer src="js/autosave.js?v=0.1.22"></script>
-<script defer src="js/export.js?v=0.1.22"></script>
-<script defer src="js/main.js?v=0.1.22"></script>
+<script defer src="js/project.js?v=0.1.23"></script>
+<script defer src="js/autosave.js?v=0.1.23"></script>
+<script defer src="js/export.js?v=0.1.23"></script>
+<script defer src="js/main.js?v=0.1.23"></script>
 </body>
 </html>

@@ -73,7 +73,7 @@ async function runModuleApiRegressions() {
   assert('canvas-app.js is no longer part of the module graph',![...sizes.keys()].some(p=>/canvas-app/.test(p)));
 
   // One file per tool, each with the same small interface that tools/tool-switch.js uses.
-  const TOOLS=['crop','text','shape','path','inset','scalebar'];
+  const TOOLS=['crop','text','shape','path','inset','scalebar','legend'];
   for(const name of TOOLS){
     const tool=await import(new URL('js/tools/'+name+'.js',location.href).href);
     assert(`tools/${name}.js exports activate, deactivate and refreshPanel`,

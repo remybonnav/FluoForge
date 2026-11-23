@@ -7,6 +7,7 @@
 import { canvas, documentOpen, setCurrentTool } from '../core/state.js';
 import * as cropTool from './crop.js';
 import * as insetTool from './inset.js';
+import * as legendTool from './legend.js';
 import * as pathTool from './path.js';
 import * as scaleBarTool from './scalebar.js';
 import * as shapeTool from './shape.js';
@@ -25,7 +26,7 @@ export function setTool(tool) {
   document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
   cropTool.refreshPanel();
   canvas.isDrawingMode = false;
-  canvas.selection = (tool === 'select' || tool === 'scalebar');
+  canvas.selection = (tool === 'select' || tool === 'scalebar' || tool === 'legend');
   canvas.defaultCursor = tool === 'path' ? 'crosshair' : 'default';
   canvas.forEachObject(applyLockState);
   if (tool === 'crop') cropTool.activate();
@@ -39,5 +40,7 @@ export function setTool(tool) {
   shapeTool.refreshPanel();
   pathTool.refreshPanel();
   insetTool.refreshPanel();
+  if (tool === 'legend') legendTool.activate();
+  legendTool.refreshPanel();
   MFC_UI.focusSelection(canvas.getActiveObject(), tool);
 }

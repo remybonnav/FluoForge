@@ -11,6 +11,7 @@ import { followSourceImage, refreshInsetPanel, syncAttachments, syncInsetFromCon
 import { refreshPathPanel } from '../tools/path.js';
 import { refreshScaleBarPanel, refreshScaleBarPreview, refreshScaleBarRefList, updateScaleBarsForImage } from '../tools/scalebar.js';
 import { refreshShapePanel } from '../tools/shape.js';
+import { refreshPanel as refreshLegendPanel } from '../tools/legend.js';
 import { applyTextBoxSize, refreshTextPanel } from '../tools/text.js';
 import { LAYER_ICONS, layerLabel, refreshLayersPanel } from './layers.js';
 import { applyLockState, applySelectionLock, isTransformLocked, refuseLocked } from './locks.js';
@@ -32,6 +33,7 @@ export function onSelectionChanged() {
   refreshShapePanel();
   refreshPathPanel();
   refreshInsetPanel();
+  refreshLegendPanel();
   refreshLayersPanel();
   MFC_UI.focusSelection(activeObject, currentTool);
 }
