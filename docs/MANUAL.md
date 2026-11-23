@@ -340,7 +340,7 @@ Every change is a step in the **History** panel, with a readable name and its ti
 |---|---|---|
 | **TIFF (flattened RGB)** | One RGB image per page, losslessly compressed (Deflate by default), with the DPI written in the file. | Journals that want raster figures. |
 | **PNG** | One image per page, with the DPI written in the file. | Slides, the web, quick previews. |
-| **SVG** | One file per page. Text, shapes, paths, arrows, scale bars and clip paths stay as vectors; each image is embedded (cropped) at the output resolution, never enlarged beyond its source pixels. | Final touches in Inkscape or Illustrator. |
+| **SVG** | One file per page, at the page's real size (in mm, or in cm or inches for documents in those units), so Inkscape and Illustrator open it at the right size at any DPI. Text, shapes, paths, arrows, scale bars and clip paths stay as vectors; each image is embedded (cropped) at the output resolution, never enlarged beyond its source pixels. | Final touches in Inkscape or Illustrator. |
 | **PDF** | One PDF with one page per figure page; vectors stay vectors and the Liberation fonts are embedded. | Submission and sharing. |
 
 Images are always re-composited from the original channel data at full resolution, never from the screen preview. A panel printed smaller than its source is averaged down from the source pixels; a panel printed larger keeps its source resolution and is never enlarged. Dashed outlines keep their dash lengths in Inkscape and when resized. Export files are named after the project (characters that are not allowed in file names are replaced), and multi-page SVG, TIFF and PNG exports add `_page-1`, `_page-2`, … Objects on the pasteboard (outside a page) are not exported.

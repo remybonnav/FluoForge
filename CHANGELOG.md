@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.22 (2026-11-23)
+
+- **SVG exports open at the right size in Inkscape and Illustrator.** The SVG gave its page size in pixels without a unit, which these programs read as 96 pixels per inch. A figure at 300 dpi opened about 3 times too large, and one at 600 dpi 6.25 times too large, so a PDF saved from Inkscape had a huge page with low-resolution images. The SVG now states the page's real size (for example 210 mm × 297 mm for A4); everything inside is unchanged. TIFF, PNG and PDF exports are unchanged.
+
+### Development
+
+- `js/export.js`: new `svgWithPhysicalSize` (exported on `MFC_EXPORT`) writes the root `width` and `height` in mm (or the document's cm or in) and keeps the `viewBox` in document pixels; `exportWith` applies it to SVG files only. `buildSVG`, rasterising, the PDF, Copy out and the stored reference SVGs are unchanged. `export-upgrades-regression` checks the exported file's size, that nothing else in it changes, how a browser sizes it, the units, and the refusal of an SVG without a viewBox.
+
 ## v0.1.21 (2026-11-23)
 
 - **Export resolution in dpi, ppi, dpc or ppc.** The Export… dialog has a unit list next to the resolution: dots or pixels per inch, or per centimetre. Changing the unit converts the value (300 dpi is 118.11 ppc), and the limits and messages use the chosen unit. A TIFF exported per centimetre stores its resolution in pixels per centimetre; a PNG stores pixels per metre as before. The dialog remembers the unit.

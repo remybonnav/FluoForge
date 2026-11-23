@@ -7,7 +7,7 @@
      resolution tags and predictor; LZW on random data, long runs and code-width changes.
    - The TIFF export is compressed and has the same pixels as before; PNG export with its DPI (pHYs),
      at a higher resolution, with a transparent background; page ranges; a PDF of chosen pages;
-     the figure report next to the export.
+     the figure report next to the export; the SVG file's physical page size (mm, cm or in).
    - The export dialog: its fields per format, the figure check line, errors, Esc, focus, themes; the
      resolution unit (dpi, ppi, dpc, ppc): conversion, limits, TIFF tags in px/cm, remembered.
    - Export panels: the zip's PNGs at source resolution as displayed and each channel in grey, named
@@ -111,6 +111,23 @@ async function runExportUpgradesRegressions() {
   assert('exportWith writes one PDF, one SVG per page, and the report next to a PNG when asked',
     downloads.map(d => d.name).join() === [base + '.pdf', base + '_page-1.svg', base + '_page-2.svg', base + '_page-2.png', base + '_report.md', base + '_report.json'].join(),
     downloads.map(d => d.name).join() + ' / status: ' + document.getElementById('project-status').textContent);
+  // The SVG file gives its page size in physical units (Inkscape and Illustrator read unitless sizes as 96 px per
+  // inch, so a 300 dpi page opened 3.125 times too large); the viewBox and everything inside stay in document pixels.
+  const svgFile = await downloads[1].blob.text(), svgRoot = svgFile.match(/<svg\b[^>]*>/)[0], page1 = (await MFC_EXPORT.buildSVG({ page: 0 })).svg;
+  const noIds = s => s.replace(/(CLIPPATH|SVGID)_\d+/g, '$1');
+  assert('The SVG file is 101.6 mm × 67.7333 mm (1200 × 800 px at 300 dpi), viewBox still 0 0 1200 800',
+    /\swidth="101\.6mm"/.test(svgRoot) && /\sheight="67\.7333mm"/.test(svgRoot) && /\sviewBox="0 0 1200 800"/.test(svgRoot), svgRoot);
+  assert('Apart from the root width and height, the SVG file is the page\'s SVG unchanged',
+    noIds(svgFile.replace(/<svg\b[^>]*>/, '')) === noIds(page1.replace(/<svg\b[^>]*>/, '')) && svgRoot.replace(/\s(width|height)="[^"]*"/g, '') === page1.match(/<svg\b[^>]*>/)[0].replace(/\s(width|height)="[^"]*"/g, ''));
+  const svgImage = await new Promise((resolve, reject) => { const i = new Image(); i.onload = () => resolve(i); i.onerror = reject; i.src = URL.createObjectURL(new Blob([svgFile], { type: 'image/svg+xml' })); });
+  assert('A browser sizes the SVG file at its physical size: 101.6 mm is 384 CSS px', Math.abs(svgImage.naturalWidth - 384) <= 1 && Math.abs(svgImage.naturalHeight - 256) <= 1, `${svgImage.naturalWidth} × ${svgImage.naturalHeight}`);
+  const sized = (w, h, dpi, unit) => MFC_EXPORT.svgWithPhysicalSize(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="5" height="6"/></svg>`, { width: w, height: h, dpi, unit }).match(/<svg\b[^>]*>/)[0];
+  assert('A4 at 600 dpi in mm (4961 × 7016 px) is 210.0157 mm × 297.0107 mm', /width="210\.0157mm" height="297\.0107mm"/.test(sized(4961, 7016, 600, 'mm')), sized(4961, 7016, 600, 'mm'));
+  assert('Documents in inches and cm keep their unit; documents in pixels use mm',
+    /width="4in" height="2\.5in"/.test(sized(1200, 750, 300, 'in')) && /width="10\.16cm"/.test(sized(1200, 750, 300, 'cm')) && /width="101\.6mm"/.test(sized(1200, 750, 300, 'px')));
+  assert('Only the root element changes, not the size of shapes inside', /<rect width="5" height="6"\/>/.test(MFC_EXPORT.svgWithPhysicalSize('<svg width="10" height="10" viewBox="0 0 10 10"><rect width="5" height="6"/></svg>', { width: 10, height: 10, dpi: 300 })));
+  let noBox = ''; try { MFC_EXPORT.svgWithPhysicalSize('<svg width="10" height="10"></svg>', { width: 10, height: 10, dpi: 300 }); } catch (e) { noBox = e.message; }
+  assert('An SVG without a viewBox is refused rather than written at a wrong size', /no width, height or viewBox/.test(noBox), noBox);
   if (typeof pdfjsLib === 'undefined') await new Promise((resolve, reject) => { const s = document.createElement('script'); s.src = 'node_modules/pdfjs-dist/build/pdf.min.js'; s.onload = resolve; s.onerror = reject; document.head.append(s); });
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'node_modules/pdfjs-dist/build/pdf.worker.min.js';
   const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await downloads[0].blob.arrayBuffer()), isEvalSupported: false }).promise;

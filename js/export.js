@@ -184,6 +184,19 @@ const MFC_EXPORT = (() => {
       return { svg, report, width: size.width, height: size.height, dpi: state.docProps.dpi, fonts, imageDetails, page, pageCount, transparent };
     } finally { canvas.dispose(); }
   }
+  /** The SVG with its physical size on the root element (width="101.6mm" height="67.7333mm"), the viewBox
+      staying in document pixels. Without units, Inkscape and Illustrator read the size as CSS pixels (96 per
+      inch), so a 600 dpi page opened 6.25 times too large. The unit is the document's (cm or in), mm for
+      documents in pixels; at most 4 decimals. Used for SVG files only: rasterising and the PDF keep pixels. */
+  function svgWithPhysicalSize(svg, { width, height, dpi, unit = 'px' }) {
+    const [name, perInch] = unit === 'in' ? ['in', 1] : unit === 'cm' ? ['cm', 2.54] : ['mm', 25.4];
+    const size = px => String(Number((px / dpi * perInch).toFixed(4))) + name;
+    const open = svg.match(/<svg\b[^>]*>/);
+    if (!open || !/\swidth="[^"]*"/.test(open[0]) || !/\sheight="[^"]*"/.test(open[0]) || !/\sviewBox="/.test(open[0]))
+      throw new Error('Could not set the SVG page size: the exported SVG has no width, height or viewBox.');
+    const tag = open[0].replace(/(\swidth=")[^"]*"/, `$1${size(width)}"`).replace(/(\sheight=")[^"]*"/, `$1${size(height)}"`);
+    return svg.slice(0, open.index) + tag + svg.slice(open.index + open[0].length);
+  }
   /** One PDF page per figure page (or per page of `pages`, 0-based). */
   async function buildPDF({ pages = null } = {}) {
     let pdf = null, first = null;
@@ -289,7 +302,7 @@ const MFC_EXPORT = (() => {
           if (list.length > 1) MFC_UI.showSavingDialog('Rendering ' + format.toUpperCase() + ' page ' + (page + 1) + ' (' + (list.indexOf(page) + 1) + ' of ' + list.length + ')…');
           const output = format === 'tiff' ? await buildTIFF({ page, dpi, transparent, compression, resolutionUnit }) : format === 'png' ? await buildPNG({ page, dpi, transparent })
             : await buildSVG({ page, transparent });
-          save(output.blob || new Blob([output.svg], { type: 'image/svg+xml' }), base + (pageCount > 1 ? '_page-' + (page + 1) : '') + '.' + format);
+          save(output.blob || new Blob([svgWithPhysicalSize(output.svg, { ...output, unit: MFC.getDocProps().unit })], { type: 'image/svg+xml' }), base + (pageCount > 1 ? '_page-' + (page + 1) : '') + '.' + format);
         }
       }
       if (includeReport) {
@@ -305,6 +318,6 @@ const MFC_EXPORT = (() => {
   }
   /** One-click export from the menu: every page at the document DPI. */
   const exportFile = kind => exportWith({ format: kind });
-  return { download, exportBaseName, buildSVG, buildPDF, buildTIFF, buildPNG, renderSVG, parsePageRange, exportWith,
+  return { download, exportBaseName, buildSVG, svgWithPhysicalSize, buildPDF, buildTIFF, buildPNG, renderSVG, parsePageRange, exportWith,
     exportPDF:()=>exportFile('pdf'), exportSVG:()=>exportFile('svg'), exportTIFF:()=>exportFile('tiff'), exportPNG:()=>exportFile('png') };
 })();
