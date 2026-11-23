@@ -9,7 +9,11 @@
    - the arrowhead is max(10, 4 × line width) long and 0.45 × that wide on the page at any size,
      with uneven stretching and inside a scaled group; its tip stays on the end node;
    - paths whose line scales with them keep arrowheads that scale too (unchanged);
-   - with round or square caps the line ends half a line width before the tip, so nothing sticks out;
+   - the line stops inside the arrowhead, 3/4 of the head length before the tip measured along the path
+     (at most half the path), for every cap: it no longer runs through the head, and a round or square cap
+     no longer bulges out of the narrow tip, even with a node right next to the tip (v0.1.19);
+   - the double-click that finishes a path no longer inserts a node 10 px before its end (that stub held
+     the line's end under the arrowhead in v0.1.18);
    - the canvas, the SVG export (vector polygons) and resizing with the W field agree. */
 
 async function runArrowheadRegressions() {
@@ -60,16 +64,47 @@ async function runArrowheadRegressions() {
   assert('A path whose line scales with it keeps an arrowhead that scales too (12 × 5.4 at 0.5×)', near(measure(path).length, 12) && near(measure(path).half, 5.4));
   clear(); path = make();
   assert('At 1× the arrowhead is unchanged: 24 × 10.8 in path units, as before', JSON.stringify(P.pathArrowGeometry(path, false).map(q => [+q.x.toFixed(3), +q.y.toFixed(3)])) === JSON.stringify([[200, 0], [176, 10.8], [176, -10.8]]));
-  assert('Butt caps: the line commands are not changed', P.pathStrokeCommands(path) === null);
+  const ends = P.pathStrokeCommands(path);
+  assert('Butt caps: the line stops 3/4 of the head (18 px) before each tip too', ends && near(ends[0][1], 18) && near(ends.at(-1)[1], 182) && path.path.at(-1)[1] === 200, JSON.stringify(ends));
+  path.mfcArrowStart = 'none'; path.mfcArrowEnd = 'none';
+  assert('A path without arrowheads keeps its line commands', P.pathStrokeCommands(path) === null);
   clear(); path = make({ cap: 'round', scaleX: 0.5 });
   const trimmed = P.pathStrokeCommands(path);
-  assert('Round caps: both arrow ends are pulled back by half the line width on the page (3 px = 6 path units at 0.5×)', trimmed && near(trimmed[0][1], 6) && near(trimmed.at(-1)[1], 194) && path.path[0][1] === 0 && path.path.at(-1)[1] === 200,
+  assert('Round caps: both arrow ends stop 18 page px (36 path units at 0.5×) before the tip; the path itself is unchanged', trimmed && near(trimmed[0][1], 36) && near(trimmed.at(-1)[1], 164) && path.path[0][1] === 0 && path.path.at(-1)[1] === 200,
     JSON.stringify(trimmed));
   path.mfcArrowStart = 'none';
-  assert('Only ends with an arrowhead are pulled back', near(P.pathStrokeCommands(path)[0][1], 0) && near(P.pathStrokeCommands(path).at(-1)[1], 194));
+  assert('Only ends with an arrowhead are pulled back', near(P.pathStrokeCommands(path)[0][1], 0) && near(P.pathStrokeCommands(path).at(-1)[1], 164));
   clear(); path = make({ cap: 'square', nodes: [{ x: 0, y: 0, type: 'corner', handleOut: { x: 60, y: -80 } }, { x: 200, y: 0, type: 'corner', handleIn: { x: 140, y: 80 } }] });
-  const curve = P.pathStrokeCommands(path), last = curve.at(-1), dir = { x: 200 - 140, y: 0 - 80 }, dl = Math.hypot(dir.x, dir.y);
-  assert('On a curve, the end and its handle move together along the tangent', last[0] === 'C' && near(last[5], 200 - 3 * dir.x / dl) && near(last[6], -3 * dir.y / dl) && near(last[3] - 140, last[5] - 200) && near(curve[1][1] - 60, curve[0][1] - 0));
+  const curve = P.pathStrokeCommands(path), last = curve.at(-1);
+  const onCurve = q => { let best = Infinity; for (let i = 0; i <= 2000; i++) { const t = i / 2000, u = 1 - t;
+    const x = u * u * u * 0 + 3 * u * u * t * 60 + 3 * u * t * t * 140 + t * t * t * 200, y = 3 * u * u * t * -80 + 3 * u * t * t * 80; best = Math.min(best, Math.hypot(x - q.x, y - q.y)); } return best; };
+  const endPt = { x: last[5], y: last[6] }, startPt = { x: curve[0][1], y: curve[0][2] };
+  assert('On a curve, both line ends stay on the curve, about 18 px (measured along it) before each tip', last[0] === 'C' && curve.length === 2 &&
+    onCurve(endPt) < 0.05 && onCurve(startPt) < 0.05 && Math.hypot(200 - endPt.x, endPt.y) > 16 && Math.hypot(200 - endPt.x, endPt.y) <= 18.01 && Math.hypot(startPt.x, startPt.y) > 16 && Math.hypot(startPt.x, startPt.y) <= 18.01,
+    JSON.stringify(curve));
+  clear(); path = make({ nodes: [{ x: 0, y: 0, type: 'corner' }, { x: 200, y: 0, type: 'corner' }, { x: 220, y: 0, type: 'corner' }] });
+  const short = P.pathStrokeCommands(path);
+  assert('A short end segment (20 px) is shortened along the path: the line stops 18 px before the tip', near(short.at(-1)[1], 202) && short.length === 3 && near(short[0][1], 18), JSON.stringify(short));
+  clear(); path = make({ width: 10, cap: 'round', nodes: [{ x: 0, y: 0, type: 'corner' }, { x: 3, y: 0, type: 'corner' }, { x: 390, y: 0, type: 'corner' }, { x: 400, y: 0, type: 'corner' }] });
+  const stub = P.pathStrokeCommands(path);
+  assert('A node right next to a tip (as double-click finishing used to add) is dropped: the line still stops 30 px (3/4 of a 40 px head) before each tip',
+    stub.length === 2 && near(stub[0][1], 30) && near(stub[1][1], 370), JSON.stringify(stub));
+  clear(); path = make({ nodes: [{ x: 0, y: 0, type: 'corner' }, { x: 20, y: 0, type: 'corner' }] });
+  const tiny = P.pathStrokeCommands(path);
+  assert('A path shorter than its heads loses at most half its length at each end', near(tiny[0][1], 10) && near(tiny.at(-1)[1], 10), JSON.stringify(tiny));
+
+  // ---- Finishing a path with a double-click ----
+  const eventAt = (x, y, type, detail) => { const sp = fabric.util.transformPoint(new fabric.Point(x, y), canvas.viewportTransform), r = canvas.upperCanvasEl.getBoundingClientRect();
+    return new MouseEvent(type, { clientX: r.left + sp.x, clientY: r.top + sp.y, buttons: type === 'mousedown' ? 1 : 0, detail }); };
+  const tap = (x, y, detail) => { canvas.fire('mouse:down', { e: eventAt(x, y, 'mousedown', detail), target: null }); canvas.fire('mouse:up', { e: eventAt(x, y, 'mouseup', detail), target: null }); };
+  clear(); MFC.setTool('path'); tap(100, 300, 1); tap(500, 240, 1); tap(500, 240, 2);
+  const drawn = canvas.getActiveObject();
+  canvas.fire('mouse:dblclick', { target: drawn, e: eventAt(500, 240, 'dblclick', 2) });
+  assert('The double-click that finishes a path adds no node to it (it used to insert one 10 px before the tip) and does not enter node editing',
+    drawn?.mfcShapeKind === 'path' && drawn.mfcPathNodes.length === 2 && !drawn.__mfcNodeEdit, JSON.stringify(drawn?.mfcPathNodes));
+  canvas.fire('mouse:dblclick', { target: drawn, e: eventAt(300, 270, 'dblclick', 2) });
+  assert('A later double-click on the path still inserts a node', drawn.mfcPathNodes.length === 3);
+  MFC.exitPathEdit?.(drawn); canvas.discardActiveObject(); MFC.setTool('select');
 
   // ---- Pixels ----
   const ctx = canvas.getContext();
@@ -83,6 +118,16 @@ async function runArrowheadRegressions() {
     const lineAt60 = [...Array(21).keys()].map(k => k - 10).filter(w => red(midX, tip.y + w)).length;  // the line itself, 6 px, at its middle
     assert(`Rendered at ${scale}× with ${cap} caps: nothing red past the tip, and the head is wider than the line (${headAt12} px against ${lineAt60} px)`,
       !beyond && headAt12 >= 9 && headAt12 <= 13 && lineAt60 >= 5 && lineAt60 <= 7, `${beyond} ${headAt12} ${lineAt60}`);
+  }
+  // Near the tip the head is narrower than the line: nothing red may show outside the triangle there.
+  // Also at width 10, and with a node right next to the tip (arrows drawn before v0.1.19 have one).
+  const stubNodes = [{ x: 0, y: 0, type: 'corner' }, { x: 190, y: 0, type: 'corner' }, { x: 200, y: 0, type: 'corner' }];
+  for (const cap of ['butt', 'round', 'square']) for (const [scale, width, nodes] of [[0.4, 6], [1, 6], [1, 10], [1, 10, stubNodes], [0.4, 10, stubNodes]]) {
+    clear(); path = make({ scaleX: scale, cap, width, nodes }); canvas.discardActiveObject(); canvas.renderAll();
+    const tip = toPage(path, path.mfcPathNodes.at(-1)), size = Math.max(10, 4 * width);
+    const outside = [];
+    for (let d = 1; d <= 1.5 * width; d++) { const half = 0.45 * size * d / size; for (let w = Math.ceil(half + 1.5); w <= width; w++) for (const sgn of [1, -1]) if (red(tip.x - d, tip.y + sgn * w)) outside.push([d, sgn * w]); }
+    assert(`Rendered at ${scale}× with ${cap} caps, width ${width}${nodes ? ', a node 10 px before the tip' : ''}: no red outside the arrowhead behind the tip`, !outside.length, JSON.stringify(outside));
   }
 
   // ---- Resizing with the W field, and the SVG export ----
@@ -101,7 +146,7 @@ async function runArrowheadRegressions() {
   clear(); path = make({ cap: 'round', scaleX: 0.5 });
   const svg2 = (await MFC_EXPORT.buildSVG()).svg, d = new DOMParser().parseFromString(svg2, 'image/svg+xml').querySelector('path').getAttribute('d');
   const nums = d.match(/-?\d+(\.\d+)?/g).map(Number), endX = toPage(path, path.mfcPathNodes[1]).x, startX = toPage(path, path.mfcPathNodes[0]).x;
-  assert('In the SVG export, a round-capped line ends half a line width before each tip', near(nums[0], startX + 3, 0.02) && near(nums.at(-2), endX - 3, 0.02), d);
+  assert('In the SVG export, a round-capped line stops 18 px (3/4 of the head) before each tip', near(nums[0], startX + 18, 0.02) && near(nums.at(-2), endX - 18, 0.02), d);
   clear();
   return checks;
 }

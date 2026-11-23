@@ -11,7 +11,7 @@ import { clearSnapGuides, drawSnapGuides, snapObjectPosition } from '../layout/s
 import { getPreference } from './preferences.js';
 import { cropAspectMode, cropRect, syncCropFieldsFromRect } from '../tools/crop.js';
 import { endInsetDrag, moveInsetDrag, placeFixedInsetContour, refreshInsetPanel, startInsetDrag, syncAttachments, syncInsetFromContour, updateInsetReadout } from '../tools/inset.js';
-import { beginPathPointer, endPathPointer, enterPathEdit, finishPathDrawing, insertPathNode, movePathPointer, pathDraft } from '../tools/path.js';
+import { beginPathPointer, endPathPointer, enterPathEdit, finishPathDrawing, insertPathNode, movePathPointer, pathDraft, takePathFinishDoubleClick } from '../tools/path.js';
 import { refreshScaleBarPreview } from '../tools/scalebar.js';
 import { endShapeDrag, moveShapeDrag, startShapeDrag } from '../tools/shape.js';
 import { attachTextListeners, forgetTextSelection, normalizeTextScale, refreshTextPanel } from '../tools/text.js';
@@ -188,6 +188,7 @@ export function onCanvasMouseUp(opt) {
 
 export function onCanvasDoubleClick(opt) {
   if(pathDraft){finishPathDrawing(false);return;}
+  if(takePathFinishDoubleClick())return; // this double-click just finished a path
   const target=opt.target;
   if(target&&target.mfcShapeKind==='path'&&!isTransformLocked(target)){
     canvas.setActiveObject(target);enterPathEdit(target);insertPathNode(target,canvas.getPointer(opt.e));

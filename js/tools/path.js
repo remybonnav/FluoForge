@@ -137,8 +137,17 @@ export function renderPathDraft() {
   canvas.requestRenderAll();
 }
 
+/* The second press of a double-click finishes the path; the browser's dblclick event comes right after.
+   It belongs to that finish and must not also insert a node into the new path (it used to add one on the
+   last segment, 2.5 % before the end, which then held the line's end under the arrowhead). */
+let finishedByDoubleClickAt=-Infinity;
+/** True once for the dblclick that follows a double-click finishing a path. */
+export function takePathFinishDoubleClick() {
+  const ours=performance.now()-finishedByDoubleClickAt<1000;finishedByDoubleClickAt=-Infinity;return ours;
+}
+
 export function beginPathPointer(raw, evt) {
-  if (evt.detail >= 2 && pathDraft) { finishPathDrawing(false); return; }
+  if (evt.detail >= 2 && pathDraft) { finishPathDrawing(false); finishedByDoubleClickAt=performance.now(); return; }
   if (!pathDraft) pathDraft={nodes:[],style:pathStyleFromPanel(),hover:null,snap:false};
   const previous=pathDraft.nodes.at(-1);
   let p=constrainedPoint(raw,previous,evt.shiftKey);
@@ -250,25 +259,72 @@ export function pathArrowGeometry(path,atStart) {
   return [tip,local(-vx*size-vy*half,-vy*size+vx*half),local(-vx*size+vy*half,-vy*size-vx*half)];
 }
 
-/** The path's commands with each arrow end pulled back by half the line width when the line has
-    round or square caps, which would otherwise stick out past the tip. null when nothing changes. */
+/* Path commands as segments {p0, c1, c2, p3, curve, cmd}; lines keep c1 = p0 and c2 = p3. Quadratic
+   commands are raised to cubics for measuring; cmd keeps the original command, written back unchanged for
+   segments that are not cut. null for a command these helpers do not know. */
+function commandSegments(commands) {
+  const segs=[];let at=null;
+  for(const c of commands){
+    const type=String(c[0]).toUpperCase(),v=c.slice(1);
+    if(type==='M'){at=point(v[0],v[1]);continue;}
+    if(!at)return null;
+    if(type==='L'){const p3=point(v[0],v[1]);segs.push({p0:at,c1:at,c2:p3,p3,curve:false,cmd:c});at=p3;}
+    else if(type==='C'){const p3=point(v[4],v[5]);segs.push({p0:at,c1:point(v[0],v[1]),c2:point(v[2],v[3]),p3,curve:true,cmd:c});at=p3;}
+    else if(type==='Q'){const q=point(v[0],v[1]),p3=point(v[2],v[3]);
+      segs.push({p0:at,c1:mixPoint(at,q,2/3),c2:mixPoint(p3,q,2/3),p3,curve:true,cmd:c});at=p3;}
+    else return null;
+  }
+  return segs;
+}
+function segmentAt(s,t) {
+  if(!s.curve)return mixPoint(s.p0,s.p3,t);
+  const ab=mixPoint(s.p0,s.c1,t),bc=mixPoint(s.c1,s.c2,t),cd=mixPoint(s.c2,s.p3,t);
+  return mixPoint(mixPoint(ab,bc,t),mixPoint(bc,cd,t),t);
+}
+/** Cumulative lengths of a segment on the page (path units × sx, sy), sampled at 48 steps. */
+function segmentLengths(s,sx,sy) {
+  const steps=s.curve?48:1,out=[0];let prev=s.p0;
+  for(let i=1;i<=steps;i++){const q=segmentAt(s,i/steps);out.push(out[i-1]+Math.hypot((q.x-prev.x)*sx,(q.y-prev.y)*sy));prev=q;}
+  return out;
+}
+/** The part of a segment from its start to parameter t. */
+function segmentHead(s,t) {
+  if(!s.curve){const p3=mixPoint(s.p0,s.p3,t);return {p0:s.p0,c1:s.p0,c2:p3,p3,curve:false};}
+  const ab=mixPoint(s.p0,s.c1,t),bc=mixPoint(s.c1,s.c2,t),cd=mixPoint(s.c2,s.p3,t),abc=mixPoint(ab,bc,t);
+  return {p0:s.p0,c1:ab,c2:abc,p3:mixPoint(abc,mixPoint(bc,cd,t),t),curve:true};
+}
+const reverseSegment=s=>({p0:s.p3,c1:s.c2,c2:s.c1,p3:s.p0,curve:s.curve,cmd:s.cmd});
+/** Removes the last `back` page pixels of the segment list, measured along the path. */
+function trimSegmentsEnd(segs,back,sx,sy) {
+  let remaining=back;
+  while(segs.length&&remaining>1e-9){
+    const s=segs[segs.length-1],lengths=segmentLengths(s,sx,sy),length=lengths.at(-1);
+    if(length<=remaining&&segs.length>1){segs.pop();remaining-=length;continue;}
+    const keep=Math.max(0,length-remaining);let i=1;while(i<lengths.length-1&&lengths[i]<keep)i++;
+    const span=lengths[i]-lengths[i-1],t=((i-1)+(span>0?(keep-lengths[i-1])/span:0))/(lengths.length-1);
+    segs[segs.length-1]=segmentHead(s,Math.max(0,Math.min(1,t)));break;
+  }
+}
+
+/** The path's commands with each arrow end pulled back inside its arrowhead, so the line stops near the
+    head's base instead of running to the tip (where the head is narrower than the line, and a round or
+    square cap would stick out). The line is shortened along the path itself by 3/4 of the head length,
+    at most half the path's length: very short end segments (a node right next to the tip) are dropped or
+    split, so they cannot hold the line's end at the tip. null when the path has no arrowhead. */
 export function pathStrokeCommands(path) {
-  const cap=path.strokeLineCap;
-  if(cap!=='round'&&cap!=='square')return null;
   const ends=[['mfcArrowStart',true],['mfcArrowEnd',false]].filter(([key])=>path[key]==='arrow');
   if(!ends.length||path.mfcPathClosed||!Array.isArray(path.path)||path.path.length<2)return null;
-  const commands=path.path.map(c=>c.slice()),t=(path.strokeWidth||1)/2;
+  let segs=commandSegments(path.path);if(!segs||!segs.length)return null;
+  const {x:sx,y:sy}=arrowScale(path),size=Math.max(10,(path.strokeWidth||1)*4);
+  const total=segs.reduce((sum,s)=>sum+segmentLengths(s,sx,sy).at(-1),0);
+  const back=Math.min(size*.75,total/2);
   for(const [,atStart] of ends){
-    const f=arrowFrame(path,atStart);if(!f)continue;
-    const dx=-f.vx*t/f.sx,dy=-f.vy*t/f.sy; // towards the line, in path units
-    if(atStart){
-      const first=commands[0];first[first.length-2]+=dx;first[first.length-1]+=dy;
-      const next=commands[1];if(next&&next[0].toUpperCase()==='C'){next[1]+=dx;next[2]+=dy;}
-    }else{
-      const last=commands[commands.length-1],n=last.length;last[n-2]+=dx;last[n-1]+=dy;
-      if(last[0].toUpperCase()==='C'){last[3]+=dx;last[4]+=dy;}
-    }
+    if(!arrowFrame(path,atStart))continue; // no direction, so no arrowhead is drawn there
+    if(atStart){segs=segs.reverse().map(reverseSegment);trimSegmentsEnd(segs,back,sx,sy);segs=segs.reverse().map(reverseSegment);}
+    else trimSegmentsEnd(segs,back,sx,sy);
   }
+  const commands=[['M',segs[0].p0.x,segs[0].p0.y]];
+  for(const s of segs)commands.push(s.cmd?s.cmd.slice():s.curve?['C',s.c1.x,s.c1.y,s.c2.x,s.c2.y,s.p3.x,s.p3.y]:['L',s.p3.x,s.p3.y]);
   return commands;
 }
 

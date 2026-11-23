@@ -4,6 +4,15 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.19 (2026-11-23)
+
+- **Arrow lines no longer run through their arrowhead.** The line now stops inside the arrowhead, near its base, instead of running up to the tip. Before, the line showed through the head, and a round or square line cap bulged out of the narrow tip. This applies on screen and in every export, for all line caps. Arrows drawn with earlier versions are fixed too, without changing the saved project.
+- **Finishing a path with a double-click no longer adds a node.** The double-click also inserted a node just before the end of the new path and opened node editing. That hidden node kept the line running into the tip of the arrowhead.
+
+### Development
+
+- `js/tools/path.js`: `pathStrokeCommands` shortens the line along the path by 3/4 of the arrowhead length (at most half the path), for all caps, dropping or splitting short end segments, instead of moving the end node back by half a line width for round and square caps. The double-click that finishes a path is no longer handled again as a node-inserting double-click (`takePathFinishDoubleClick`, used by `js/core/canvas-events.js`). `arrowhead-regression` checks the new ends, nodes next to a tip, the double-click finish, and that no pixel shows outside the head near the tip at widths 6 and 10.
+
 ## v0.1.18 (2026-11-21)
 
 - **Arrowheads fixed when a path is resized.** Arrowheads shrank or grew with the path while its line kept its width, so a smaller arrow got a head thinner than its line, which seemed to grow out of the tip. They now keep their size on the page (4 × the line width, at least 10 px) at any size, when stretched unevenly and inside resized groups, on screen and in exports. With round or square caps, the line no longer sticks out past the tip. Arrows at their original size are unchanged.

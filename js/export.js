@@ -69,7 +69,7 @@ const MFC_EXPORT = (() => {
   // outlines are written as paths already in their parent's coordinates instead: no
   // transform, no vector-effect, dashes and stroke width in plain document units.
   function outlineCommands(obj) {
-    // Pen paths with arrowheads and round or square caps end half a line width before the tip.
+    // Pen paths with arrowheads: the line stops inside each arrowhead (pathStrokeCommands).
     if (obj.type === 'path') return ((pathTools && pathTools.pathStrokeCommands(obj)) || obj.path).map(([type, ...v]) => [type.toUpperCase(),
       ...v.map((n, i) => n - (i % 2 ? obj.pathOffset.y : obj.pathOffset.x))]);
     if (obj.type === 'rect' && !(obj.rx > 0) && !(obj.ry > 0)) {
