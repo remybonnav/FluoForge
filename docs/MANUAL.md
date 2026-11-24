@@ -62,7 +62,7 @@ The workspace starts empty. Click **Create figure** to start a new figure, or **
 | Project name | Used for the project file and every export file name. |
 | Journal / Width preset | Optional. Choose a journal (Nature, Science, Cell Press, PNAS, JCI, PLOS ONE or JCB) or **Generic** (85, 114 or 174 mm), and one of its figure widths, such as single column, 1.5 column, double column or full page: the width and height are filled in, in cm, with the height kept within the journal's maximum. The line below gives the journal's text sizes, resolution and formats, and the author guidelines they were read from, with the date. The [figure check](#checking-the-figure-before-export) then uses the journal's text limits. Only values stated in each journal's guidelines are included; journals whose guidelines could not be read are not listed. The presets are in `presets/journals.json`. |
 | Width / Height | Page size, in the chosen unit. The default 21 × 14.8 cm is A5 landscape (half an A4 page). |
-| Unit | Pixels, cm or inches. |
+| Unit | Pixels, cm or inches. Changing it converts the width and height already typed: 21 × 29.7 cm become 8.27 × 11.69 inches, or 2480 × 3508 pixels at 300 DPI. |
 | DPI | Output resolution. At 300 DPI a 21 cm page is 2480 pixels wide. Size fields in the editor show mm and pt at this resolution (or pixels, see [Preferences](#preferences)). |
 | Pages | Number of pages (all the same size). You can add pages later. |
 
@@ -339,7 +339,7 @@ A figure can have several pages of the same size. **+ Page** (top bar) or **Add 
 
 Click **Document** (or open the **Document Properties** panel) to change:
 
-- **Project name**, **Width**, **Height**, **Unit**, **DPI**: click **Apply**. The pixel size of the page at that DPI is shown below.
+- **Project name**, **Width**, **Height**, **Unit**, **DPI**: click **Apply**. The pixel size of the page at that DPI is shown below. Choosing another **Unit** converts the width and height to it (pixels use the DPI); the numbers are shown to two decimals, but the exact size is kept, so switching back or applying does not change the page by a pixel.
 - **Add page / Remove last page** (removing a page that still has objects asks first).
 - **Next version name**: an optional name for the next **Save As** version.
 - The save status, and the time of the last browser recovery checkpoint.

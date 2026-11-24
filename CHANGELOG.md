@@ -4,6 +4,10 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.32 (2026-11-24)
+
+- **The page size follows the unit.** In **Create figure** and **Document Properties**, choosing another unit converts the width and height: 21 × 29.7 cm become 8.27 × 11.69 inches, or 2480 × 3508 pixels at 300 DPI. Before, the numbers stayed the same and the page changed size. The fields show two decimals but keep the exact size, so switching back gives the same numbers and applying keeps the page's pixels.
+
 ### Development
 - **Pages workflow in two jobs.** `.github/workflows/pages.yml` now has a `build` job that uploads the site and a `deploy` job that publishes it. When only the deployment fails, **Re-run failed jobs** reruns just `deploy` with the artifact already uploaded, so a run no longer collects several `github-pages` artifacts. `release-regression` checks the split.
 

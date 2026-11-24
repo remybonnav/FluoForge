@@ -9,6 +9,7 @@
 
 import { fontRangeText, loadJournalPresets, makePreset, pageForPreset, presetLimits } from '../core/journal-presets.js';
 import { DEFAULT_PRESET } from '../image/figure-check-rules.js';
+import { attachPageUnits } from './page-units.js';
 
 const option = (value, text) => { const o = document.createElement('option'); o.value = value; o.textContent = text; return o; };
 const round = v => String(Math.round(v * 1000) / 1000);
@@ -20,6 +21,7 @@ const round = v => String(Math.round(v * 1000) / 1000);
 export async function attachJournalChoice(modal) {
   const $ = id => modal.querySelector('#' + id);
   const journal = $('m-journal'), width = $('m-preset'), info = $('m-preset-info');
+  attachPageUnits({ width: $('m-width'), height: $('m-height'), unit: $('m-unit'), dpi: $('m-dpi') }); // the size follows the unit
   modal.journalPreset = () => null;
   let families;
   try { families = await loadJournalPresets(); }
