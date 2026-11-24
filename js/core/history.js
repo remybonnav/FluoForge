@@ -10,8 +10,12 @@ import { documentOpen } from './state.js';
 // Each step also keeps a label (worked out by comparing it with the previous step)
 // and a time, for the History panel.
 export const history = { stack: [], labels: [], times: [], index: -1, limit: 200, restoring: false };
+// Work that must be done before every step is recorded (panel letters renumber themselves: js/layout/letters.js).
+const beforeStep = [];
+export function onBeforeHistoryStep(fn) { beforeStep.push(fn); }
 export function pushHistory() {
   if (history.restoring) return;
+  beforeStep.forEach(fn => fn());
   const state = MFC_PROJECT.captureState();
   const previous = history.stack[history.index];
   // Identical consecutive states (a field firing both input and change) are one step.

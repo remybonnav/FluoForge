@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.29 (2026-11-24)
+
+- **Panel letters (P3-T3).** Select panels (or a grid) and click **Letters**: they are lettered A, B, C in reading order. The style is set once for the whole document in the Panel letters panel: upper or lower case, bold, size in pt, corner, inside or outside the panel, offset in mm and colour. Letters stay on their panel when it moves, and renumber themselves when panels are reordered, added, pasted or deleted. A panel can be skipped or given its own letter (in the panel, or by editing the letter).
+
+### Development
+
+- New `js/layout/letters-model.js` (pure: letter sequence, reading order by vertical overlap, skip and own text, placement), `js/layout/letters.js` (letters as text boxes with `mfcLetterFor`, panels with `mfcLetter`, style in `docProps.letterStyle`; renumbered before every History step through the new `onBeforeHistoryStep` hook in `js/core/history.js`; follow their panel through `syncAttachments`) and `js/layout/letters-panel.js`. Hooks in `canvas-events.js`, `clipboard.js` (pasted letters re-linked or unlinked). Schema 9 (`schema-8-to-9.js`, number only); format lock recorded again (format functions unchanged). New `letters-model-regression` (Node) and `letters-regression` (browser) suites; `migrations-regression` checks 8→9.
+
 ## v0.1.28 (2026-11-24)
 
 - **Grid labels: row labels turned 90°, and a gutter between the labels and the panels.** Row labels of a layout grid now read from bottom to top along their row, centred in a band one line wide. The column and row label bands are one gutter away from the panels, so a label with a border or a background no longer touches the images. The Grid panel can switch both off or on for the selected grid. Grids made with 0.1.26 or 0.1.27 keep their layout (labels flat, no gap) until you tick the options.

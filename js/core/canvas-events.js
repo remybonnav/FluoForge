@@ -20,6 +20,7 @@ import { refreshLayersPanel } from '../ui/layers.js';
 import { isTransformLocked } from '../ui/locks.js';
 import { onSelectionChanged, refreshSelectionBar } from '../ui/selection-bar.js';
 import { installImageMenu } from '../image/display-settings.js';
+import { onObjectModified as onLettersModified, onObjectRemoved as onLettersRemoved } from '../layout/letters.js';
 import { installGridObject, onGridScaling, onObjectModified as onGridModified, onObjectMoving as onGridMoving, onObjectRemoved as onGridRemoved } from '../layout/grid.js';
 
 // ---- init ----
@@ -38,6 +39,7 @@ export function init() {
     if (obj && obj.type === 'textbox' && normalizeTextScale(obj)) refreshTextPanel();
     // Layout grids: a dropped panel swaps cells or leaves the grid, a resized grid rescales its cells.
     onGridModified(obj, e.action);
+    onLettersModified(obj); // panel letters: an edited letter, and renumbering after a reorder
     if (obj && obj.type === 'activeSelection') obj.getObjects().forEach(o => { if (o.mfcType === 'mfcImage') syncAttachments(o); });
     else if (obj && obj.mfcType === 'mfcImage') syncAttachments(obj);
     refreshSelectionBar();
@@ -67,7 +69,7 @@ export function init() {
   canvas.on('selection:updated', onSelectionChanged);
   canvas.on('selection:cleared', onSelectionChanged);
   canvas.on('object:added', e => { installGridObject(e.target); if (!isHelper(e.target)) refreshLayersPanel(); });
-  canvas.on('object:removed', e => { onGridRemoved(e.target); if (!isHelper(e.target)) refreshLayersPanel(); });
+  canvas.on('object:removed', e => { onGridRemoved(e.target); onLettersRemoved(e.target); if (!isHelper(e.target)) refreshLayersPanel(); });
   canvas.on('text:changed', () => { /* debounced via object:modified on blur */ });
   canvas.on('mouse:down', (opt) => {
     // A highlighted range belongs to the editing session in which it was made; any new

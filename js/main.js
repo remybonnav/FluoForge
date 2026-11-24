@@ -626,7 +626,7 @@ function attachColorPalettesToAllInputs() {
   const IMAGEJ = [['#FF0000', 'Red'], ['#00FF00', 'Green'], ['#0000FF', 'Blue'], ['#FF00FF', 'Magenta'], ['#00FFFF', 'Cyan'], ['#FFFF00', 'Yellow']];
   const PALETTE = [...IMAGEJ, null, ...NORMAL, ...PASTEL, ...DARK, ...GRAYS];
 
-  ['text-color', 'text-bg-color', 'text-border-color', 'shape-stroke-color', 'shape-fill-color', 'path-stroke-color', 'sb-color', 'inset-stroke-color', 'legend-border-color'].forEach(id => {
+  ['text-color', 'text-bg-color', 'text-border-color', 'shape-stroke-color', 'shape-fill-color', 'path-stroke-color', 'sb-color', 'inset-stroke-color', 'legend-border-color', 'letters-color'].forEach(id => {
     const input = document.getElementById(id);
     if (input) attachColorPalette(input, PALETTE);
   });

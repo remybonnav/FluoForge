@@ -197,6 +197,14 @@ export async function runMigrationRegressions() {
     v8.objects[2].mfcGrid.labelGap === true && v8.objects[2].mfcGrid.rowLabelTurn === true && JSON.stringify(v8.objects[3]) === JSON.stringify(v7state.objects[3]) &&
     JSON.stringify(v8.objects[0].mfcGrid.areas) === JSON.stringify(grid7.areas) && v7state.schema === 7 && v7state.objects[0].mfcGrid.labelGap === undefined);
 
+  // --- schema-8-to-9.js alone ---------------------------------------------------------------
+  const { migrate: m89 } = await import(pathToFileURL(join(ROOT, 'js/migrations/schema-8-to-9.js')).href);
+  const v8state = deepFrozen({ schema: 8, docProps: { pages: 1, dpi: 300 }, nextId: 40, objects: [
+    { type: 'image', mfcType: 'mfcImage', mfcId: 'a', display: { channels: [] } }, { type: 'textbox', mfcType: 'text', text: 'A' }] });
+  const v9 = m89(v8state);
+  assert('8→9: only the number changes (panel letters are an addition; a typed "A" stays ordinary text) and the input is untouched',
+    v9.schema === 9 && v8state.schema === 8 && JSON.stringify({ ...v9, schema: 8 }) === JSON.stringify(v8state) && !('mfcLetterFor' in v9.objects[1]));
+
   assert('Migrations use no browser objects', !/\b(window|document|fabric|MFC\w*)\b/.test(files.map(f => readFileSync(join(ROOT, 'js/migrations', f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')).join('\n')));
 
   // --- The fixture library ------------------------------------------------------------------

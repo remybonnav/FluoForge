@@ -190,6 +190,16 @@ Panels of a Quick figure can go into a grid: in fill mode, cells of the same siz
 
 The row fits the page's width. The panels are views of the same image, stored once in the project, and stay linked: changing a channel's range, LUT, gamma or invert, or the brightness and contrast, on any panel changes it on all of them (a grey panel stays grey). Cropping one panel (or **Uncrop**) crops the whole row, which is laid out again with the same gap. Turning channels on or off stays per panel. The headers are ordinary text boxes. Copying and pasting panels of a quick figure makes a separate one: the copies stay linked to each other, not to the panels they were copied from. An image that is rotated, inside a group or cropped to a shape is not used; straighten or ungroup it first.
 
+### Panel letters
+
+Select the panels (or a grid) and click **Letters** in the top bar: they are lettered **A, B, C…** in reading order, page by page, row by row and left to right (panels that overlap by at least half their height are one row, whether aligned at the top, centred or at the bottom). The **Panel letters** panel opens.
+
+- **Style, once per document**: upper or lower case, bold, size in pt, the corner (top left, top right, bottom left, bottom right), inside the panel or outside it (above or below), the offset in mm and the colour. Every letter follows it. By default: A, B, C in bold, 10 pt, white, 1 mm inside the top-left corner.
+- **Linked to their panel**: a letter stays on its panel's corner when the panel is moved, resized, cropped or laid out by a grid or a quick figure, and the letters renumber themselves when panels are reordered (dragged, swapped in a grid), added, pasted or deleted.
+- **Per panel**: select it and tick **Skip this panel** (no letter; the next panels move up), or type its **Own letter** (for example B′; it keeps its place in the order; empty it to go back to the automatic letter). Editing a letter on the canvas does the same. **Remove letters from selection** takes panels out of the lettering; deleting a letter does it for its panel.
+
+Letters are ordinary text boxes, exported like any text; their font comes from the default text font, their size, weight and colour from the letter style.
+
 ## 7. Selecting, moving, aligning and locking
 
 Use the **Select** tool (`V`). Click an object to select it; Shift+click or drag a rectangle to select several.

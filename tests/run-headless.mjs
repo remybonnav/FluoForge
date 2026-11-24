@@ -24,6 +24,7 @@ import { generateFixtures } from './generate-fixtures.mjs';
 import { runReleaseRegressions } from './release-regression.mjs';
 import { runMigrationRegressions } from './migrations-regression.mjs';
 import { runGridModelRegressions } from './grid-model-regression.mjs';
+import { runLettersModelRegressions } from './letters-model-regression.mjs';
 import { check as checkVersion, describeMismatch } from '../scripts/release.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -140,7 +141,8 @@ async function nodeStep(results) {
       return runReleaseRegressions();
     },
     'migrations-regression': runMigrationRegressions,
-    'grid-model-regression': runGridModelRegressions
+    'grid-model-regression': runGridModelRegressions,
+    'letters-model-regression': runLettersModelRegressions
   };
   for (const [suite, run] of Object.entries(suites)) {
     const started = Date.now();

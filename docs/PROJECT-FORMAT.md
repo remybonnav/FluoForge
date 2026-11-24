@@ -51,9 +51,9 @@ Each `versions/<id>.json` is one figure state. States hold no pixels: images ref
 
 | Field | Meaning |
 |---|---|
-| `schema` | The state format (section 6). Currently `8`. |
+| `schema` | The state format (section 6). Currently `9`. |
 | `documentOpen` | `false` only for an empty workspace. |
-| `docProps` | The page: `name`, `width`, `height`, `unit` (`"px"`, `"cm"` or `"in"`), `dpi` and `pages` (missing in projects from before multi-page figures, which have one page). Optional `checkDismissals` (since 0.1.12): figure check findings dismissed in this project, each `{ key, rule, severity, objects, message, note }`; absent means none. Optional `preferences` (since 0.1.14): the project's own values of preferences (Preferences → This project only), `{ key: value }`, overriding the global ones; absent means none, and keys a version does not know are kept. |
+| `docProps` | The page: `name`, `width`, `height`, `unit` (`"px"`, `"cm"` or `"in"`), `dpi` and `pages` (missing in projects from before multi-page figures, which have one page). Optional `checkDismissals` (since 0.1.12): figure check findings dismissed in this project, each `{ key, rule, severity, objects, message, note }`; absent means none. Optional `preferences` (since 0.1.14): the project's own values of preferences (Preferences → This project only), `{ key: value }`, overriding the global ones; absent means none, and keys a version does not know are kept. Optional `letterStyle` (since 0.1.29): the panel letters' style, `{ case: "upper" \| "lower", bold, sizePt, position: "top-left" \| "top-right" \| "bottom-left" \| "bottom-right", placement: "inside" \| "outside", offsetMm, color }`; absent or invalid values mean the defaults (upper, bold, 10 pt, top left, inside, 1 mm, white). |
 | `nextId` | The counter for new object ids. |
 | `objects` | The objects, back to front (section 4). |
 
@@ -163,6 +163,10 @@ An invisible rectangle under its panels, as large as the grid. Exports leave it 
 
 Its panels are ordinary images with `mfcGridId` (the grid's `mfcId`); the grid's `areas` decide which images are in it. Its labels are text boxes with `mfcGridId`, `mfcGridLabel` (`"col"` or `"row"`) and `mfcGridIndex` (the column or row, from 0). The grid's top-left corner is its position; panels and labels are placed from it whenever the grid changes.
 
+### Panel letters (schema 9)
+
+Not an object of their own: a lettered panel is an image with `mfcLetter`, `{ skip, text }` (`skip`: no letter, and it does not count; `text`: its own letter instead of the automatic one, keeping its place). Its letter is a text box with `mfcLetterFor`, the panel's `mfcId`. Letters are numbered A, B, C… (or a, b, c…, from `docProps.letterStyle`) in reading order over the whole figure, and recomputed while editing; a project opens with the letters it was saved with.
+
 ### Group: `type: "group"`, `mfcType: "group"`
 
 `objects` holds the children, saved the same way, in group coordinates. Children of a scale bar or a group may be plain Fabric objects without `mfcType`.
@@ -195,7 +199,8 @@ Schemas:
 | 5 | 0.1.10: images record their TIFF decoder in `display.decoder`. `schema-4-to-5.js` sets `decoder: 1` on every image (also inside groups), which is how schema-4 figures were decoded, so they open exactly as before. |
 | 6 | 0.1.25: split-channel montages (Quick figure): images and text boxes may carry the `mfcMontage…` fields (section 4). An addition, so `schema-5-to-6.js` only changes the number. |
 | 7 | 0.1.26: the layout grid (section 4), a new object type, with `mfcGridId` on its panels and labels. An addition (the former one-shot grid saved no object), so `schema-6-to-7.js` only changes the number. |
-| 8 | The current state format, since 0.1.28: a layout grid's `mfcGrid` has `labelGap` and `rowLabelTurn`. New grids have both `true`; `schema-7-to-8.js` writes `false` for both into every existing grid (also inside groups), which is how schema-7 grids were laid out, so they stay as they were. |
+| 8 | 0.1.28: a layout grid's `mfcGrid` has `labelGap` and `rowLabelTurn`. New grids have both `true`; `schema-7-to-8.js` writes `false` for both into every existing grid (also inside groups), which is how schema-7 grids were laid out, so they stay as they were. |
+| 9 | The current state format, since 0.1.29: panel letters (section 4): `mfcLetter` on images, `mfcLetterFor` on text boxes and `docProps.letterStyle`. An addition, so `schema-8-to-9.js` only changes the number. |
 
 ## 7. Legacy formats
 

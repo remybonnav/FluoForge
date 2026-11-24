@@ -13,6 +13,7 @@ import { toHexColor } from './text.js';
 import { setTool } from './tool-switch.js';
 import { applyLockState, refuseLocked } from '../ui/locks.js';
 import { selectedObjects } from '../ui/selection-bar.js';
+import { followPanel } from '../layout/letters.js';
 
 // ---- inset tool (draw an outline on an image, then "Create Inset" duplicates that
 // region as a separate, independently-editable image kept in sync with the outline) ----
@@ -325,6 +326,7 @@ export function followSourceImage(src) {
 export function syncAttachments(img) {
   updateScaleBarsForImage(img);
   followSourceImage(img);
+  followPanel(img); // its panel letter
 }
 
 /** While an inset outline is being dragged out: resize it. Returns true if there was one. */

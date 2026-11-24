@@ -14,6 +14,7 @@ import { refreshShapePanel } from '../tools/shape.js';
 import { cropMontageLike } from '../image/montage.js';
 import { relayoutGrids } from '../layout/grid.js';
 import { refreshGridPanel } from '../layout/grid-panel.js';
+import { refreshLettersPanel } from '../layout/letters-panel.js';
 import { refreshPanel as refreshLegendPanel } from '../tools/legend.js';
 import { applyTextBoxSize, refreshTextPanel } from '../tools/text.js';
 import { LAYER_ICONS, layerLabel, refreshLayersPanel } from './layers.js';
@@ -38,6 +39,7 @@ export function onSelectionChanged() {
   refreshInsetPanel();
   refreshLegendPanel();
   refreshGridPanel();
+  refreshLettersPanel();
   refreshLayersPanel();
   MFC_UI.focusSelection(activeObject, currentTool);
 }

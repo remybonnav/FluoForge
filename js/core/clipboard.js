@@ -9,6 +9,7 @@ import { canvas, takeId } from './state.js';
 import { refreshChannelPanel } from '../image/channels.js';
 import { refreshScaleBarRefList } from '../tools/scalebar.js';
 import { remapPastedGrids, withGridMembers } from '../layout/grid.js';
+import { renumberLetters } from '../layout/letters.js';
 
 // Clipboard snapshots share immutable sources but restore independent view settings.
 export let clipboardObj = null;
@@ -24,8 +25,10 @@ export async function pasteSelection() {
     if (o.mfcId) { const id = (o.mfcType || 'obj') + takeId(); idMap.set(o.mfcId, id); o.mfcId = id; }
   }));
   items.forEach(item => visit(item, o => {
-    for (const key of ['mfcAttachedTo','mfcInsetSourceId','mfcInsetContourId','mfcInsetTargetId'])
+    for (const key of ['mfcAttachedTo','mfcInsetSourceId','mfcInsetContourId','mfcInsetTargetId','mfcLetterFor'])
       if (idMap.has(o[key])) o[key] = idMap.get(o[key]);
+    // A letter pasted without its panel is plain text (the panel keeps its own letter).
+    if (o.mfcLetterFor && ![...idMap.values()].includes(o.mfcLetterFor)) delete o.mfcLetterFor;
     if (o.mfcType === 'insetContour' && ![...idMap.values()].includes(o.mfcInsetTargetId)) o.mfcInsetTargetId = null;
   }));
   remapPastedGrids(items, idMap); // a pasted grid holds the pasted panels, not the originals
@@ -45,6 +48,7 @@ export async function pasteSelection() {
     const obj = await MFC_PROJECT.restoreObject(item); canvas.add(obj); pasted.push(obj);
   }
   canvas.setActiveObject(pasted.length === 1 ? pasted[0] : new fabric.ActiveSelection(pasted, { canvas }));
+  renumberLetters(); // pasted lettered panels take their place in the reading order
   canvas.requestRenderAll(); pushHistory(); refreshChannelPanel(); refreshScaleBarRefList();
 }
 export async function duplicateSelection() { copySelection(); await pasteSelection(); }
