@@ -187,7 +187,7 @@ Panels of a Quick figure can go into a grid: in fill mode, cells of the same siz
 - **Merge**: last or first.
 - **Gap (mm)**: the space between panels on the printed figure (1 mm by default).
 
-The row fits the page's width. The panels are views of the same image, stored once in the project, and stay linked: changing a channel's range, LUT, gamma or invert, or the brightness and contrast, on any panel changes it on all of them (a grey panel stays grey). Cropping one panel (or **Uncrop**) crops the whole row, which is laid out again with the same gap. Turning channels on or off stays per panel. The headers are ordinary text boxes. An image that is rotated, inside a group or cropped to a shape is not used; straighten or ungroup it first.
+The row fits the page's width. The panels are views of the same image, stored once in the project, and stay linked: changing a channel's range, LUT, gamma or invert, or the brightness and contrast, on any panel changes it on all of them (a grey panel stays grey). Cropping one panel (or **Uncrop**) crops the whole row, which is laid out again with the same gap. Turning channels on or off stays per panel. The headers are ordinary text boxes. Copying and pasting panels of a quick figure makes a separate one: the copies stay linked to each other, not to the panels they were copied from. An image that is rotated, inside a group or cropped to a shape is not used; straighten or ungroup it first.
 
 ## 7. Selecting, moving, aligning and locking
 

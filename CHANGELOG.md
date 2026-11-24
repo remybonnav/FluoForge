@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.27 (2026-11-24)
+
+- **Pasted Quick-figure panels are a separate montage.** Copying and pasting panels of a quick figure (also with Duplicate, or with a grid holding them) left the copies linked to the original panels: a crop or a display change on one changed both. The copies now form a montage of their own, linked to each other only.
+
+### Development
+
+- `js/core/clipboard.js`: `pasteSelection` gives pasted objects one new `mfcMontageGroup` per original montage (panels and headers). `montage-regression` checks it (copy of a whole montage, range and crop edits both ways, a single pasted panel).
+
 ## v0.1.26 (2026-11-24)
 
 - **The Grid is now a real layout grid (P3-T2).** **Make grid** puts the selected images in a grid that stays on the page: rows, columns, gutters and margins in mm, and optional bands for column and row labels that belong to the grid. Drag a panel onto another cell to swap them (onto an empty cell to move it, out of the grid to take it out); drag the grid to move everything. Insert or delete rows and columns, let a cell span the empty cell next to it, and choose per panel whether it fits its cell or fills it (cropped around its centre). Typing a width in mm (or dragging the grid's side handle) rescales the panels and keeps the gutters. The grid survives saving, undo, copy and paste; exports show its panels and labels, not the grid. The previous one-shot arrangement and its placeholder "Label" boxes are gone; projects arranged with it open as before.

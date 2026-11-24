@@ -29,6 +29,14 @@ export async function pasteSelection() {
     if (o.mfcType === 'insetContour' && ![...idMap.values()].includes(o.mfcInsetTargetId)) o.mfcInsetTargetId = null;
   }));
   remapPastedGrids(items, idMap); // a pasted grid holds the pasted panels, not the originals
+  // Pasted Quick-figure panels (and headers) form a montage of their own: linked to each other, not to the
+  // montage they were copied from (one new montage id per original montage).
+  const montages = new Map();
+  items.forEach(item => visit(item, o => {
+    if (typeof o.mfcMontageGroup !== 'string') return;
+    if (!montages.has(o.mfcMontageGroup)) montages.set(o.mfcMontageGroup, 'mtg' + takeId());
+    o.mfcMontageGroup = montages.get(o.mfcMontageGroup);
+  }));
 
   canvas.discardActiveObject();
   const pasted = [];

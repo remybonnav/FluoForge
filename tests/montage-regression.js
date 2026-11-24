@@ -197,6 +197,33 @@ async function runMontageRegressions() {
   row.querySelector('.ch-max-val').value = '2000'; row.querySelector('.ch-max-val').dispatchEvent(new Event('change'));
   assert('A range edit on the grey panel still reaches the merge', rawOf(a).channels[0].max === 2000 && rawOf(ra[1]).channels[0].color === 'grey');
 
+  // ---- Copy and paste: the copy is a montage of its own ----
+  const originalId = a.mfcMontageGroup, originalMax = rawOf(a).channels[2].max;
+  canvas.setActiveObject(new fabric.ActiveSelection(ra, { canvas })); MFC.copySelection(); await MFC.pasteSelection(); await MFC_TIFF.whenIdle();
+  const pastedPanels = canvas.getActiveObjects().filter(o => o.mfcType === 'mfcImage');
+  const copyId = pastedPanels[0] && pastedPanels[0].mfcMontageGroup;
+  assert('Pasted montage panels get a montage id of their own, shared by the three copies', pastedPanels.length === 3 && copyId && copyId !== originalId &&
+    pastedPanels.every(p => p.mfcMontageGroup === copyId) && montage(originalId).length === 3 && montage(copyId).length === 3, pastedPanels.map(p => p.mfcMontageGroup).join());
+  canvas.discardActiveObject();
+  const copyMerge = montage(copyId).find(p => p.mfcMontageChannel === -1);
+  row = panelRow(copyMerge, 2);
+  row.querySelector('.ch-max-val').value = '1234'; row.querySelector('.ch-max-val').dispatchEvent(new Event('change'));
+  assert('A range edit on the copy reaches the copied panels, not the original montage', montage(copyId).every(p => rawOf(p).channels[2].max === 1234) && montage(originalId).every(p => rawOf(p).channels[2].max === originalMax),
+    montage(originalId).map(p => rawOf(p).channels[2].max).join());
+  row = panelRow(a, 2);
+  row.querySelector('.ch-max-val').value = '2222'; row.querySelector('.ch-max-val').dispatchEvent(new Event('change'));
+  assert('…and an edit on the original does not reach the copy', montage(copyId).every(p => rawOf(p).channels[2].max === 1234) && montage(originalId).every(p => rawOf(p).channels[2].max === 2222));
+  const originalFrames = montage(originalId).map(p => `${p.cropX},${p.cropY},${p.width},${p.height}`).join('|');
+  canvas.setActiveObject(montage(copyId)[1]); MFC.setTool('crop');
+  document.getElementById('crop-mode-rect').click();
+  document.getElementById('crop-width').value = '50'; document.getElementById('crop-height').value = '40';
+  document.getElementById('crop-width').focus(); MFC.applyCropFieldsToRect(); MFC.applyCrop(); MFC.setTool('select');
+  const copyFrames = new Set(montage(copyId).map(p => `${p.cropX},${p.cropY},${p.width},${p.height}`));
+  assert('Cropping a copied panel crops the copies only', copyFrames.size === 1 && montage(originalId).map(p => `${p.cropX},${p.cropY},${p.width},${p.height}`).join('|') === originalFrames);
+  canvas.setActiveObject(montage(copyId)[0]); MFC.copySelection(); await MFC.pasteSelection(); await MFC_TIFF.whenIdle();
+  const single = canvas.getActiveObject();
+  assert('A single pasted panel is not linked to the montage it was copied from', single && single.mfcMontageGroup && ![originalId, copyId].includes(single.mfcMontageGroup) && montage(copyId).length === 3);
+
   // ---- Refusals and undo ----
   document.getElementById('toast').textContent = '';
   M.quickFigure([a]);
