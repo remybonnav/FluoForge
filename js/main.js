@@ -144,6 +144,13 @@ function showDocPropsModal(onConfirm) {
       <label style="display:flex;justify-content:space-between;margin-bottom:8px;">Project name
         <input type="text" id="m-name" value="Untitled Figure" style="width:160px;">
       </label>
+      <label style="display:flex;justify-content:space-between;margin-bottom:8px;" title="A journal's figure sizes and text limits (presets/journals.json); the figure check uses its limits">Journal
+        <select id="m-journal" style="width:160px;"><option value="">None (free size)</option></select>
+      </label>
+      <label style="display:flex;justify-content:space-between;margin-bottom:8px;" title="One of the journal's figure widths; it fills in the width and height below">Width preset
+        <select id="m-preset" style="width:160px;" disabled></select>
+      </label>
+      <p id="m-preset-info" class="hint" style="max-width:300px;margin:0 0 10px;" role="status"></p>
       <label style="display:flex;justify-content:space-between;margin-bottom:8px;">Width
         <input type="number" id="m-width" value="21" step="any" style="width:120px;">
       </label>
@@ -176,6 +183,8 @@ function showDocPropsModal(onConfirm) {
       dpi: parseInt(document.getElementById('m-dpi').value, 10),
       pages: Math.min(50, Math.max(1, parseInt(document.getElementById('m-pages').value, 10) || 1))
     };
+    const preset = backdrop.journalPreset && backdrop.journalPreset();
+    if (preset) props.journalPreset = preset;
     const pixels = MFC.docPropsToPixels(props);
     if (!Number.isFinite(pixels.width + pixels.height) || pixels.width < 1 || pixels.height < 1 || !(props.dpi > 0)) {
       document.getElementById('m-error').textContent = 'Enter a positive width, height, and DPI.'; return;
@@ -186,6 +195,7 @@ function showDocPropsModal(onConfirm) {
   });
   document.getElementById('m-cancel').addEventListener('click', () => backdrop.remove());
   backdrop.addEventListener('keydown', event => { if (event.key === 'Escape') backdrop.remove(); });
+  backdrop.ready = import(new URL('js/ui/journal-choice.js', document.baseURI).href).then(m => m.attachJournalChoice(backdrop));
   document.getElementById('m-name').focus();
 }
 
@@ -509,7 +519,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     await document.fonts.load('24px "' + e.target.value + '"');
     MFC.applyTextStyle('fontFamily', e.target.value);
   });
-  document.getElementById('text-size').addEventListener('change', (e) => MFC.applyTextStyle('fontSize', parseInt(e.target.value, 10)));
+  document.getElementById('text-size').addEventListener('change', (e) => MFC.applyTextStyle('fontSize', parseFloat(e.target.value)));
   document.getElementById('text-color').addEventListener('input', (e) => MFC.applyTextStyle('fill', e.target.value));
   document.getElementById('text-bg-enabled').addEventListener('change', (e) => {
     MFC.applyTextStyle('backgroundColor', e.target.checked ? document.getElementById('text-bg-color').value : '');

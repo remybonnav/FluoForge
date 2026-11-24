@@ -30,7 +30,7 @@ jobs:
       # The app needs no build: publish the repository as it is, without development-only files.
       - run: |
           mkdir -p _site
-          cp -r index.html style.css js assets docs tools LICENSE COMMERCIAL-LICENSE.md THIRD-PARTY-NOTICES.md README.md _site/
+          cp -r index.html style.css js assets presets docs tools LICENSE COMMERCIAL-LICENSE.md THIRD-PARTY-NOTICES.md README.md _site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

@@ -16,13 +16,15 @@ import { applyDocProps, pageIndexForBox } from '../core/pages.js';
 import { pushHistory } from '../core/history.js';
 import { panelGeometry } from './figure-report.js';
 import { DEFAULT_PRESET, findingKey, runChecks, summarize } from '../image/figure-check-rules.js';
+import { fontRangeText, presetLimits } from '../core/journal-presets.js';
 
 const TEXT_TYPES = ['text', 'textbox', 'i-text'];
 const SAMPLE_LIMIT = 4_000_000; // pixels counted per channel before sampling every n-th row and column
 const clipCache = new WeakMap();
 
-/** The journal preset whose limits the check uses. Journal presets come with P3-T4; until then, the default. */
-export const activePreset = () => DEFAULT_PRESET;
+/** The limits the check uses: the figure's journal preset (docProps.journalPreset, set in the New figure
+    dialog), or the default for a figure without one. */
+export const activePreset = () => presetLimits(docProps && docProps.journalPreset, DEFAULT_PRESET);
 
 /** Axis-aligned box of an object in document coordinates, including the transforms of its groups. */
 export function absoluteBox(obj) {
@@ -176,6 +178,8 @@ export function refreshCheckPanel() {
   last = checkFigure();
   const dismissed = dismissals(), keys = new Set(dismissed.map(d => d.key));
   document.getElementById('check-summary').textContent = summaryText(summarize(last, dismissed));
+  const limits = activePreset(), hint = document.getElementById('check-limits');
+  if (hint) hint.textContent = `Text sizes are checked against ${fontRangeText(limits)} and resolution against ${limits.minDpi} dpi (${limits.name}).`;
   list.replaceChildren(...last.filter(f => !keys.has(f.key)).map(findingItem));
   const box = document.getElementById('check-dismissed');
   box.replaceChildren(...dismissed.map(d => {

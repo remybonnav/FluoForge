@@ -150,7 +150,7 @@ export function textSizeRule(ctx) {
   return ctx.texts.filter(t => onPage(t) && t.text.trim()).filter(t => t.minPt < p.minFontPt - 0.05 || t.maxPt > p.maxFontPt + 0.05).map(t => {
     const size = Math.abs(t.minPt - t.maxPt) < 0.05 ? `${fmt(t.minPt)} pt` : `${fmt(t.minPt)}–${fmt(t.maxPt)} pt`;
     const snippet = t.text.trim().replace(/\s+/g, ' ');
-    return finding('text-size', 'warning', [t.id], `Text "${snippet.length > 30 ? snippet.slice(0, 29) + '…' : snippet}" is ${size} at print size; ${p.name} allows ${p.minFontPt}–${p.maxFontPt} pt.`);
+    return finding('text-size', 'warning', [t.id], `Text "${snippet.length > 30 ? snippet.slice(0, 29) + '…' : snippet}" is ${size} at print size; ${p.name} allows ${Number.isFinite(p.maxFontPt) ? `${p.minFontPt}–${p.maxFontPt} pt` : `at least ${p.minFontPt} pt`}.`);
   });
 }
 

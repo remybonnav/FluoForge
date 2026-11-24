@@ -427,3 +427,4 @@ body:not(.document-open) #side-panel>.panel{display:none;}
 .history-row.undone { color:var(--text-dim); font-style:italic; }
 .history-row .history-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .history-row .history-time { color:var(--text-dim); font-variant-numeric:tabular-nums; flex:none; }
+.unit-suffix{margin-left:3px;color:var(--text-dim);font-size:0.85em;white-space:nowrap;}

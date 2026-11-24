@@ -19,7 +19,7 @@ export function refreshTextPanel() {
 
   document.getElementById('text-font').value = active.fontFamily || 'Arial';
   const sizeField = document.getElementById('text-size');
-  if (document.activeElement !== sizeField) sizeField.value = Math.round(effectiveFontSize(active));
+  if (document.activeElement !== sizeField) sizeField.value = Math.round(effectiveFontSize(active) * 100) / 100; // px; the field may show pt
   document.getElementById('text-color').value = /^#/.test(active.fill) ? active.fill : '#000000';
   const hasBg = active.backgroundColor && /^#/.test(active.backgroundColor);
   document.getElementById('text-bg-enabled').checked = !!hasBg;

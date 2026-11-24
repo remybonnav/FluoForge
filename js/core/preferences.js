@@ -21,11 +21,16 @@ export const STORAGE_KEY = 'fluoforge-preferences';
 export const STORAGE_VERSION = 1;
 export const SNAP_EDGES = ['left', 'hcenter', 'right', 'top', 'vcenter', 'bottom'];
 export const FONTS = ['Liberation Sans', 'Liberation Serif', 'Liberation Mono', 'Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana'];
+/** The bundled fonts by what they replace: they have the metrics of these fonts (the same widths). */
+export const FONT_REPLACES = { 'Liberation Sans': 'Arial', 'Liberation Serif': 'Times New Roman', 'Liberation Mono': 'Courier New' };
+/** A font's name as shown in lists: "Liberation Sans (Arial metrics)". */
+export const fontLabel = family => (FONT_REPLACES[family] ? `${family} (${FONT_REPLACES[family]} metrics)` : family);
 
 /** Sections in dialog order. */
 export const SECTIONS = [
   { id: 'snapping', label: 'Snapping' },
-  { id: 'text', label: 'Text' }
+  { id: 'text', label: 'Text' },
+  { id: 'units', label: 'Units' }
 ];
 
 /** type: 'boolean' | 'number' (min, max, step) | 'choice' (options) | 'set' (options: any subset) | 'color' | 'font'.
@@ -50,7 +55,10 @@ export const PREFERENCES = [
   { key: 'text.fontSize', section: 'text', label: 'Default size (document px)', type: 'number', default: 24, min: 1, max: 1000, step: 1,
     help: 'Font size of new text boxes, in document pixels (at 300 dpi, 24 px is 5.8 pt).' },
   { key: 'text.color', section: 'text', label: 'Default colour', type: 'color', default: '#000000',
-    help: 'Colour of new text boxes.' }
+    help: 'Colour of new text boxes.' },
+  { key: 'units.size', section: 'units', label: 'Size units', type: 'choice', default: 'mm-pt',
+    options: [{ value: 'mm-pt', label: 'mm and pt (print size)' }, { value: 'px', label: 'Document px' }],
+    help: 'Units of the size fields: positions and sizes in mm, line widths and font sizes in pt, at the document\'s dpi; or document pixels.' }
 ];
 const byKey = new Map(PREFERENCES.map(def => [def.key, def]));
 export const preferenceDef = key => byKey.get(key);

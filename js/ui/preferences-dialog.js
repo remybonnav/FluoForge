@@ -8,7 +8,7 @@
    the open project's own value, which overrides the global one in this project; unticked, it edits
    the global value used by every project. Changes apply at once. */
 
-import { PREFERENCES, SECTIONS, FONTS, getPreference, globalPreference, isProjectOverride,
+import { PREFERENCES, SECTIONS, FONTS, fontLabel, getPreference, globalPreference, isProjectOverride,
   onPreferenceChange, resetGlobalPreferences, setGlobalPreference, setProjectPreference } from '../core/preferences.js';
 
 function el(tag, className, text) {
@@ -44,7 +44,7 @@ function control(def, value, onChange, id) {
   }
   if (def.type === 'choice' || def.type === 'font') {
     const select = el('select'); select.id = id;
-    const options = def.type === 'font' ? FONTS.map(f => ({ value: f, label: f })) : def.options;
+    const options = def.type === 'font' ? FONTS.map(f => ({ value: f, label: fontLabel(f) })) : def.options;
     for (const o of options) { const opt = el('option', null, o.label); opt.value = o.value; select.append(opt); }
     if (def.type === 'font' && !options.some(o => o.value === value)) { const opt = el('option', null, value); opt.value = value; select.prepend(opt); }
     select.value = value;

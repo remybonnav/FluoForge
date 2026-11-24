@@ -114,8 +114,8 @@ async function runPreferencesRegressions() {
       topAt(panel.left + 10, panel.top + 10).classList.contains('preferences-backdrop') &&
       topAt(10, window.innerHeight - 10).classList.contains('preferences-backdrop'));
     const rows = [...dialog.querySelectorAll('.pref-row')];
-    assert('One row per preference, in Snapping and Text sections', rows.length === P.PREFERENCES.length &&
-      [...dialog.querySelectorAll('.pref-section h3')].map(h => h.textContent).join() === 'Snapping,Text');
+    assert('One row per preference, in Snapping, Text and Units sections', rows.length === P.PREFERENCES.length &&
+      [...dialog.querySelectorAll('.pref-section h3')].map(h => h.textContent).join() === 'Snapping,Text,Units');
     const rowOf = key => dialog.querySelector(`.pref-row[data-key="${key}"]`);
     const distance = rowOf('snap.distance').querySelector('input[type=number]');
     distance.value = '15'; distance.dispatchEvent(new Event('change', { bubbles: true }));

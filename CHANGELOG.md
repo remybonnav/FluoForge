@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.31 (2026-11-24)
+
+- **Journal presets and print sizes (P3-T4).** **Create figure** offers a journal and one of its figure widths (single column, 1.5 column, double column, full page; or generic 85, 114 and 174 mm) and fills the page size in. The journals are Nature, Science, PLOS ONE and the Journal of Cell Biology, with only the values their current author guidelines state, each with its source and the date it was read; Cell Press and PNAS are not included, as their guidelines could not be read. The figure check then uses the journal's text limits, and says which limits it uses. Size fields now show print units: positions and sizes in mm in the selection bar; stroke and outline widths, scale bar thickness, text border and font sizes in pt. **Preferences → Units → Size units** keeps document px. The bundled fonts are named by what they replace, for example "Liberation Sans (Arial metrics)".
+
+### Development
+
+- New `presets/journals.json` (format 1: families with widths in mm, optional height, text and dpi limits, formats, `source` and `checked`), `js/core/journal-presets.js` (checks, preset, page, limits; pure) and `js/ui/journal-choice.js` (the dialog's choices, loaded by `js/main.js` on demand); `docProps.journalPreset` (optional, no schema change); `activePreset()` in `js/ui/figure-check.js` reads it. New `js/core/units.js` (pure px ↔ mm/pt) and `js/ui/size-units.js` (each size field's `value` converts between the px the code uses and the unit shown; refreshed on a dpi change from `applyDocProps`); the `units.size` preference. The text panel keeps font sizes to 0.01 px instead of whole px. `fontLabel` in `js/core/preferences.js`. The Pages workflow publishes `presets/`. New `journal-presets-regression` (Node) and `print-size-regression` (browser) suites; `preferences-regression` expects the Units section.
+
 ## v0.1.30 (2026-11-24)
 
 - **A handle to select the grid.** Clicking on a layout grid usually picked one of its panels or labels. Each grid now has a small blue **Grid** tab above its top-left corner: a click selects the grid itself, even when something lies over the tab, and a drag moves it with its panels and labels. The tab keeps its size at any zoom and is never exported. With a panel or label of a grid selected, **Select grid** in the Grid panel selects the grid too (also from the keyboard).

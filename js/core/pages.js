@@ -8,6 +8,7 @@ import { pushHistory } from './history.js';
 import { canvas, docProps, documentOpen, setDocProps, setDocumentOpen } from './state.js';
 import { scrollToAnchor, setZoom, zoomLevel } from './zoom.js';
 import { layerObjects } from '../ui/layers.js';
+import { refreshSizeFields } from '../ui/size-units.js';
 
 export let pageRects = [];
 
@@ -102,6 +103,7 @@ export function applyDocProps(props) {
   MFC_UI.updateDocumentState(true);
   setZoom(zoomLevel); // recomputes canvas dimensions from the new docProps at current zoom
   ensurePageRect();
+  refreshSizeFields(); // mm and pt fields at the new dpi
 }
 
 export function closeDocument() {

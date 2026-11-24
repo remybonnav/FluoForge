@@ -15,7 +15,7 @@
 <link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#07090C">
-<link rel="stylesheet" href="style.css?v=0.1.30">
+<link rel="stylesheet" href="style.css?v=0.1.31">
 </head>
 <body>
 
@@ -229,7 +229,7 @@
       <p id="check-summary" class="hint" role="status"></p>
       <ul id="check-list" class="check-list"></ul>
       <details id="check-dismissed-box" hidden><summary title="Findings dismissed for this project; they are listed in the figure report">Dismissed (<span id="check-dismissed-count">0</span>)</summary><ul id="check-dismissed" class="check-list"></ul></details>
-      <p class="hint">Click a finding to select its object. Text sizes are checked against 5–8 pt and resolution against 300 dpi (journal presets will set these). Nothing here blocks an export.</p>
+      <p class="hint">Click a finding to select its object. <span id="check-limits">Text sizes are checked against 5–8 pt and resolution against 300 dpi.</span> A journal chosen in New figure sets these limits. Nothing here blocks an export.</p>
     </section>
 
     <section id="panel-history" class="panel">
@@ -556,9 +556,9 @@
       <h3>Text</h3>
       <label>Font
         <select id="text-font">
-          <option>Liberation Sans</option>
-          <option>Liberation Serif</option>
-          <option>Liberation Mono</option>
+          <option value="Liberation Sans">Liberation Sans (Arial metrics)</option>
+          <option value="Liberation Serif">Liberation Serif (Times New Roman metrics)</option>
+          <option value="Liberation Mono">Liberation Mono (Courier New metrics)</option>
           <option>Arial</option>
           <option>Helvetica</option>
           <option>Times New Roman</option>
@@ -567,7 +567,7 @@
           <option>Verdana</option>
         </select>
       </label>
-      <p class="hint">PDF embeds Liberation Sans, Serif, and Mono. Other fonts must be changed before PDF export.</p>
+      <p class="hint">PDF embeds Liberation Sans, Serif, and Mono: they have the metrics of Arial, Times New Roman and Courier New, so text keeps its size and line breaks where a journal asks for those fonts. Other fonts must be changed before PDF export.</p>
       <label>Size <input type="number" id="text-size" value="24" step="1" min="1"></label>
       <label>Text color <input type="color" id="text-color" value="#000000"></label>
       <label>Box background
@@ -616,14 +616,14 @@
 <script src="assets/vendor/jszip.min.js"></script>
 
 <!-- ======================= APP ======================= -->
-<script src="js/debug.js?v=0.1.30"></script>
-<script src="js/errors.js?v=0.1.30"></script>
-<script src="js/tiff.js?v=0.1.30"></script>
-<script type="module" src="js/app.js?v=0.1.30"></script>
+<script src="js/debug.js?v=0.1.31"></script>
+<script src="js/errors.js?v=0.1.31"></script>
+<script src="js/tiff.js?v=0.1.31"></script>
+<script type="module" src="js/app.js?v=0.1.31"></script>
 <script defer src="assets/vendor/svg2pdf.umd.min.js"></script>
-<script defer src="js/project.js?v=0.1.30"></script>
-<script defer src="js/autosave.js?v=0.1.30"></script>
-<script defer src="js/export.js?v=0.1.30"></script>
-<script defer src="js/main.js?v=0.1.30"></script>
+<script defer src="js/project.js?v=0.1.31"></script>
+<script defer src="js/autosave.js?v=0.1.31"></script>
+<script defer src="js/export.js?v=0.1.31"></script>
+<script defer src="js/main.js?v=0.1.31"></script>
 </body>
 </html>

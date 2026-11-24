@@ -1,0 +1,77 @@
+{
+  "format": 1,
+  "about": "Figure sizes for the New figure dialog and text limits for the figure check. Generic presets have no source. Journal values are taken only from each journal's author guidelines at `source`, read on `checked`; a value the guidelines do not state is left out (for example a maximum height or a maximum text size). Journals whose guidelines could not be read are not listed.",
+  "families": [
+    {
+      "id": "generic",
+      "name": "Generic",
+      "widths": [
+        { "id": "single", "label": "Single column", "mm": 85 },
+        { "id": "one-and-half", "label": "1.5 column", "mm": 114 },
+        { "id": "double", "label": "Double column", "mm": 174 }
+      ]
+    },
+    {
+      "id": "nature",
+      "name": "Nature",
+      "widths": [
+        { "id": "single", "label": "Single column", "mm": 89 },
+        { "id": "one-and-half", "label": "1.5 column (120–136 mm)", "mm": 120 },
+        { "id": "double", "label": "Double column", "mm": 183 },
+        { "id": "full", "label": "Full page", "mm": 183, "heightMm": 247 }
+      ],
+      "maxHeightMm": 247,
+      "minFontPt": 5,
+      "maxFontPt": 7,
+      "minDpi": 300,
+      "formats": ["pdf", "eps", "tiff"],
+      "source": "https://www.nature.com/nature/for-authors/final-submission",
+      "checked": "2026-11-24"
+    },
+    {
+      "id": "science",
+      "name": "Science",
+      "widths": [
+        { "id": "single", "label": "1 column", "mm": 57 },
+        { "id": "double", "label": "2 columns", "mm": 121 },
+        { "id": "full", "label": "3 columns (full width)", "mm": 184 }
+      ],
+      "minFontPt": 5,
+      "minDpi": 300,
+      "source": "https://www.science.org/content/page/instructions-preparing-initial-manuscript",
+      "checked": "2026-11-24"
+    },
+    {
+      "id": "plos-one",
+      "name": "PLOS ONE",
+      "widths": [
+        { "id": "single", "label": "Minimum width", "mm": 66.8 },
+        { "id": "one-and-half", "label": "Text column (13.2 cm)", "mm": 132 },
+        { "id": "double", "label": "Maximum width", "mm": 190.5 },
+        { "id": "full", "label": "Full page", "mm": 190.5, "heightMm": 222.25 }
+      ],
+      "maxHeightMm": 222.25,
+      "minFontPt": 8,
+      "maxFontPt": 12,
+      "minDpi": 300,
+      "formats": ["tiff", "eps"],
+      "source": "https://journals.plos.org/plosone/s/figures",
+      "checked": "2026-11-24"
+    },
+    {
+      "id": "jcb",
+      "name": "Journal of Cell Biology",
+      "widths": [
+        { "id": "single", "label": "Single column", "mm": 85, "source": "https://rupress.org/jcb/pages/submission-guidelines" },
+        { "id": "full", "label": "Maximum size", "mm": 175, "heightMm": 228 }
+      ],
+      "maxHeightMm": 228,
+      "minFontPt": 5,
+      "maxFontPt": 8,
+      "minDpi": 300,
+      "formats": ["tiff", "eps", "ai", "psd", "ppt"],
+      "source": "https://rupress.org/jcb/pages/fig-vid-guidelines",
+      "checked": "2026-11-24"
+    }
+  ]
+}

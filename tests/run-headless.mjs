@@ -25,6 +25,7 @@ import { runReleaseRegressions } from './release-regression.mjs';
 import { runMigrationRegressions } from './migrations-regression.mjs';
 import { runGridModelRegressions } from './grid-model-regression.mjs';
 import { runLettersModelRegressions } from './letters-model-regression.mjs';
+import { runJournalPresetsRegressions } from './journal-presets-regression.mjs';
 import { check as checkVersion, describeMismatch } from '../scripts/release.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -142,7 +143,8 @@ async function nodeStep(results) {
     },
     'migrations-regression': runMigrationRegressions,
     'grid-model-regression': runGridModelRegressions,
-    'letters-model-regression': runLettersModelRegressions
+    'letters-model-regression': runLettersModelRegressions,
+    'journal-presets-regression': runJournalPresetsRegressions
   };
   for (const [suite, run] of Object.entries(suites)) {
     const started = Date.now();

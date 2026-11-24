@@ -55,14 +55,15 @@ The workspace starts empty. Click **Create figure** to start a new figure, or **
 
 **Create figure** asks for the page:
 
-<img src="images/02-new-figure.png" alt="Create a figure dialog with project name, width, height, unit, DPI and number of pages" width="340">
+<img src="images/02-new-figure.png" alt="Create a figure dialog with project name, journal and width preset (Nature, single column, with its limits and source), width, height, unit, DPI and number of pages" width="340">
 
 | Field | Meaning |
 |---|---|
 | Project name | Used for the project file and every export file name. |
+| Journal / Width preset | Optional. Choose a journal (or **Generic**: 85, 114 or 174 mm) and one of its figure widths, such as single column, 1.5 column, double column or full page: the width and height are filled in, in cm, with the height kept within the journal's maximum. The line below gives the journal's text sizes, resolution and formats, and the author guidelines they were read from, with the date. The [figure check](#checking-the-figure-before-export) then uses the journal's text limits. Only values stated in each journal's guidelines are included; journals whose guidelines could not be read are not listed. The presets are in `presets/journals.json`. |
 | Width / Height | Page size, in the chosen unit. The default 21 × 14.8 cm is A5 landscape (half an A4 page). |
 | Unit | Pixels, cm or inches. |
-| DPI | Output resolution. At 300 DPI a 21 cm page is 2480 pixels wide. Positions and sizes in the editor are in these pixels. |
+| DPI | Output resolution. At 300 DPI a 21 cm page is 2480 pixels wide. Size fields in the editor show mm and pt at this resolution (or pixels, see [Preferences](#preferences)). |
 | Pages | Number of pages (all the same size). You can add pages later. |
 
 Everything except the name can be changed later in [Document properties](#15-pages-and-document-properties).
@@ -291,7 +292,7 @@ Choose **Text** (`T`) and click where the label should go, including on top of a
 
 ![The white EdU⁺ ERG⁺ label selected, with the Text panel](images/09-text.jpg)
 
-- **Font, Size, Text color, Bold / Italic / Underline.** Liberation Sans, Liberation Serif and Liberation Mono are built in and embedded in PDF exports; change other fonts to one of these before exporting a PDF.
+- **Font, Size, Text color, Bold / Italic / Underline.** Liberation Sans, Liberation Serif and Liberation Mono are built in and embedded in PDF exports; change other fonts to one of these before exporting a PDF. The list names them by the font they replace: they have the metrics of Arial, Times New Roman and Courier New, so text keeps its width and line breaks where a journal asks for those fonts. **Size** is in pt at print size (or px, see [Preferences](#preferences)).
 - **Box**: a text box has its own width and height, independent of the font size. Drag the side and top/bottom handles (or type W/H in the selection bar) to resize the box; corner handles scale the text itself. The **Size** field always shows the real font size.
 - **Alignment**: left / centre / right, and **Top / Middle / Bottom** inside the box. **Center both** centres it both ways.
 - **Box background** and **Box border** (with **Border width**) turn a text box into a caption or a label patch.
@@ -464,7 +465,7 @@ The **Check figure** panel in the Inspector reviews the figure every time it cha
 | An inset's outline on its source panel is hidden or deleted | Warning |
 | An object is on the pasteboard and will not be exported | Info |
 
-Errors come first, then warnings, then information. Click a finding to select its object (or every panel of a comparison group). The font and resolution limits come from the default preset for now; journal presets will set them.
+Errors come first, then warnings, then information. Click a finding to select its object (or every panel of a comparison group). The text size and resolution limits are the default ones (5–8 pt, 300 dpi), or those of the journal chosen in **Create figure**; the panel says which. A journal that states no maximum text size gets none.
 
 To dismiss a finding for this project, click **Dismiss…**, type why (for example "printed at the journal's column width") and press Enter. Dismissed findings are listed under **Dismissed**, where **Restore** brings one back. They are saved with the project, follow undo and redo, and appear with their notes in the figure report.
 
@@ -492,6 +493,7 @@ It is a view only. The figure, the project, undo and the exports do not change, 
 | | Snap distance, in pixels on screen (the same at every zoom) | 8 |
 | | Show snap guides | On |
 | Text | Default font, size (document px) and colour of new text boxes | Liberation Sans, 24, black |
+| Units | Size units: **mm and pt** (positions and sizes in mm; stroke, outline and border widths, scale bar thickness and font sizes in pt, at the document's DPI) or **Document px** | mm and pt |
 
 A preference is **global**: it is saved in this browser and used by every project. Tick **This project only** on a row to give the open project its own value: it overrides the global preference in this project only, is saved with the project and follows undo and redo, and the row shows the global value beside it. Untick it to go back to the global value. **Reset global preferences** sets every global value back to its default; values of the open project are kept.
 
