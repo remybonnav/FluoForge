@@ -133,6 +133,14 @@ export function runReleaseRegressions() {
   assert('The Pages workflow publishes the files the app links to (the Fiji macro)', linked.length === 1 && unpublished.length === 0,
     unpublished.join(', ') || 'no CONVERSION_MACRO found');
 
+  // Upload and deployment are separate jobs, so re-running a failed deployment reuses the one uploaded artifact.
+  const jobBody = name => (pages.match(new RegExp('\\n  ' + name + ':\\n([\\s\\S]*?)(?=\\n  [a-z-]+:\\n|$)')) || [])[1] || '';
+  const build = jobBody('build'), deploy = jobBody('deploy');
+  assert('The Pages workflow has a build job that uploads the site and a deploy job, after it, that only deploys',
+    /actions\/upload-pages-artifact@/.test(build) && !/deploy-pages@/.test(build) && /cp -r [^\n]+ _site\//.test(build) &&
+    /needs: build/.test(deploy) && /actions\/deploy-pages@/.test(deploy) && !/upload-pages-artifact@|actions\/checkout@/.test(deploy) && /environment:\s*\n\s*name: github-pages/.test(deploy),
+    `build: ${build.length} chars, deploy: ${deploy.length} chars`);
+
   const manual = readFileSync(join(ROOT, 'docs/MANUAL.md'), 'utf8');
   assert('The feature details moved from the README are in the manual',
     ['`manifest.json`', 'pure ImageJ channel colours', 'not allowed in file names', 'read from its label', 'Which panels are collapsed is remembered',

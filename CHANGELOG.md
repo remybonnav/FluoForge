@@ -4,6 +4,9 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+### Development
+- **Pages workflow in two jobs.** `.github/workflows/pages.yml` now has a `build` job that uploads the site and a `deploy` job that publishes it. When only the deployment fails, **Re-run failed jobs** reruns just `deploy` with the artifact already uploaded, so a run no longer collects several `github-pages` artifacts. `release-regression` checks the split.
+
 ## v0.1.31 (2026-11-24)
 
 - **Journal presets and print sizes (P3-T4).** **Create figure** offers a journal and one of its figure widths (single column, 1.5 column, double column, full page; or generic 85, 114 and 174 mm) and fills the page size in. The journals are Nature, Science, the Cell Press journals (Cell, Cancer Cell, Molecular Cell, Cell Metabolism and the others, which share one set of figure guidelines), PNAS, the Journal of Clinical Investigation, PLOS ONE and the Journal of Cell Biology, with only the values their current author guidelines state, each with its source and the date it was read. The figure check then uses the journal's text limits, and says which limits it uses. Size fields now show print units: positions and sizes in mm in the selection bar; stroke and outline widths, scale bar thickness, text border and font sizes in pt. **Preferences → Units → Size units** keeps document px. The bundled fonts are named by what they replace, for example "Liberation Sans (Arial metrics)".

@@ -60,7 +60,7 @@ Useful options, passed after `--`:
 - `--skip-reference`
 - `--reference-only`
 
-GitHub Actions runs `npm test` on every push and pull request (`.github/workflows/test.yml`), and deploys `main` to GitHub Pages (`.github/workflows/pages.yml`).
+GitHub Actions runs `npm test` on every push and pull request (`.github/workflows/test.yml`), and deploys `main` to GitHub Pages (`.github/workflows/pages.yml`). That workflow has a `build` job, which uploads the site, and a `deploy` job: if a deployment fails, use **Re-run failed jobs** (it reruns only `deploy`) or start a new run with **Run workflow**, rather than **Re-run all jobs**, which would upload a second artifact into the same run.
 
 ### Reference exports
 
