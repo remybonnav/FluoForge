@@ -163,7 +163,7 @@ The usual layout of a fluorescence figure is single channels next to the merge, 
 2. Select the images in reading order (or select none to use every image), then click **Grid**.
 3. Set **Rows** and **Columns** (empty: up to 4 columns), the **Width** of the whole grid in mm (empty: the size of the first image), the **Gutter** between cells and the **Margin** around them in mm, whether to add **Column labels** above and **Row labels** on the left, and whether panels **Fit** their cell or **Fill** it, then click **Make grid**.
 
-![A 2 × 5 grid of DAPI, ERG, EdU, CD31 and merge panels for two cohorts, with the Grid Layout panel](images/04-grid.jpg)
+![A 2 × 5 layout grid of DAPI, ERG, EdU, CD31 and merge panels for two cohorts, with its column and row labels, selected, and the Grid panel](images/04-grid.jpg)
 
 The grid is drawn as dashed cells in the editor only; exports show its panels and labels, never the grid itself. Locked images, images in a group and images already in a grid stay where they are.
 
