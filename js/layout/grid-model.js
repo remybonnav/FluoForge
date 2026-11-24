@@ -5,39 +5,46 @@
 /* Layout grid (P3-T2), the pure part: geometry and editing of a grid description, with no Fabric and
    no page. A grid is plain JSON, saved as the `mfcGrid` field of the grid object (js/layout/grid.js):
 
-     { rows, cols, cellW, cellH, gutter, margin, colBand, rowBand, areas: [...] }
+     { rows, cols, cellW, cellH, gutter, margin, colBand, rowBand, labelGap, rowLabelTurn, areas: [...] }
 
    Lengths are in mm. Column cells are cellW wide and row cells cellH high, separated by `gutter`; the
    whole grid has `margin` on every side, a band `colBand` high above the cells for the column labels
-   and a band `rowBand` wide on their left for the row labels (0: no band). An area is
+   and a band `rowBand` wide on their left for the row labels (0: no band). With `labelGap`, each band is
+   one gutter away from the cells (so a label with a border does not touch the panels); with
+   `rowLabelTurn`, row labels are turned 90° to read bottom to top. Both are false for grids made before
+   they existed (schema 7), which keep their layout. An area is
    { row, col, rowSpan, colSpan, panel, mode, base, last }: the cells it covers, the panel (an image id,
    or null), 'fit' or 'fill', and for fill the crop it starts from (`base`) and the crop it last gave
    (`last`), both { cropX, cropY, width, height } in the image's preview pixels. Cells no area covers
    are empty. Every function returns a new grid and leaves its input unchanged. */
 
-export const DEFAULTS = { gutter: 2, margin: 0, colBand: 0, rowBand: 0 };
+export const DEFAULTS = { gutter: 2, margin: 0, colBand: 0, rowBand: 0, labelGap: true, rowLabelTurn: true };
 const copy = value => JSON.parse(JSON.stringify(value));
 export const mmToPx = (mm, dpi) => (mm / 25.4) * dpi;
 export const pxToMm = (px, dpi) => (px / dpi) * 25.4;
+/** The space between a label band and the cells: one gutter with labelGap, when the band is there. */
+export const colBandGap = g => (g.labelGap && g.colBand > 0 ? g.gutter : 0);
+export const rowBandGap = g => (g.labelGap && g.rowBand > 0 ? g.gutter : 0);
 const covers = (a, row, col) => row >= a.row && row < a.row + a.rowSpan && col >= a.col && col < a.col + a.colSpan;
 
 /** A new grid of rows × cols empty cells. */
-export function makeGrid({ rows, cols, cellW, cellH, gutter = DEFAULTS.gutter, margin = DEFAULTS.margin, colBand = DEFAULTS.colBand, rowBand = DEFAULTS.rowBand }) {
+export function makeGrid({ rows, cols, cellW, cellH, gutter = DEFAULTS.gutter, margin = DEFAULTS.margin, colBand = DEFAULTS.colBand, rowBand = DEFAULTS.rowBand,
+  labelGap = DEFAULTS.labelGap, rowLabelTurn = DEFAULTS.rowLabelTurn }) {
   if (!(rows >= 1 && cols >= 1)) throw new Error('A grid needs at least one row and one column.');
   if (!(cellW > 0 && cellH > 0)) throw new Error('Grid cells need a positive size.');
   return { rows: Math.floor(rows), cols: Math.floor(cols), cellW, cellH, gutter: Math.max(0, gutter), margin: Math.max(0, margin),
-    colBand: Math.max(0, colBand), rowBand: Math.max(0, rowBand), areas: [] };
+    colBand: Math.max(0, colBand), rowBand: Math.max(0, rowBand), labelGap: !!labelGap, rowLabelTurn: !!rowLabelTurn, areas: [] };
 }
 
 /** The grid's size in mm. */
 export function gridSize(g) {
-  return { width: 2 * g.margin + g.rowBand + g.cols * g.cellW + (g.cols - 1) * g.gutter,
-    height: 2 * g.margin + g.colBand + g.rows * g.cellH + (g.rows - 1) * g.gutter };
+  return { width: 2 * g.margin + g.rowBand + rowBandGap(g) + g.cols * g.cellW + (g.cols - 1) * g.gutter,
+    height: 2 * g.margin + g.colBand + colBandGap(g) + g.rows * g.cellH + (g.rows - 1) * g.gutter };
 }
 
 /** The box (mm, from the grid's top left) of the cells row..row+rowSpan-1, col..col+colSpan-1. */
 export function cellBox(g, row, col, rowSpan = 1, colSpan = 1) {
-  return { left: g.margin + g.rowBand + col * (g.cellW + g.gutter), top: g.margin + g.colBand + row * (g.cellH + g.gutter),
+  return { left: g.margin + g.rowBand + rowBandGap(g) + col * (g.cellW + g.gutter), top: g.margin + g.colBand + colBandGap(g) + row * (g.cellH + g.gutter),
     width: colSpan * g.cellW + (colSpan - 1) * g.gutter, height: rowSpan * g.cellH + (rowSpan - 1) * g.gutter };
 }
 export const areaBox = (g, a) => cellBox(g, a.row, a.col, a.rowSpan, a.colSpan);
@@ -183,9 +190,16 @@ export function setSpacing(g, values) {
   return next;
 }
 
+/** The label layout: labelGap (bands one gutter from the cells) and rowLabelTurn (row labels turned 90°). */
+export function setLabels(g, values) {
+  const next = copy(g);
+  for (const key of ['labelGap', 'rowLabelTurn']) if (typeof values[key] === 'boolean') next[key] = values[key];
+  return next;
+}
+
 /** Rescales the cells so the grid is `width` mm wide; gutters, margins and bands stay the same. */
 export function resizeToWidth(g, width) {
-  const fixed = 2 * g.margin + g.rowBand + (g.cols - 1) * g.gutter;
+  const fixed = 2 * g.margin + g.rowBand + rowBandGap(g) + (g.cols - 1) * g.gutter;
   const cellW = (width - fixed) / g.cols;
   if (!(cellW > 0.5)) throw new Error(`The grid cannot be narrower than ${(fixed + 0.5 * g.cols).toFixed(1)} mm with these gutters and margins.`);
   return { ...copy(g), cellW, cellH: g.cellH * cellW / g.cellW };

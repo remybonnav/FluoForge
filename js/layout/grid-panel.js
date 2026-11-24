@@ -9,7 +9,7 @@
 import { getPreference } from '../core/preferences.js';
 import { canvas, docProps, registry } from '../core/state.js';
 import { areaOf, gridSize, pxToMm } from './grid-model.js';
-import { createGrid, deleteLine, gridOf, insertLine, removeGrid, selectedCell, setCellMode, setGridSpacing, setGridWidth, spanCell } from './grid.js';
+import { createGrid, deleteLine, gridOf, insertLine, removeGrid, selectedCell, setCellMode, setGridLabels, setGridSpacing, setGridWidth, spanCell } from './grid.js';
 
 const $ = id => document.getElementById(id);
 const panel = () => $('panel-grid');
@@ -39,6 +39,8 @@ export function refreshGridPanel() {
   $('grid-edit-margin').value = fmt(g.margin);
   $('grid-edit-colband').value = fmt(g.colBand);
   $('grid-edit-rowband').value = fmt(g.rowBand);
+  $('grid-edit-rowturn').checked = !!g.rowLabelTurn;
+  $('grid-edit-labelgap').checked = !!g.labelGap;
   if (document.activeElement !== $('grid-edit-width')) $('grid-edit-width').value = fmt(gridSize(g).width);
   $('grid-cell-mode').disabled = !area;
   $('grid-cell-mode').value = area ? area.mode : 'fit';
@@ -60,7 +62,7 @@ export function readCreateOptions() {
   const font = pxToMm(getPreference('text.fontSize') * 1.6, docProps.dpi); // a band fitting one line of the default text, in mm
   const options = { rows: num('grid-rows') > 0 ? Math.floor(num('grid-rows')) : null, cols: num('grid-cols') > 0 ? Math.floor(num('grid-cols')) : null,
     width: num('grid-width') > 0 ? num('grid-width') : null, gutter: Math.max(0, num('grid-gutter') ?? 2), margin: Math.max(0, num('grid-margin') ?? 0),
-    colBand: $('grid-header-row').checked ? font : 0, rowBand: $('grid-header-col').checked ? font * 3 : 0, mode: $('grid-mode').value };
+    colBand: $('grid-header-row').checked ? font : 0, rowBand: $('grid-header-col').checked ? font : 0, mode: $('grid-mode').value };
   return options;
 }
 
@@ -72,6 +74,8 @@ export function installGridPanel() {
   $('grid-arrange').addEventListener('click', () => { if (createGrid(selectedImages(), readCreateOptions())) refreshGridPanel(); });
   const withGrid = fn => () => { const { grid, obj } = target(); if (grid) { fn(grid, obj); refreshGridPanel(); } };
   const spacing = (id, key) => $(id).addEventListener('change', withGrid(grid => { const v = parseFloat($(id).value); if (Number.isFinite(v)) setGridSpacing(grid, { [key]: v }); }));
+  $('grid-edit-rowturn').addEventListener('change', withGrid(grid => setGridLabels(grid, { rowLabelTurn: $('grid-edit-rowturn').checked })));
+  $('grid-edit-labelgap').addEventListener('change', withGrid(grid => setGridLabels(grid, { labelGap: $('grid-edit-labelgap').checked })));
   spacing('grid-edit-gutter', 'gutter'); spacing('grid-edit-margin', 'margin'); spacing('grid-edit-colband', 'colBand'); spacing('grid-edit-rowband', 'rowBand');
   $('grid-apply-width').addEventListener('click', withGrid(grid => { const v = parseFloat($('grid-edit-width').value); if (v > 0) setGridWidth(grid, v); }));
   $('grid-edit-width').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('grid-apply-width').click(); } });

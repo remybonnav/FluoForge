@@ -15,7 +15,7 @@
 <link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#07090C">
-<link rel="stylesheet" href="style.css?v=0.1.27">
+<link rel="stylesheet" href="style.css?v=0.1.28">
 </head>
 <body>
 
@@ -325,6 +325,8 @@
         <label title="Space around the grid, in mm">Margin (mm) <input type="number" id="grid-edit-margin" min="0" step="0.1"></label>
         <label title="Height of the column label band in mm (0: no column labels)">Column labels (mm) <input type="number" id="grid-edit-colband" min="0" step="0.5"></label>
         <label title="Width of the row label band in mm (0: no row labels)">Row labels (mm) <input type="number" id="grid-edit-rowband" min="0" step="0.5"></label>
+        <label title="Turn the row labels 90° to the left, reading from bottom to top (as is usual for row labels)"><input type="checkbox" id="grid-edit-rowturn"> Row labels turned 90°</label>
+        <label title="Leave one gutter between the label bands and the panels, so a label with a border does not touch them"><input type="checkbox" id="grid-edit-labelgap"> Labels one gutter from the panels</label>
         <label title="Rescale the cells so the grid is this wide, in mm; gutters and margins stay">Width (mm) <input type="number" id="grid-edit-width" min="5" step="0.5"></label>
         <button id="grid-apply-width" title="Rescale the panels to this width; gutters and margins stay the same">Apply width</button>
         <label title="Fit: the whole image, as large as fits. Fill: the image covers the cell, cropped around its centre">Selected panel
@@ -587,14 +589,14 @@
 <script src="assets/vendor/jszip.min.js"></script>
 
 <!-- ======================= APP ======================= -->
-<script src="js/debug.js?v=0.1.27"></script>
-<script src="js/errors.js?v=0.1.27"></script>
-<script src="js/tiff.js?v=0.1.27"></script>
-<script type="module" src="js/app.js?v=0.1.27"></script>
+<script src="js/debug.js?v=0.1.28"></script>
+<script src="js/errors.js?v=0.1.28"></script>
+<script src="js/tiff.js?v=0.1.28"></script>
+<script type="module" src="js/app.js?v=0.1.28"></script>
 <script defer src="assets/vendor/svg2pdf.umd.min.js"></script>
-<script defer src="js/project.js?v=0.1.27"></script>
-<script defer src="js/autosave.js?v=0.1.27"></script>
-<script defer src="js/export.js?v=0.1.27"></script>
-<script defer src="js/main.js?v=0.1.27"></script>
+<script defer src="js/project.js?v=0.1.28"></script>
+<script defer src="js/autosave.js?v=0.1.28"></script>
+<script defer src="js/export.js?v=0.1.28"></script>
+<script defer src="js/main.js?v=0.1.28"></script>
 </body>
 </html>

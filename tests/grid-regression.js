@@ -61,11 +61,49 @@ async function runGridRegressions() {
   const lab = labels(grid);
   assert('Labels belong to the grid: one per column above, one per row on the left, in their bands', lab.length === 4 &&
     lab.filter(l => l.mfcGridLabel === 'col').map(l => l.text).sort().join() === 'Column 1,Column 2' &&
-    lab.every(l => { const b = boxPx(grid, l.mfcGridLabel === 'col' ? Gm.colLabelBox(grid.mfcGrid, l.mfcGridIndex) : Gm.rowLabelBox(grid.mfcGrid, l.mfcGridIndex)); return near(tl(l).x, b.left) && near(l.width, b.width); }) &&
+    lab.filter(l => l.mfcGridLabel === 'col').every(l => { const b = boxPx(grid, Gm.colLabelBox(grid.mfcGrid, l.mfcGridIndex)); return near(tl(l).x, b.left) && near(l.width, b.width) && l.angle === 0; }) &&
     !canvas.getObjects().some(o => o.type === 'textbox' && o.text === 'Label'));
   assert('The grid lies under its panels, and the panel switches to editing it', canvas.getObjects().indexOf(grid) < Math.min(...grid.mfcGrid.areas.map(a => canvas.getObjects().indexOf(byId(a.panel)))) &&
     !document.getElementById('grid-edit').classList.contains('hidden') && /Grid of 2 × 2 cells/.test(document.getElementById('grid-info').textContent));
   assert('The Layers panel names it', [...document.querySelectorAll('.layer-name')].some(n => n.textContent === 'Grid (2 × 2)'));
+
+  // ---- Label layout: row labels turned 90°, bands one gutter from the panels ----
+  const rowLabels = () => labels(grid).filter(l => l.mfcGridLabel === 'row').sort((x, y) => x.mfcGridIndex - y.mfcGridIndex);
+  const turnedOk = () => rowLabels().every(l => { const b = boxPx(grid, Gm.rowLabelBox(grid.mfcGrid, l.mfcGridIndex)), c = l.getCenterPoint();
+    return l.angle === -90 && near(l.width, b.height) && near(c.x, b.left + b.width / 2) && near(c.y, b.top + b.height / 2) && l.textAlign === 'center'; });
+  assert('New grids turn the row labels 90° to the left (reading bottom to top), centred on their row in the band', grid.mfcGrid.rowLabelTurn === true && rowLabels().length === 2 && turnedOk(),
+    rowLabels().map(l => `${l.angle} ${l.width.toFixed(1)} ${l.textAlign}`).join(' | '));
+  const gut = px(grid.mfcGrid.gutter), firstCell = boxPx(grid, Gm.cellBox(grid.mfcGrid, 0, 0));
+  const colBand = boxPx(grid, Gm.colLabelBox(grid.mfcGrid, 0)), rowBand = boxPx(grid, Gm.rowLabelBox(grid.mfcGrid, 0));
+  assert('The label bands are one gutter from the panels (above and on the left)', grid.mfcGrid.labelGap === true &&
+    near(colBand.top + colBand.height + gut, firstCell.top) && near(rowBand.left + rowBand.width + gut, firstCell.left), `${colBand.top + colBand.height + gut} vs ${firstCell.top}; ${rowBand.left + rowBand.width + gut} vs ${firstCell.left}`);
+  const panelBoxes = grid.mfcGrid.areas.map(a => byId(a.panel).getBoundingRect(true, true));
+  labels(grid).forEach(l => { l.mfcBorderWidth = 3; l.setCoords(); });
+  const touching = labels(grid).filter(l => { const lb = l.getBoundingRect(true, true); return panelBoxes.some(p => lb.left < p.left + p.width - 0.5 && lb.left + lb.width > p.left + 0.5 && lb.top < p.top + p.height - 0.5 && lb.top + lb.height > p.top + 0.5); });
+  assert('A label with a border does not touch any panel', !touching.length, touching.map(l => l.text).join());
+  labels(grid).forEach(l => { l.mfcBorderWidth = 0; });
+  canvas.setActiveObject(grid); canvas.fire('selection:created', { selected: [grid] });
+  assert('The Grid panel shows both options on', document.getElementById('grid-edit-rowturn').checked && document.getElementById('grid-edit-labelgap').checked);
+  field('grid-edit-rowturn', false);
+  assert('Unticking "Row labels turned 90°" lays them flat again, right-aligned in the band', rowLabels().every(l => l.angle === 0 && l.textAlign === 'right' &&
+    near(tl(l).x, boxPx(grid, Gm.rowLabelBox(grid.mfcGrid, l.mfcGridIndex)).left)));
+  field('grid-edit-labelgap', false);
+  assert('Unticking the gap puts the bands right against the panels', near(boxPx(grid, Gm.cellBox(grid.mfcGrid, 0, 0)).left, rowBand.left + rowBand.width) &&
+    grid.mfcGrid.areas.every(a => fits(byId(a.panel), boxPx(grid, Gm.areaBox(grid.mfcGrid, a)))));
+  // A grid saved before the options (schema 7) opens and stays exactly as it was, also once edited.
+  const oldState = MFC_PROJECT.captureState();
+  oldState.schema = 7;
+  oldState.objects.forEach(o => { if (o.mfcType === 'layoutGrid') { delete o.mfcGrid.labelGap; delete o.mfcGrid.rowLabelTurn; } });
+  const place = () => canvas.getObjects().filter(o => o.mfcGridId).map(o => `${o.mfcId}:${tl(o).x.toFixed(3)},${tl(o).y.toFixed(3)},${o.angle}`).sort().join('|');
+  const beforeOld = place();
+  await MFC_PROJECT.restoreState((await MFC_PROJECT.migrateState(oldState)).state, { resetHistory: false }); await MFC_TIFF.whenIdle();
+  grid = grids()[0];
+  canvas.setActiveObject(grid); canvas.fire('selection:created', { selected: [grid] });
+  field('grid-edit-gutter', grid.mfcGrid.gutter); field('grid-edit-margin', grid.mfcGrid.margin); // edits that lay it out again
+  assert('A grid saved before the label options keeps its layout when it opens and when it is edited (no gap, labels not turned)',
+    grid.mfcGrid.labelGap === false && grid.mfcGrid.rowLabelTurn === false && place() === beforeOld && !document.getElementById('grid-edit-rowturn').checked, `${place()} WAS ${beforeOld}`);
+  field('grid-edit-rowturn', true); field('grid-edit-labelgap', true);
+  assert('…and ticking both options gives it the new layout', grid.mfcGrid.rowLabelTurn && grid.mfcGrid.labelGap && turnedOk());
 
   // ---- Real mouse drags ----
   const a00 = panelAt(grid, 0, 0), a01 = panelAt(grid, 0, 1);
@@ -80,11 +118,11 @@ async function runGridRegressions() {
   canvas.setActiveObject(leaving); drag(centre(leaving), { x: empty.left + empty.width / 2, y: empty.top + empty.height / 2 });
   assert('Dragging a free image onto an empty cell adds it to the grid', panelAt(grid, 1, 1) === leaving && fits(leaving, empty));
   const g1 = Gm.cellBox(grid.mfcGrid, 0, 0), gutterPoint = boxPx(grid, { left: g1.left + g1.width + 1, top: g1.top + g1.height / 2, width: 0, height: 0 });
-  const before = { grid: tl(grid), p: tl(a01), l: tl(lab[0]) };
+  const lab0 = labels(grid).find(l => l.mfcGridLabel === 'col'), before = { grid: tl(grid), p: tl(a01), l: tl(lab0) };
   canvas.discardActiveObject(); drag({ x: gutterPoint.left, y: gutterPoint.top }, { x: gutterPoint.left + 60, y: gutterPoint.top + 30 });
   const moved = tl(grid);
   assert('Dragging the grid (by a gutter) moves its panels and labels with it', near(moved.x - before.grid.x, 60, 2) && near(moved.y - before.grid.y, 30, 2) &&
-    near(tl(a01).x - before.p.x, moved.x - before.grid.x) && near(tl(lab[0]).y - before.l.y, moved.y - before.grid.y), `${moved.x - before.grid.x}, ${moved.y - before.grid.y}`);
+    near(tl(a01).x - before.p.x, moved.x - before.grid.x) && near(tl(lab0).y - before.l.y, moved.y - before.grid.y), `${moved.x - before.grid.x}, ${moved.y - before.grid.y}`);
 
   // ---- Width, gutters, handles ----
   canvas.setActiveObject(grid); MFC.refreshSelectionBar && MFC.refreshSelectionBar(); canvas.fire('selection:created', { selected: [grid] });

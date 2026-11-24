@@ -163,7 +163,7 @@ The usual layout of a fluorescence figure is single channels next to the merge, 
 2. Select the images in reading order (or select none to use every image), then click **Grid**.
 3. Set **Rows** and **Columns** (empty: up to 4 columns), the **Width** of the whole grid in mm (empty: the size of the first image), the **Gutter** between cells and the **Margin** around them in mm, whether to add **Column labels** above and **Row labels** on the left, and whether panels **Fit** their cell or **Fill** it, then click **Make grid**.
 
-![A 2 × 5 layout grid of DAPI, ERG, EdU, CD31 and merge panels for two cohorts, with its column and row labels, selected, and the Grid panel](images/04-grid.jpg)
+![A 2 × 5 layout grid of DAPI, ERG, EdU, CD31 and merge panels for two cohorts, with column labels above and row labels turned 90° on the left, one gutter from the panels, selected, and the Grid panel](images/04-grid.jpg)
 
 The grid is drawn as dashed cells in the editor only; exports show its panels and labels, never the grid itself. Locked images, images in a group and images already in a grid stay where they are.
 
@@ -174,6 +174,7 @@ The grid is drawn as dashed cells in the editor only; exports show its panels an
 - **Spans**: **Span right** and **Span down** let the selected panel's cell take the empty cell next to it; **Unspan** goes back to one cell.
 - **Fit or fill**, per panel: fit shows the whole image as large as it fits, centred; fill covers the cell and crops the image around its crop centre. Back to fit, the crop comes back. Cropping a panel with the Crop tool keeps it in its cell.
 - **Labels** belong to the grid: they sit in the label bands (set their size in mm, 0 for none), move with it and come back to their band if dragged away. Edit their text like any text box. Removing the grid removes its labels.
+- **Row labels turned 90°**: row labels read from bottom to top along their row, as is usual in figures; untick it for flat, right-aligned labels. **Labels one gutter from the panels** leaves a gutter between the label bands and the panels, so a label with a border or background does not touch the images. New grids have both; a grid made with FluoForge 0.1.26 or 0.1.27 keeps its layout until you tick them.
 - **Remove grid (keep panels)** takes the grid and its labels away and leaves the panels where they are. Copying a grid copies its panels and labels too.
 
 Panels of a Quick figure can go into a grid: in fill mode, cells of the same size give them the same crop, and cropping one still crops them all.

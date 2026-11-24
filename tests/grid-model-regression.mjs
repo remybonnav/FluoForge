@@ -18,7 +18,8 @@ export async function runGridModelRegressions() {
   const G = await import(pathToFileURL(join(ROOT, 'js/layout/grid-model.js')).href);
 
   // ---- geometry ----
-  let g = deepFrozen(G.makeGrid({ rows: 2, cols: 3, cellW: 40, cellH: 30, gutter: 2, margin: 1, colBand: 5, rowBand: 10 }));
+  // The layout of grids made before the label gap (schema 7): bands right against the cells.
+  let g = deepFrozen(G.makeGrid({ rows: 2, cols: 3, cellW: 40, cellH: 30, gutter: 2, margin: 1, colBand: 5, rowBand: 10, labelGap: false, rowLabelTurn: false }));
   const size = G.gridSize(g);
   assert('Size: 2 × 1 margin + 10 row band + 3 × 40 + 2 gutters of 2; 2 × 1 + 5 + 2 × 30 + 2', size.width === 136 && size.height === 69, JSON.stringify(size));
   const b = G.cellBox(g, 1, 2);
@@ -30,6 +31,25 @@ export async function runGridModelRegressions() {
   assert('nearestCell takes gutters to the nearest cell and is null outside the cells', JSON.stringify(G.nearestCell(g, 52.5, 20)) === '{"row":0,"col":1}' && G.nearestCell(g, 2, 20) === null && G.nearestCell(g, 200, 20) === null);
   assert('mm and px at 300 dpi', near(G.mmToPx(25.4, 300), 300) && near(G.pxToMm(300, 300), 25.4));
   assert('Bad sizes are refused', /at least one row/.test(throwsMessage(() => G.makeGrid({ rows: 0, cols: 1, cellW: 1, cellH: 1 }))) && /positive size/.test(throwsMessage(() => G.makeGrid({ rows: 1, cols: 1, cellW: 0, cellH: 1 }))));
+
+  // ---- the label gap (new grids): each band one gutter away from the cells ----
+  const spaced = deepFrozen(G.makeGrid({ rows: 2, cols: 3, cellW: 40, cellH: 30, gutter: 2, margin: 1, colBand: 5, rowBand: 10 }));
+  assert('New grids space the labels and turn the row labels by default', spaced.labelGap === true && spaced.rowLabelTurn === true);
+  const sb = G.cellBox(spaced, 0, 0), sz = G.gridSize(spaced);
+  assert('With the gap, the first cell starts one gutter after each band; the grid grows by two gutters',
+    sb.left === 1 + 10 + 2 && sb.top === 1 + 5 + 2 && sz.width === 136 + 2 && sz.height === 69 + 2, `${JSON.stringify(sb)} ${JSON.stringify(sz)}`);
+  assert('The labels stay in their bands: the column band ends a gutter above the cells, the row band a gutter left of them',
+    G.colLabelBox(spaced, 0).top + G.colLabelBox(spaced, 0).height + 2 === sb.top && G.rowLabelBox(spaced, 0).left + G.rowLabelBox(spaced, 0).width + 2 === sb.left &&
+    G.rowLabelBox(spaced, 1).top === G.cellBox(spaced, 1, 0).top && G.colLabelBox(spaced, 2).left === G.cellBox(spaced, 0, 2).left);
+  const noBands = G.makeGrid({ rows: 1, cols: 2, cellW: 10, cellH: 10, gutter: 3 });
+  assert('No band, no gap', G.cellBox(noBands, 0, 0).left === 0 && G.cellBox(noBands, 0, 0).top === 0 && G.gridSize(noBands).width === 23);
+  const spacedWidth = G.resizeToWidth(spaced, 85);
+  assert('Resizing to a width counts the gap as fixed', near(G.gridSize(spacedWidth).width, 85) && near(spacedWidth.cellW, (85 - 2 - 10 - 2 - 4) / 3));
+  const legacy = G.setLabels(spaced, { labelGap: false, rowLabelTurn: false });
+  assert('setLabels switches both options (only booleans count) and leaves its input unchanged', legacy.labelGap === false && legacy.rowLabelTurn === false &&
+    G.cellBox(legacy, 0, 0).left === 11 && G.setLabels(spaced, { labelGap: 'no' }).labelGap === true && spaced.labelGap === true);
+  const old = { rows: 1, cols: 1, cellW: 10, cellH: 10, gutter: 2, margin: 0, colBand: 4, rowBand: 4, areas: [] };
+  assert('A grid without the fields (saved before them) has no gap', G.cellBox(old, 0, 0).left === 4 && G.cellBox(old, 0, 0).top === 4);
 
   // ---- placing, swapping, dropping ----
   g = deepFrozen(['a', 'b', 'c', 'd'].reduce((grid, p, i) => G.place(grid, p, Math.floor(i / 3), i % 3), g));
@@ -80,8 +100,8 @@ export async function runGridModelRegressions() {
   assert('Resizing to 85 mm (one journal column) rescales the cells; gutters, margins and bands stay', near(G.gridSize(r).width, 85) && r.gutter === 2 && r.margin === 1 && r.rowBand === 10 && r.colBand === 5 &&
     near(r.cellH / r.cellW, 30 / 40), JSON.stringify(r));
   assert('Too narrow for the gutters is refused with the minimum', /cannot be narrower than/.test(throwsMessage(() => G.resizeToWidth(g, 10))));
-  const spaced = G.setSpacing(g, { gutter: 3, rowBand: 0, margin: -2 });
-  assert('Spacing: gutter and band set, negative values become 0', spaced.gutter === 3 && spaced.rowBand === 0 && spaced.margin === 0 && spaced.colBand === 5);
+  const respaced = G.setSpacing(g, { gutter: 3, rowBand: 0, margin: -2 });
+  assert('Spacing: gutter and band set, negative values become 0', respaced.gutter === 3 && respaced.rowBand === 0 && respaced.margin === 0 && respaced.colBand === 5);
   assert('Fit or fill per area', G.areaOf(G.setMode(g, 0, 1, 'fill'), 'b').mode === 'fill' && G.areaOf(G.setMode(g, 0, 1, 'x'), 'b').mode === 'fit');
   assert('autoShape: up to 4 columns', JSON.stringify(G.autoShape(5)) === '{"rows":2,"cols":4}' && JSON.stringify(G.autoShape(2)) === '{"rows":1,"cols":2}');
   assert('No function changed its (frozen) input', g.areas.length === 4 && g.rows === 2);

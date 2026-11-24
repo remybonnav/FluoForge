@@ -181,6 +181,22 @@ export async function runMigrationRegressions() {
   assert('6→7: only the number changes (the layout grid is an addition; old one-shot grids had no object) and the input is untouched',
     v7.schema === 7 && v6state.schema === 6 && JSON.stringify({ ...v7, schema: 6 }) === JSON.stringify(v6state));
 
+  // --- schema-7-to-8.js alone ---------------------------------------------------------------
+  const { migrate: m78 } = await import(pathToFileURL(join(ROOT, 'js/migrations/schema-7-to-8.js')).href);
+  const grid7 = { rows: 1, cols: 2, cellW: 40, cellH: 30, gutter: 2, margin: 0, colBand: 5, rowBand: 5, areas: [{ row: 0, col: 0, rowSpan: 1, colSpan: 1, panel: 'a', mode: 'fit', base: null, last: null }] };
+  const v7state = deepFrozen({ schema: 7, docProps: { pages: 1 }, nextId: 30, objects: [
+    { type: 'rect', mfcType: 'layoutGrid', mfcId: 'g1', mfcGrid: grid7 },
+    { type: 'group', mfcType: 'group', objects: [{ type: 'rect', mfcType: 'layoutGrid', mfcId: 'g2', mfcGrid: grid7 }] },
+    { type: 'rect', mfcType: 'layoutGrid', mfcId: 'g3', mfcGrid: { ...grid7, labelGap: true, rowLabelTurn: true } },
+    { type: 'image', mfcType: 'mfcImage', mfcId: 'a', mfcGridId: 'g1', display: { channels: [] } }] });
+  const v8 = m78(v7state);
+  assert('7→8: every grid saved before the label options keeps its layout (no gap, row labels not turned), also inside a group',
+    v8.schema === 8 && v8.objects[0].mfcGrid.labelGap === false && v8.objects[0].mfcGrid.rowLabelTurn === false &&
+    v8.objects[1].objects[0].mfcGrid.labelGap === false && v8.objects[1].objects[0].mfcGrid.rowLabelTurn === false);
+  assert('7→8: values already there are kept; everything else is unchanged; the input is untouched',
+    v8.objects[2].mfcGrid.labelGap === true && v8.objects[2].mfcGrid.rowLabelTurn === true && JSON.stringify(v8.objects[3]) === JSON.stringify(v7state.objects[3]) &&
+    JSON.stringify(v8.objects[0].mfcGrid.areas) === JSON.stringify(grid7.areas) && v7state.schema === 7 && v7state.objects[0].mfcGrid.labelGap === undefined);
+
   assert('Migrations use no browser objects', !/\b(window|document|fabric|MFC\w*)\b/.test(files.map(f => readFileSync(join(ROOT, 'js/migrations', f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')).join('\n')));
 
   // --- The fixture library ------------------------------------------------------------------

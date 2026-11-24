@@ -1,6 +1,6 @@
 {
   "about": "Hashes of the functions that define the saved format (tests/migrations-regression.mjs). Changing one needs a migration, or an explanation in the pull request and node tests/migrations-regression.mjs --update-lock.",
-  "schema": 7,
+  "schema": 8,
   "functions": {
     "serializeObject": "86435a22cb2660b482299d284803dcf9d7ef94b191f7a30404fce6506dc9cc39",
     "restoreObject": "25ecb6864bfe0938db4bfe92baca808afc78ec43c85ccd569ae8ad49f9ab6314",

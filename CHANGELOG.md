@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.28 (2026-11-24)
+
+- **Grid labels: row labels turned 90°, and a gutter between the labels and the panels.** Row labels of a layout grid now read from bottom to top along their row, centred in a band one line wide. The column and row label bands are one gutter away from the panels, so a label with a border or a background no longer touches the images. The Grid panel can switch both off or on for the selected grid. Grids made with 0.1.26 or 0.1.27 keep their layout (labels flat, no gap) until you tick the options.
+
+### Development
+
+- `js/layout/grid-model.js`: `labelGap` and `rowLabelTurn` in the grid (`colBandGap`, `rowBandGap`, `setLabels`; sizes, cells and resizing count the gap). `js/layout/grid.js`: turned row labels (−90°, centred), `setGridLabels`; `MFC.arrangeGrid` keeps the former layout. Grid panel checkboxes. Schema 8 (`schema-7-to-8.js` writes `labelGap: false` and `rowLabelTurn: false` into existing grids); format lock recorded again (format functions unchanged). Tests in `grid-model-regression`, `grid-regression` and `migrations-regression`. New MANUAL screenshot.
+
 ## v0.1.27 (2026-11-24)
 
 - **Pasted Quick-figure panels are a separate montage.** Copying and pasting panels of a quick figure (also with Duplicate, or with a grid holding them) left the copies linked to the original panels: a crop or a display change on one changed both. The copies now form a montage of their own, linked to each other only.

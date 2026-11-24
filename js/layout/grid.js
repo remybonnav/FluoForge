@@ -73,7 +73,7 @@ export function installGridObject(o) {
 function makeLabel(grid, role, index) {
   const label = new fabric.Textbox(role === 'col' ? `Column ${index + 1}` : `Row ${index + 1}`, {
     fontFamily: getPreference('text.fontFamily'), fontSize: getPreference('text.fontSize'), fill: getPreference('text.color'),
-    textAlign: role === 'col' ? 'center' : 'right', originX: 'left', originY: 'top' });
+    textAlign: role === 'col' || grid.mfcGrid.rowLabelTurn ? 'center' : 'right', originX: 'left', originY: 'top' });
   Object.assign(label, { mfcId: 'txt' + takeId(), mfcType: 'text', mfcVAlign: 'middle', mfcGridId: grid.mfcId, mfcGridLabel: role, mfcGridIndex: index });
   attachTextListeners(label);
   canvas.add(label);
@@ -138,9 +138,12 @@ export function relayout(grid) {
   syncLabels(grid);
   for (const l of labelsOf(grid)) {
     const b = at(l.mfcGridLabel === 'col' ? G.colLabelBox(g, l.mfcGridIndex) : G.rowLabelBox(g, l.mfcGridIndex));
-    l.set({ width: Math.max(1, b.width), mfcBoxHeight: Math.max(1, b.height), scaleX: 1, scaleY: 1, angle: 0 });
+    // A turned row label reads bottom to top: its own width runs along the row's height.
+    const turned = l.mfcGridLabel === 'row' && g.rowLabelTurn;
+    l.set({ width: Math.max(1, turned ? b.height : b.width), mfcBoxHeight: Math.max(1, turned ? b.width : b.height), scaleX: 1, scaleY: 1, angle: turned ? -90 : 0 });
     l.initDimensions();
-    l.setPositionByOrigin(new fabric.Point(b.left, b.top), 'left', 'top');
+    if (turned) l.setPositionByOrigin(new fabric.Point(b.left + b.width / 2, b.top + b.height / 2), 'center', 'center');
+    else l.setPositionByOrigin(new fabric.Point(b.left, b.top), 'left', 'top'); // as before the turned labels
     l.setCoords();
   }
   canvas.requestRenderAll();
@@ -174,7 +177,8 @@ export function createGrid(images, options = {}) {
   const first = list[0], ratio = first.getScaledHeight() / first.getScaledWidth();
   const cellW = options.cellW || mm(first.getScaledWidth());
   let g = G.makeGrid({ rows, cols, cellW, cellH: options.cellH || cellW * ratio, gutter: options.gutter ?? G.DEFAULTS.gutter,
-    margin: options.margin ?? 0, colBand: options.colBand ?? 0, rowBand: options.rowBand ?? 0 });
+    margin: options.margin ?? 0, colBand: options.colBand ?? 0, rowBand: options.rowBand ?? 0,
+    labelGap: options.labelGap ?? G.DEFAULTS.labelGap, rowLabelTurn: options.rowLabelTurn ?? G.DEFAULTS.rowLabelTurn });
   if (options.width > 0) g = G.resizeToWidth(g, options.width);
   const used = list.slice(0, rows * cols);
   if (list.length > used.length) MFC_UI.toast(`${list.length - used.length} image(s) did not fit in ${rows} × ${cols} cells and were left in place.`);
@@ -204,7 +208,7 @@ export function arrangeGrid({ rows, cols, cellW, cellH, gap, headerRow, headerCo
   let images = canvas.getActiveObjects().filter(isImage);
   if (images.length < 2) images = canvas.getObjects().filter(isImage);
   return createGrid(images, { rows, cols, cellW: mm(cellW), cellH: mm(cellH), gutter: mm(gap || 0), margin: 0,
-    colBand: headerRow ? mm(44) : 0, rowBand: headerCol ? mm(120) : 0, left: 40, top: 40 });
+    colBand: headerRow ? mm(44) : 0, rowBand: headerCol ? mm(120) : 0, labelGap: false, rowLabelTurn: false, left: 40, top: 40 });
 }
 
 // ---- editing through the canvas ----
@@ -321,6 +325,15 @@ export function spanCell(grid, cell, direction) {
 }
 export const setCellMode = (grid, cell, mode) => !!updateGrid(grid, G.setMode(grid.mfcGrid, cell.row, cell.col, mode));
 export const setGridSpacing = (grid, values) => !!updateGrid(grid, G.setSpacing(grid.mfcGrid, values));
+/** Row labels turned 90° or not (their alignment follows: centred when turned, right-aligned when not),
+    and the gutter between label bands and cells. */
+export function setGridLabels(grid, values) {
+  const before = grid.mfcGrid.rowLabelTurn;
+  grid.mfcGrid = G.setLabels(grid.mfcGrid, values);
+  if (grid.mfcGrid.rowLabelTurn !== before) labelsOf(grid).filter(l => l.mfcGridLabel === 'row').forEach(l => l.set('textAlign', grid.mfcGrid.rowLabelTurn ? 'center' : 'right'));
+  relayout(grid); pushHistory();
+  return true;
+}
 export function setGridWidth(grid, widthMm) {
   try { return !!updateGrid(grid, G.resizeToWidth(grid.mfcGrid, widthMm)); } catch (error) { return fail(error); }
 }
