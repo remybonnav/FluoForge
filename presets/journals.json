@@ -72,6 +72,52 @@
       "formats": ["tiff", "eps", "ai", "psd", "ppt"],
       "source": "https://rupress.org/jcb/pages/fig-vid-guidelines",
       "checked": "2026-11-24"
+    },
+    {
+      "id": "cell-press",
+      "name": "Cell Press (Cell, Cancer Cell, Molecular Cell, Cell Metabolism, Neuron, Immunity…)",
+      "widths": [
+        { "id": "single", "label": "1 column", "mm": 85 },
+        { "id": "one-and-half", "label": "1.5 columns", "mm": 114 },
+        { "id": "double", "label": "Full width", "mm": 174 },
+        { "id": "narrow", "label": "1 column, three-column formats (previews, commentaries)", "mm": 55 }
+      ],
+      "maxHeightMm": 200,
+      "minFontPt": 6,
+      "maxFontPt": 8,
+      "minDpi": 300,
+      "formats": ["tiff", "pdf"],
+      "source": "https://www.cell.com/information-for-authors/figure-guidelines",
+      "checked": "2026-11-24"
+    },
+    {
+      "id": "jci",
+      "name": "Journal of Clinical Investigation",
+      "widths": [
+        { "id": "single", "label": "Minimum width", "mm": 90 },
+        { "id": "double", "label": "Maximum width", "mm": 180 }
+      ],
+      "maxHeightMm": 172.5,
+      "minFontPt": 6,
+      "maxFontPt": 8,
+      "minDpi": 600,
+      "formats": ["tiff", "ppt", "pdf", "eps", "ai"],
+      "source": "https://www.jci.org/kiosks/publish/figures",
+      "checked": "2026-11-24"
+    },
+    {
+      "id": "pnas",
+      "name": "PNAS",
+      "widths": [
+        { "id": "single", "label": "Small (about 9 × 6 cm)", "mm": 90, "heightMm": 60 },
+        { "id": "one-and-half", "label": "Medium (about 11 × 11 cm)", "mm": 110, "heightMm": 110 },
+        { "id": "full", "label": "Large (about 18 × 22 cm)", "mm": 180, "heightMm": 220 }
+      ],
+      "minFontPt": 6,
+      "maxFontPt": 12,
+      "formats": ["tiff", "eps", "pdf", "ppt"],
+      "source": "https://www.pnas.org/author-center/submitting-your-manuscript",
+      "checked": "2026-11-24"
     }
   ]
 }

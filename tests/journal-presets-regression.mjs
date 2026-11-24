@@ -26,8 +26,17 @@ export async function runJournalPresetsRegressions() {
     !generic.source && generic.minFontPt === undefined && generic.maxFontPt === undefined);
   const journals = data.families.filter(f => f.id !== 'generic');
   assert('Every journal has an https source on the journal\'s own site and a checked date', journals.length >= 1 &&
-    journals.every(f => /^https:\/\/(www\.nature\.com|www\.science\.org|journals\.plos\.org|rupress\.org)\//.test(f.source) && /^\d{4}-\d{2}-\d{2}$/.test(f.checked)), journals.map(f => f.source).join());
+    journals.every(f => /^https:\/\/(www\.nature\.com|www\.science\.org|journals\.plos\.org|rupress\.org|www\.cell\.com|www\.jci\.org|www\.pnas\.org)\//.test(f.source) && /^\d{4}-\d{2}-\d{2}$/.test(f.checked)), journals.map(f => f.source).join());
   assert('Only stated values: Science gives no maximum height or text size, and no format list', (() => { const s = data.families.find(f => f.id === 'science'); return s && s.maxHeightMm === undefined && s.maxFontPt === undefined && s.formats === undefined; })());
+  const fam$ = id => data.families.find(f => f.id === id);
+  assert('Cell Press: 85, 114 and 174 mm (and 55 mm for three-column formats), at most 20 cm high, 6–8 pt, 300 dpi', (() => { const c = fam$('cell-press'); return c && c.widths.map(w => w.mm).join() === '85,114,174,55' &&
+    c.maxHeightMm === 200 && c.minFontPt === 6 && c.maxFontPt === 8 && c.minDpi === 300 && /Cancer Cell/.test(c.name) && /Molecular Cell/.test(c.name) && /Cell Metabolism/.test(c.name); })());
+  assert('JCI: 90 to 180 mm wide, at most 172.5 mm high, 6–8 pt, 600 ppi', (() => { const c = fam$('jci'); return c && c.widths.map(w => w.mm).join() === '90,180' && c.maxHeightMm === 172.5 &&
+    c.minFontPt === 6 && c.maxFontPt === 8 && c.minDpi === 600; })());
+  assert('PNAS: small, medium and large sizes with their heights, 6–12 pt; no resolution or maximum height of its own', (() => { const c = fam$('pnas'); return c && c.widths.map(w => w.mm + 'x' + w.heightMm).join() === '90x60,110x110,180x220' &&
+    c.minFontPt === 6 && c.maxFontPt === 12 && c.minDpi === undefined && c.maxHeightMm === undefined; })());
+  assert('PNAS medium makes an 11 × 11 cm page; JCI\'s 600 ppi reaches the figure check', JSON.stringify(J.pageForPreset(J.makePreset(fam$('pnas'), 'one-and-half'), 5)) === JSON.stringify({ width: 11, height: 11, unit: 'cm' }) &&
+    J.presetLimits(J.makePreset(fam$('jci'), 'single'), { minFontPt: 5, maxFontPt: 8, minDpi: 300 }).minDpi === 600);
   assert('Widths within each journal\'s maximum height, and minimum text sizes not above the maximum', data.families.every(f => f.widths.every(w => !w.heightMm || !f.maxHeightMm || w.heightMm <= f.maxHeightMm)) &&
     data.families.every(f => !(f.minFontPt > f.maxFontPt)));
 
