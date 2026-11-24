@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.30 (2026-11-24)
+
+- **A handle to select the grid.** Clicking on a layout grid usually picked one of its panels or labels. Each grid now has a small blue **Grid** tab above its top-left corner: a click selects the grid itself, even when something lies over the tab, and a drag moves it with its panels and labels. The tab keeps its size at any zoom and is never exported. With a panel or label of a grid selected, **Select grid** in the Grid panel selects the grid too (also from the keyboard).
+
+### Development
+
+- `js/layout/grid.js`: the handle is drawn with the grid's guides (`gridHandleBox`, `gridAtHandle`); the canvas's `findTarget` is wrapped once so a handle finds its grid with the Select tool, after the selected object's controls. `grid-select` button in the Grid panel. Tests in `grid-regression` (real clicks and drags on the tab, zoom, other tools, Select grid, SVG export). No format change. New MANUAL screenshot of the grid, with its tab.
+
 ## v0.1.29 (2026-11-24)
 
 - **Panel letters (P3-T3).** Select panels (or a grid) and click **Letters**: they are lettered A, B, C in reading order. The style is set once for the whole document in the Panel letters panel: upper or lower case, bold, size in pt, corner, inside or outside the panel, offset in mm and colour. Letters stay on their panel when it moves, and renumber themselves when panels are reordered, added, pasted or deleted. A panel can be skipped or given its own letter (in the panel, or by editing the letter).

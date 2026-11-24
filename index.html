@@ -15,7 +15,7 @@
 <link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#07090C">
-<link rel="stylesheet" href="style.css?v=0.1.29">
+<link rel="stylesheet" href="style.css?v=0.1.30">
 </head>
 <body>
 
@@ -347,6 +347,7 @@
       </div>
       <div id="grid-edit" class="hidden">
         <p id="grid-info" class="hint" role="status"></p>
+        <button id="grid-select" title="Select the grid itself (not this panel or label), to move, resize or edit the whole grid. On the page: click the Grid tab above its top-left corner">Select grid</button>
         <label title="Space between cells, in mm">Gutter (mm) <input type="number" id="grid-edit-gutter" min="0" step="0.1"></label>
         <label title="Space around the grid, in mm">Margin (mm) <input type="number" id="grid-edit-margin" min="0" step="0.1"></label>
         <label title="Height of the column label band in mm (0: no column labels)">Column labels (mm) <input type="number" id="grid-edit-colband" min="0" step="0.5"></label>
@@ -615,14 +616,14 @@
 <script src="assets/vendor/jszip.min.js"></script>
 
 <!-- ======================= APP ======================= -->
-<script src="js/debug.js?v=0.1.29"></script>
-<script src="js/errors.js?v=0.1.29"></script>
-<script src="js/tiff.js?v=0.1.29"></script>
-<script type="module" src="js/app.js?v=0.1.29"></script>
+<script src="js/debug.js?v=0.1.30"></script>
+<script src="js/errors.js?v=0.1.30"></script>
+<script src="js/tiff.js?v=0.1.30"></script>
+<script type="module" src="js/app.js?v=0.1.30"></script>
 <script defer src="assets/vendor/svg2pdf.umd.min.js"></script>
-<script defer src="js/project.js?v=0.1.29"></script>
-<script defer src="js/autosave.js?v=0.1.29"></script>
-<script defer src="js/export.js?v=0.1.29"></script>
-<script defer src="js/main.js?v=0.1.29"></script>
+<script defer src="js/project.js?v=0.1.30"></script>
+<script defer src="js/autosave.js?v=0.1.30"></script>
+<script defer src="js/export.js?v=0.1.30"></script>
+<script defer src="js/main.js?v=0.1.30"></script>
 </body>
 </html>

@@ -11,11 +11,14 @@
    Dragging a panel onto another cell swaps them (an empty cell: the panel moves there; outside the grid:
    it leaves the grid); dragging a free image onto an empty cell adds it. Moving the grid moves its panels
    and labels; resizing it to a width rescales the cells and keeps gutters and margins. Deleting the grid
-   deletes its labels and leaves the panels where they are. */
+   deletes its labels and leaves the panels where they are.
+   A grid's panels and labels cover most of it, so each grid has a handle: a small "Grid" tab above its
+   top-left corner, the same size on screen at any zoom (editor only). Clicking the tab selects the grid
+   itself, dragging it moves the grid. */
 
 import { history, pushHistory } from '../core/history.js';
 import { getPreference } from '../core/preferences.js';
-import { canvas, docProps, documentOpen, registry, takeId } from '../core/state.js';
+import { canvas, currentTool, docProps, documentOpen, registry, takeId } from '../core/state.js';
 import { pageBounds, pageIndexForBox } from '../core/pages.js';
 import * as G from './grid-model.js';
 import { syncAttachments } from '../tools/inset.js';
@@ -57,12 +60,61 @@ function drawGuides(ctx) {
   ctx.strokeStyle = 'rgba(91,140,255,0.4)';
   if (g.colBand > 0) for (let col = 0; col < g.cols; col++) rect(G.colLabelBox(g, col));
   if (g.rowBand > 0) for (let row = 0; row < g.rows; row++) rect(G.rowLabelBox(g, row));
+  if (!this.group) drawHandle(ctx, 1 / (zoom * scale));
   ctx.restore();
+}
+
+// ---- the handle: a "Grid" tab above the top-left corner, in screen px ----
+const HANDLE = { width: 50, height: 16, gap: 9 }; // the gap keeps it clear of the selected grid's corner control
+/** The handle's box on the page (page px) at the current zoom. */
+export function gridHandleBox(grid) {
+  const zoom = (canvas && canvas.viewportTransform[0]) || 1, o = topLeft(grid);
+  return { left: o.x, top: o.y - (HANDLE.height + HANDLE.gap) / zoom, width: HANDLE.width / zoom, height: HANDLE.height / zoom };
+}
+/** Draws the handle in the grid's own frame (origin at its top-left corner); `k`: local units per screen px. */
+function drawHandle(ctx, k) {
+  const w = HANDLE.width * k, h = HANDLE.height * k, top = -(HANDLE.height + HANDLE.gap) * k;
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(91,140,255,0.95)';
+  ctx.fillRect(0, top, w, h);
+  // A grip of three short bars, then the word "Grid".
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < 3; i++) ctx.fillRect(5 * k, top + (4 + i * 3) * k, 7 * k, 1.5 * k);
+  ctx.font = `bold ${11 * k}px sans-serif`;
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Grid', 16 * k, top + h / 2 + 0.5 * k);
+}
+/** The grid whose handle is under a page point (the topmost one), or null. */
+export function gridAtHandle(point) {
+  const list = grids().filter(g => !g.group && g.visible !== false && g.evented !== false && g.selectable !== false);
+  for (let i = list.length - 1; i >= 0; i--) {
+    const b = gridHandleBox(list[i]);
+    if (point.x >= b.left && point.x <= b.left + b.width && point.y >= b.top && point.y <= b.top + b.height) return list[i];
+  }
+  return null;
+}
+/** Clicks on a handle (with the Select tool) find its grid, before the panels and labels; the selected
+    object's own controls keep priority. Installed once on the canvas. */
+function installHandleHitTest() {
+  if (!canvas || canvas.__mfcGridHandles) return;
+  canvas.__mfcGridHandles = true;
+  const find = canvas.findTarget;
+  canvas.findTarget = function (e, skipGroup) {
+    if (!this.skipTargetFind && currentTool === 'select') {
+      const active = this._activeObject;
+      if (!(active && active._findTargetCorner(this.getPointer(e, true), fabric.util.isTouchEvent(e)))) {
+        const grid = gridAtHandle(this.getPointer(e));
+        if (grid) { this.targets = []; return grid; }
+      }
+    }
+    return find.call(this, e, skipGroup);
+  };
 }
 /** Gives a grid object its guides and handles (also after loading, undo and paste). */
 export function installGridObject(o) {
   if (!isGrid(o) || o.__mfcGridInstalled) return;
   o.__mfcGridInstalled = true;
+  installHandleHitTest();
   o._render = drawGuides;
   o.objectCaching = false;
   o.lockRotation = true;

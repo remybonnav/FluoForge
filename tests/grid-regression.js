@@ -10,7 +10,9 @@
    - insert and delete rows and columns, spans, fit and fill (keeping the crop centre), width in mm with
      gutters kept; montage panels in a grid;
    - acceptance: the grid survives save, load, undo, copy and all exports; the old Grid button (and
-     MFC.arrangeGrid) still works on a project without a Grid object. */
+     MFC.arrangeGrid) still works on a project without a Grid object;
+   - the grid's handle: a click on its "Grid" tab selects the grid (over panels, labels and text), a drag
+     moves it; the Grid panel's "Select grid" selects the grid of the selected panel or label. */
 async function runGridRegressions() {
   const checks = [];
   const assert = (name, ok, detail) => { if (!ok) throw new Error(name + (detail != null ? ': ' + detail : '')); checks.push(name); };
@@ -124,6 +126,51 @@ async function runGridRegressions() {
   assert('Dragging the grid (by a gutter) moves its panels and labels with it', near(moved.x - before.grid.x, 60, 2) && near(moved.y - before.grid.y, 30, 2) &&
     near(tl(a01).x - before.p.x, moved.x - before.grid.x) && near(tl(lab0).y - before.l.y, moved.y - before.grid.y), `${moved.x - before.grid.x}, ${moved.y - before.grid.y}`);
 
+  // ---- The grid's handle: a "Grid" tab above its top-left corner ----
+  const Gx = await import(new URL('js/layout/grid.js', document.baseURI).href);
+  const click = p => drag(p, p);
+  const tabCentre = () => { const b = Gx.gridHandleBox(grid); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; };
+  const hb = Gx.gridHandleBox(grid), z = canvas.viewportTransform[0];
+  assert('Each grid has a handle above its top-left corner, 50 × 16 px on screen, clear of the corner control', near(hb.left, tl(grid).x, 1e-6) && hb.top + hb.height < tl(grid).y &&
+    near(hb.width * z, 50, 1e-6) && near(hb.height * z, 16, 1e-6) && Gx.gridAtHandle(tabCentre()) === grid && Gx.gridAtHandle({ x: hb.left - 2, y: hb.top }) === null, JSON.stringify(hb));
+  // Something on top of the handle (a text box) does not hide it.
+  const cover = new fabric.Textbox('Over the tab', { left: hb.left - 10, top: hb.top - 10, width: hb.width + 40, fontSize: hb.height * 2 });
+  cover.mfcId = 'txtcover'; cover.mfcType = 'text'; canvas.add(cover);
+  canvas.setActiveObject(a01); click(tabCentre());
+  assert('A click on the tab selects the grid itself, even with a panel selected and a text box over the tab', canvas.getActiveObject() === grid,
+    canvas.getActiveObject() && canvas.getActiveObject().mfcId);
+  canvas.remove(cover);
+  canvas.discardActiveObject(); click(centre(a01));
+  assert('A click on a panel still selects the panel', canvas.getActiveObject() === a01);
+  canvas.discardActiveObject(); click(centre(lab0));
+  assert('A click on a label still selects the label', canvas.getActiveObject() === lab0);
+  const beforeTab = { grid: tl(grid), p: tl(a01), l: tl(lab0) };
+  canvas.discardActiveObject(); drag(tabCentre(), { x: tabCentre().x + 40, y: tabCentre().y + 25 });
+  const afterTab = tl(grid);
+  assert('Dragging the tab moves the grid with its panels and labels', canvas.getActiveObject() === grid && near(afterTab.x - beforeTab.grid.x, 40, 2) && near(afterTab.y - beforeTab.grid.y, 25, 2) &&
+    near(tl(a01).x - beforeTab.p.x, afterTab.x - beforeTab.grid.x) && near(tl(lab0).y - beforeTab.l.y, afterTab.y - beforeTab.grid.y) &&
+    near(Gx.gridHandleBox(grid).left, afterTab.x, 1e-6), `${afterTab.x - beforeTab.grid.x}, ${afterTab.y - beforeTab.grid.y}`);
+  const zoomBefore = canvas.viewportTransform.slice();
+  canvas.setViewportTransform([z * 2, 0, 0, z * 2, zoomBefore[4], zoomBefore[5]]);
+  assert('The tab keeps its size on screen when zoomed', near(Gx.gridHandleBox(grid).width * z * 2, 50, 1e-6));
+  canvas.setViewportTransform(zoomBefore);
+  // The Select grid button: the grid of the selected panel or label (the keyboard path).
+  const selectBtn = document.getElementById('grid-select');
+  canvas.setActiveObject(a01); canvas.fire('selection:created', { selected: [a01] });
+  assert('With a panel selected, the Grid panel offers "Select grid", with a title', !selectBtn.classList.contains('hidden') && !!selectBtn.title);
+  selectBtn.focus(); selectBtn.click();
+  assert('"Select grid" selects the grid and hides itself; the focus stays in the panel', canvas.getActiveObject() === grid && selectBtn.classList.contains('hidden') &&
+    document.activeElement === document.getElementById('grid-edit-gutter'));
+  canvas.setActiveObject(lab0); canvas.fire('selection:created', { selected: [lab0] }); selectBtn.click();
+  assert('…also from a selected label', canvas.getActiveObject() === grid);
+  const eventAt = p => { canvas.calcOffset(); const r = canvas.upperCanvasEl.getBoundingClientRect(), v = canvas.viewportTransform;
+    return new MouseEvent('mousedown', { clientX: r.left + p.x * v[0] + v[4], clientY: r.top + p.y * v[3] + v[5] }); };
+  canvas.discardActiveObject();
+  assert('With the Select tool, the canvas finds the grid at the tab', canvas.findTarget(eventAt(tabCentre())) === grid);
+  MFC.setTool('text');
+  assert('With another tool (Text), the tab does not take the click', canvas.findTarget(eventAt(tabCentre())) !== grid);
+  MFC.setTool('select');
+
   // ---- Width, gutters, handles ----
   canvas.setActiveObject(grid); MFC.refreshSelectionBar && MFC.refreshSelectionBar(); canvas.fire('selection:created', { selected: [grid] });
   document.getElementById('grid-edit-width').value = '85'; document.getElementById('grid-apply-width').click();
@@ -173,7 +220,7 @@ async function runGridRegressions() {
   const page1 = MFC.pageBounds(0), onPage = canvas.getObjects().filter(o => o.mfcType === 'mfcImage' && o.visible !== false).filter(o => { const b = o.getBoundingRect(true, true);
     return b.left < page1.left + page1.width && b.left + b.width > page1.left && b.top < page1.top + page1.height && b.top + b.height > page1.top; }).length;
   assert('SVG export: the panels and labels are there, the grid itself and its guides are not', count(svg, /<image /g) === onPage && onPage >= 2 && /DAPI/.test(svg) && /Row 1/.test(svg) &&
-    !/rgba\(91,140,255/.test(svg) && !/91,140,255/.test(svg), `images ${count(svg, /<image /g)} vs ${onPage} on the page, DAPI ${/DAPI/.test(svg)}, Row 1 ${/Row 1/.test(svg)}, guides ${/91,140,255/.test(svg)}`);
+    !/rgba\(91,140,255/.test(svg) && !/91,140,255/.test(svg) && !/>Grid</.test(svg), `images ${count(svg, /<image /g)} vs ${onPage} on the page, DAPI ${/DAPI/.test(svg)}, Row 1 ${/Row 1/.test(svg)}, guides ${/91,140,255/.test(svg)}`);
   const pdf = await MFC_EXPORT.buildPDF();
   assert('PDF export works with a grid', pdf.blob.size > 1000);
   const tiff = await MFC_EXPORT.buildTIFF(), png = await MFC_EXPORT.buildPNG();

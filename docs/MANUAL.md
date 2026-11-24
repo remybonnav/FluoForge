@@ -163,12 +163,13 @@ The usual layout of a fluorescence figure is single channels next to the merge, 
 2. Select the images in reading order (or select none to use every image), then click **Grid**.
 3. Set **Rows** and **Columns** (empty: up to 4 columns), the **Width** of the whole grid in mm (empty: the size of the first image), the **Gutter** between cells and the **Margin** around them in mm, whether to add **Column labels** above and **Row labels** on the left, and whether panels **Fit** their cell or **Fill** it, then click **Make grid**.
 
-![A 2 × 5 layout grid of DAPI, ERG, EdU, CD31 and merge panels for two cohorts, with column labels above and row labels turned 90° on the left, one gutter from the panels, selected, and the Grid panel](images/04-grid.jpg)
+![A 2 × 5 layout grid of DAPI, ERG, EdU, CD31 and merge panels for two cohorts, with column labels above and row labels turned 90° on the left, one gutter from the panels, selected, with its Grid tab above the top-left corner, and the Grid panel](images/04-grid.jpg)
 
 The grid is drawn as dashed cells in the editor only; exports show its panels and labels, never the grid itself. Locked images, images in a group and images already in a grid stay where they are.
 
 - **Swap panels**: drag a panel onto another cell; the two change places. Onto an empty cell, the panel moves there. Dropped outside the grid, it leaves the grid. A free image dropped onto an empty cell joins the grid.
-- **Move the grid**: drag it by a gutter or an empty cell (or select it in the Layers panel); its panels and labels follow.
+- **Select the grid**: click the blue **Grid** tab above its top-left corner. It always selects the grid itself, even where panels, labels or text boxes lie on top of it. With one of its panels or labels selected, **Select grid** in the Grid panel does the same from the keyboard. The tab is shown in the editor only.
+- **Move the grid**: drag its **Grid** tab (or a gutter or an empty cell); its panels and labels follow.
 - **Resize to a width**: select the grid (or one of its panels) and type a **Width** in mm, for example 85 for one journal column, then **Apply width**; or drag the grid's left or right handle. The panels are rescaled; gutters, margins and label bands keep their size.
 - **Rows and columns**: with a panel selected, **Row above**, **Row below**, **Column left**, **Column right**, **Delete row** and **Delete column** act on its row or column (with the grid itself selected: at the bottom or the right). Panels in a deleted row or column leave the grid and stay on the page.
 - **Spans**: **Span right** and **Span down** let the selected panel's cell take the empty cell next to it; **Unspan** goes back to one cell.

@@ -2,8 +2,8 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  * Copyright (C) 2026 Remy Bonnavion
  */
-/* The Grid panel (top bar ▸ Grid): make a layout grid from the selected images, and edit the selected
-   grid (spacing, label bands, width, rows and columns, spans, fit or fill of the selected panel). The
+/* The Grid panel (top bar ▸ Grid): make a layout grid from the selected images, select the grid of the
+   selected panel or label, and edit the selected grid (spacing, label bands, width, rows and columns, spans, fit or fill of the selected panel). The
    grid itself is js/layout/grid.js; its model js/layout/grid-model.js. */
 
 import { getPreference } from '../core/preferences.js';
@@ -32,6 +32,7 @@ export function refreshGridPanel() {
   $('grid-create').classList.toggle('hidden', !!grid);
   $('grid-edit').classList.toggle('hidden', !grid);
   if (!grid) return;
+  $('grid-select').classList.toggle('hidden', obj === grid);
   const g = grid.mfcGrid, cell = selectedCell(grid, obj), area = cell ? areaOf(g, obj.mfcId) : null;
   $('grid-info').textContent = `Grid of ${g.rows} × ${g.cols} cells, ${fmt(gridSize(g).width)} × ${fmt(gridSize(g).height)} mm.` +
     (cell ? ` Selected panel: row ${cell.row + 1}, column ${cell.col + 1}.` : ' Select one of its panels to change its cell.');
@@ -70,6 +71,15 @@ export function readCreateOptions() {
 export function installGridPanel() {
   if (!panel()) return;
   $('btn-grid').addEventListener('click', () => { opened = true; refreshGridPanel(); });
+  // The grid itself, when one of its panels or labels is selected (also the keyboard path to it).
+  $('grid-select').addEventListener('click', () => {
+    const { grid } = target();
+    if (!grid) return;
+    canvas.setActiveObject(grid);
+    canvas.requestRenderAll();
+    refreshGridPanel();
+    $('grid-edit-gutter').focus(); // the button hides itself: keep the focus in the panel
+  });
   $('grid-cancel').addEventListener('click', () => { opened = false; panel().classList.add('hidden'); });
   $('grid-arrange').addEventListener('click', () => { if (createGrid(selectedImages(), readCreateOptions())) refreshGridPanel(); });
   const withGrid = fn => () => { const { grid, obj } = target(); if (grid) { fn(grid, obj); refreshGridPanel(); } };
