@@ -4,6 +4,15 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.26 (2026-11-24)
+
+- **The Grid is now a real layout grid (P3-T2).** **Make grid** puts the selected images in a grid that stays on the page: rows, columns, gutters and margins in mm, and optional bands for column and row labels that belong to the grid. Drag a panel onto another cell to swap them (onto an empty cell to move it, out of the grid to take it out); drag the grid to move everything. Insert or delete rows and columns, let a cell span the empty cell next to it, and choose per panel whether it fits its cell or fills it (cropped around its centre). Typing a width in mm (or dragging the grid's side handle) rescales the panels and keeps the gutters. The grid survives saving, undo, copy and paste; exports show its panels and labels, not the grid. The previous one-shot arrangement and its placeholder "Label" boxes are gone; projects arranged with it open as before.
+
+### Development
+
+- New `js/layout/grid-model.js` (pure: sizes in mm, cells, labels, place/drop/swap, insert/delete rows and columns, spans, fit/fill, resize to a width), `js/layout/grid.js` (the `layoutGrid` object: layout, drag handling, guides, labels, copy and paste) and `js/layout/grid-panel.js` (the Grid panel). Wired in `canvas-events.js` (modified, moving, scaling, added, removed), `crop.js` and `selection-bar.js` (a cropped panel stays in its cell), `clipboard.js` (a grid is copied with its members; pasted links are remapped), `export.js` (the grid object is not exported), `figure-check.js`, `layers.js`, `history.js`. `MFC.arrangeGrid` keeps its signature and placement and now makes a grid.
+- Project format: schema 7 (`schema-6-to-7.js`, number only) for the `layoutGrid` object and the `mfcGrid…` fields; format lock recorded again (the format functions are unchanged). New `grid-model-regression` (Node) and `grid-regression` (browser) suites; `migrations-regression` checks 6→7.
+
 ## v0.1.25 (2026-11-23)
 
 - **Quick figure: split-channel montages in one click (P3-T1).** Select one or more images and click **Quick figure**: each image becomes a row of panels, one per channel plus the merge, with column headers naming each channel in its colour. Options: channels in colour or grey, merge first or last, the gap in mm, and which channels to include. The panels are linked views of one image, stored once in the project: a change to a channel's range, LUT, gamma or invert, to brightness or contrast, or to the crop on one panel applies to the whole row.

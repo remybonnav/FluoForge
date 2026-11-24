@@ -157,15 +157,26 @@ Each image (and each inset) keeps its own Z display. The choice is listed in the
 
 ## 6. Laying out panels with the Grid tool
 
-The usual layout of a fluorescence figure is single channels next to the merge, one row per condition. To build it:
+The usual layout of a fluorescence figure is single channels next to the merge, one row per condition. A **grid** holds it together: it stays on the page, so panels can be swapped, rows added and the whole figure resized to a journal column without arranging anything again.
 
-1. Import each image once per panel you want (or use **Duplicate**, Ctrl+D), and set each copy's channels in the Channels panel.
+1. Import each image once per panel you want (or use **Duplicate**, Ctrl+D, or **Quick figure** below), and set each copy's channels in the Channels panel.
 2. Select the images in reading order (or select none to use every image), then click **Grid**.
-3. Set **Rows**, **Columns**, **Cell width / height** (page pixels) and **Gap**, choose whether to add **Column headers** and **Row labels**, and click **Arrange**.
+3. Set **Rows** and **Columns** (empty: up to 4 columns), the **Width** of the whole grid in mm (empty: the size of the first image), the **Gutter** between cells and the **Margin** around them in mm, whether to add **Column labels** above and **Row labels** on the left, and whether panels **Fit** their cell or **Fill** it, then click **Make grid**.
 
 ![A 2 × 5 grid of DAPI, ERG, EdU, CD31 and merge panels for two cohorts, with the Grid Layout panel](images/04-grid.jpg)
 
-Each image is fitted into its cell without distortion. The headers and row labels are ordinary text boxes that you then edit (here: DAPI, ERG, EdU, CD31, Merge and Cohort 3 / Cohort 2). Locked images are left in place.
+The grid is drawn as dashed cells in the editor only; exports show its panels and labels, never the grid itself. Locked images, images in a group and images already in a grid stay where they are.
+
+- **Swap panels**: drag a panel onto another cell; the two change places. Onto an empty cell, the panel moves there. Dropped outside the grid, it leaves the grid. A free image dropped onto an empty cell joins the grid.
+- **Move the grid**: drag it by a gutter or an empty cell (or select it in the Layers panel); its panels and labels follow.
+- **Resize to a width**: select the grid (or one of its panels) and type a **Width** in mm, for example 85 for one journal column, then **Apply width**; or drag the grid's left or right handle. The panels are rescaled; gutters, margins and label bands keep their size.
+- **Rows and columns**: with a panel selected, **Row above**, **Row below**, **Column left**, **Column right**, **Delete row** and **Delete column** act on its row or column (with the grid itself selected: at the bottom or the right). Panels in a deleted row or column leave the grid and stay on the page.
+- **Spans**: **Span right** and **Span down** let the selected panel's cell take the empty cell next to it; **Unspan** goes back to one cell.
+- **Fit or fill**, per panel: fit shows the whole image as large as it fits, centred; fill covers the cell and crops the image around its crop centre. Back to fit, the crop comes back. Cropping a panel with the Crop tool keeps it in its cell.
+- **Labels** belong to the grid: they sit in the label bands (set their size in mm, 0 for none), move with it and come back to their band if dragged away. Edit their text like any text box. Removing the grid removes its labels.
+- **Remove grid (keep panels)** takes the grid and its labels away and leaves the panels where they are. Copying a grid copies its panels and labels too.
+
+Panels of a Quick figure can go into a grid: in fill mode, cells of the same size give them the same crop, and cropping one still crops them all.
 
 ### Quick figure (split-channel montage)
 

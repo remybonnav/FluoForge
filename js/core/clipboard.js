@@ -8,11 +8,12 @@ import { pushHistory } from './history.js';
 import { canvas, takeId } from './state.js';
 import { refreshChannelPanel } from '../image/channels.js';
 import { refreshScaleBarRefList } from '../tools/scalebar.js';
+import { remapPastedGrids, withGridMembers } from '../layout/grid.js';
 
 // Clipboard snapshots share immutable sources but restore independent view settings.
 export let clipboardObj = null;
 export function copySelection() {
-  const objects = canvas.getActiveObjects();
+  const objects = withGridMembers(canvas.getActiveObjects()); // a grid is copied with its panels and labels
   if (objects.length) clipboardObj = objects.map(o => MFC_PROJECT.serializeObject(o, true));
 }
 export async function pasteSelection() {
@@ -27,6 +28,8 @@ export async function pasteSelection() {
       if (idMap.has(o[key])) o[key] = idMap.get(o[key]);
     if (o.mfcType === 'insetContour' && ![...idMap.values()].includes(o.mfcInsetTargetId)) o.mfcInsetTargetId = null;
   }));
+  remapPastedGrids(items, idMap); // a pasted grid holds the pasted panels, not the originals
+
   canvas.discardActiveObject();
   const pasted = [];
   for (const item of items) {

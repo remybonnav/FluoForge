@@ -12,6 +12,8 @@ import { refreshPathPanel } from '../tools/path.js';
 import { refreshScaleBarPanel, refreshScaleBarPreview, refreshScaleBarRefList, updateScaleBarsForImage } from '../tools/scalebar.js';
 import { refreshShapePanel } from '../tools/shape.js';
 import { cropMontageLike } from '../image/montage.js';
+import { relayoutGrids } from '../layout/grid.js';
+import { refreshGridPanel } from '../layout/grid-panel.js';
 import { refreshPanel as refreshLegendPanel } from '../tools/legend.js';
 import { applyTextBoxSize, refreshTextPanel } from '../tools/text.js';
 import { LAYER_ICONS, layerLabel, refreshLayersPanel } from './layers.js';
@@ -35,6 +37,7 @@ export function onSelectionChanged() {
   refreshPathPanel();
   refreshInsetPanel();
   refreshLegendPanel();
+  refreshGridPanel();
   refreshLayersPanel();
   MFC_UI.focusSelection(activeObject, currentTool);
 }
@@ -132,6 +135,7 @@ export function uncropImage(img) {
   keepClipOnContent(img, before);
   img.setCoords();
   cropMontageLike(img, placed); // a montage panel: the whole row is uncropped
+  relayoutGrids(); // panels in a layout grid go back into their cells
   canvas.requestRenderAll();
   canvas.fire('object:modified', { target: img });
   updateScaleBarsForImage(img);

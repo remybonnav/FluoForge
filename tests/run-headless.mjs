@@ -23,6 +23,7 @@ import { chromium, firefox } from 'playwright';
 import { generateFixtures } from './generate-fixtures.mjs';
 import { runReleaseRegressions } from './release-regression.mjs';
 import { runMigrationRegressions } from './migrations-regression.mjs';
+import { runGridModelRegressions } from './grid-model-regression.mjs';
 import { check as checkVersion, describeMismatch } from '../scripts/release.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -138,7 +139,8 @@ async function nodeStep(results) {
       if (version.wrong.length) throw new Error(describeMismatch(version));
       return runReleaseRegressions();
     },
-    'migrations-regression': runMigrationRegressions
+    'migrations-regression': runMigrationRegressions,
+    'grid-model-regression': runGridModelRegressions
   };
   for (const [suite, run] of Object.entries(suites)) {
     const started = Date.now();

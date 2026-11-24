@@ -36,7 +36,7 @@ export function absoluteBox(obj) {
 function visibleObjects() {
   const out = [];
   const walk = (objects, top) => objects.forEach(o => {
-    if (o.visible === false || isHelper(o)) return;
+    if (o.visible === false || isHelper(o) || o.mfcType === 'layoutGrid') return; // a layout grid is not exported
     out.push({ obj: o, top: top || o });
     if (o.type === 'group' && o.getObjects) walk(o.getObjects(), top || o);
   });

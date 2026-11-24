@@ -15,7 +15,7 @@
 <link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#07090C">
-<link rel="stylesheet" href="style.css?v=0.1.25">
+<link rel="stylesheet" href="style.css?v=0.1.26">
 </head>
 <body>
 
@@ -304,17 +304,46 @@
     </section>
 
     <section id="panel-grid" class="panel hidden">
-      <h3>Grid Layout</h3>
-      <label>Rows <input type="number" id="grid-rows" value="2" min="1" step="1"></label>
-      <label>Columns <input type="number" id="grid-cols" value="3" min="1" step="1"></label>
-      <label>Cell width (px) <input type="number" id="grid-cellw" value="300" step="1"></label>
-      <label>Cell height (px) <input type="number" id="grid-cellh" value="300" step="1"></label>
-      <label>Gap (px) <input type="number" id="grid-gap" value="16" step="1"></label>
-      <label><input type="checkbox" id="grid-header-row" checked> Column headers (above)</label>
-      <label><input type="checkbox" id="grid-header-col" checked> Row labels (left side)</label>
-      <button id="grid-arrange">Arrange</button>
-      <button id="grid-cancel">Close</button>
-      <p class="hint">Select 2+ images first to arrange just those; otherwise every image on the canvas is used.</p>
+      <h3>Grid</h3>
+      <div id="grid-create">
+        <p class="hint">Select the images in reading order (or none to use every image), then make a grid. It stays on the page: drag a panel onto another cell to swap them, drag the grid to move everything.</p>
+        <label title="Number of rows of cells">Rows <input type="number" id="grid-rows" min="1" step="1" placeholder="auto"></label>
+        <label title="Number of columns of cells">Columns <input type="number" id="grid-cols" min="1" step="1" placeholder="auto"></label>
+        <label title="Width of the whole grid in mm, for example 85 for one journal column (empty: the size of the first image)">Width (mm) <input type="number" id="grid-width" min="5" step="0.5" placeholder="auto"></label>
+        <label title="Space between cells, in mm">Gutter (mm) <input type="number" id="grid-gutter" min="0" step="0.1" value="2"></label>
+        <label title="Space around the grid, in mm">Margin (mm) <input type="number" id="grid-margin" min="0" step="0.1" value="0"></label>
+        <label title="A band above the cells with a label per column"><input type="checkbox" id="grid-header-row" checked> Column labels (above)</label>
+        <label title="A band left of the cells with a label per row"><input type="checkbox" id="grid-header-col"> Row labels (left side)</label>
+        <label title="Fit: the whole image, as large as fits. Fill: the image covers the cell, cropped around its centre">Panels
+          <select id="grid-mode"><option value="fit">Fit in cell</option><option value="fill">Fill cell (crop)</option></select>
+        </label>
+        <button id="grid-arrange" title="Make a grid of the selected images (or of every image)">Make grid</button>
+      </div>
+      <div id="grid-edit" class="hidden">
+        <p id="grid-info" class="hint" role="status"></p>
+        <label title="Space between cells, in mm">Gutter (mm) <input type="number" id="grid-edit-gutter" min="0" step="0.1"></label>
+        <label title="Space around the grid, in mm">Margin (mm) <input type="number" id="grid-edit-margin" min="0" step="0.1"></label>
+        <label title="Height of the column label band in mm (0: no column labels)">Column labels (mm) <input type="number" id="grid-edit-colband" min="0" step="0.5"></label>
+        <label title="Width of the row label band in mm (0: no row labels)">Row labels (mm) <input type="number" id="grid-edit-rowband" min="0" step="0.5"></label>
+        <label title="Rescale the cells so the grid is this wide, in mm; gutters and margins stay">Width (mm) <input type="number" id="grid-edit-width" min="5" step="0.5"></label>
+        <button id="grid-apply-width" title="Rescale the panels to this width; gutters and margins stay the same">Apply width</button>
+        <label title="Fit: the whole image, as large as fits. Fill: the image covers the cell, cropped around its centre">Selected panel
+          <select id="grid-cell-mode"><option value="fit">Fit in cell</option><option value="fill">Fill cell (crop)</option></select>
+        </label>
+        <div class="btn-row grid-buttons">
+          <button id="grid-row-above" title="Insert a row above the selected panel (the grid selected: at the bottom)">Row above</button>
+          <button id="grid-row-below" title="Insert a row below the selected panel (the grid selected: at the bottom)">Row below</button>
+          <button id="grid-col-left" title="Insert a column left of the selected panel (the grid selected: at the right)">Column left</button>
+          <button id="grid-col-right" title="Insert a column right of the selected panel (the grid selected: at the right)">Column right</button>
+          <button id="grid-row-delete" title="Delete the selected panel's row (the grid selected: the last row); its panels leave the grid">Delete row</button>
+          <button id="grid-col-delete" title="Delete the selected panel's column (the grid selected: the last column); its panels leave the grid">Delete column</button>
+          <button id="grid-span-right" title="Let the selected panel's cell take the empty cell on its right">Span right</button>
+          <button id="grid-span-down" title="Let the selected panel's cell take the empty cell below it">Span down</button>
+          <button id="grid-unspan" title="Back to a single cell">Unspan</button>
+        </div>
+        <button id="grid-remove" title="Remove the grid and its labels; the panels stay where they are">Remove grid (keep panels)</button>
+      </div>
+      <button id="grid-cancel" title="Close this panel">Close</button>
     </section>
 
     <section id="panel-scalebar" class="panel hidden">
@@ -558,14 +587,14 @@
 <script src="assets/vendor/jszip.min.js"></script>
 
 <!-- ======================= APP ======================= -->
-<script src="js/debug.js?v=0.1.25"></script>
-<script src="js/errors.js?v=0.1.25"></script>
-<script src="js/tiff.js?v=0.1.25"></script>
-<script type="module" src="js/app.js?v=0.1.25"></script>
+<script src="js/debug.js?v=0.1.26"></script>
+<script src="js/errors.js?v=0.1.26"></script>
+<script src="js/tiff.js?v=0.1.26"></script>
+<script type="module" src="js/app.js?v=0.1.26"></script>
 <script defer src="assets/vendor/svg2pdf.umd.min.js"></script>
-<script defer src="js/project.js?v=0.1.25"></script>
-<script defer src="js/autosave.js?v=0.1.25"></script>
-<script defer src="js/export.js?v=0.1.25"></script>
-<script defer src="js/main.js?v=0.1.25"></script>
+<script defer src="js/project.js?v=0.1.26"></script>
+<script defer src="js/autosave.js?v=0.1.26"></script>
+<script defer src="js/export.js?v=0.1.26"></script>
+<script defer src="js/main.js?v=0.1.26"></script>
 </body>
 </html>

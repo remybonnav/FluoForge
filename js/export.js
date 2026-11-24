@@ -131,6 +131,7 @@ const MFC_EXPORT = (() => {
     const imageDetails = [];
     try {
       for (const json of state.objects) {
+        if (json.mfcType === 'layoutGrid') continue; // a layout grid only guides editing: its panels and labels are exported
         const obj = await MFC_PROJECT.restoreObject(json, registry, true);
         const box = obj.getBoundingRect(true, true);
         if (box.left >= bounds.left + bounds.width || box.left + box.width <= bounds.left ||

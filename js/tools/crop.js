@@ -8,6 +8,7 @@ import { pushHistory } from '../core/history.js';
 import { canvas, currentTool, takeId } from '../core/state.js';
 import { canvasCorners, syncAttachments } from './inset.js';
 import { cropMontageLike } from '../image/montage.js';
+import { relayoutGrids } from '../layout/grid.js';
 import { refreshLayersPanel } from '../ui/layers.js';
 import { applyLockState, refuseLocked } from '../ui/locks.js';
 import { refreshSelectionBar } from '../ui/selection-bar.js';
@@ -126,6 +127,7 @@ export function applyCrop() {
   keepClipOnContent(img, before);
   img.setCoords();
   cropMontageLike(img, placed); // a montage panel: the whole row takes the same crop
+  relayoutGrids(); // panels in a layout grid go back into their cells
   canvas.remove(cropRect);
   cropRect = null; cropTargetImg = null;
   document.getElementById('panel-crop').classList.add('hidden');

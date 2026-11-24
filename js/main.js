@@ -79,7 +79,7 @@ const MFC_UI = (function () {
     let panel = tool !== 'select' ? tools[tool] : null;
     if (!panel && object) {
       panel = object.mfcShapeKind === 'path' ? 'panel-path' :
-        ({mfcImage:'panel-channels',text:'panel-text',scalebar:'panel-scalebar',shape:'panel-shape',insetContour:'panel-inset'})[object.mfcType] || null;
+        ({mfcImage:'panel-channels',text:'panel-text',scalebar:'panel-scalebar',shape:'panel-shape',insetContour:'panel-inset',layoutGrid:'panel-grid'})[object.mfcType] || null;
     }
     if (panel) focusPanel(panel, force);
     else {
@@ -549,18 +549,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('panel-grid').classList.remove('hidden');
     MFC_UI.focusPanel('panel-grid', true);
   });
-  document.getElementById('grid-cancel').addEventListener('click', () => document.getElementById('panel-grid').classList.add('hidden'));
-  document.getElementById('grid-arrange').addEventListener('click', () => {
-    MFC.arrangeGrid({
-      rows: parseInt(document.getElementById('grid-rows').value, 10) || 1,
-      cols: parseInt(document.getElementById('grid-cols').value, 10) || 1,
-      cellW: parseFloat(document.getElementById('grid-cellw').value) || 300,
-      cellH: parseFloat(document.getElementById('grid-cellh').value) || 300,
-      gap: parseFloat(document.getElementById('grid-gap').value) || 16,
-      headerRow: document.getElementById('grid-header-row').checked,
-      headerCol: document.getElementById('grid-header-col').checked
-    });
-  });
+  // Its fields and buttons: js/layout/grid-panel.js.
 
   // ---- zoom (canvas, not page) ----
   document.getElementById('zoom-in').addEventListener('click', () => MFC.zoomIn());

@@ -34,6 +34,7 @@ import { applyAlphaToggle, applyBrightnessContrast, applyPixelSize, applyStackPl
 import { addImageToCanvas, importFiles, recomposite } from './image/import.js';
 import { align } from './layout/align.js';
 import { arrangeGrid } from './layout/grid.js';
+import { installGridPanel } from './layout/grid-panel.js';
 import { nudgeSelection } from './layout/snap.js';
 import { applyCrop, applyCropFieldsToRect, cancelCrop, cropToShape, cropToShapePair, releaseShapeCrop, setCropAspectMode } from './tools/crop.js';
 import { applyExactSizeToSelectedContour, applyInsetContourStyle, createInsetFromContour, loadInsetSizePreferences, refreshInsetPanel, saveInsetSizePreferences, setInsetAspectMode } from './tools/inset.js';
@@ -89,3 +90,4 @@ export const MFC = {
 window.MFC = MFC;
 installLegendPanel();
 installQuickFigure();
+installGridPanel();

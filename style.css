@@ -105,6 +105,8 @@ button.active,.toggle-btn.active{background:var(--accent-dim);border-color:var(-
 .export-field[hidden]{display:none;}
 .export-resolution{display:flex;gap:6px;min-width:0;}
 .qf-channels label{display:inline-flex;align-items:center;gap:4px;margin:2px 12px 2px 0;}
+.grid-buttons{flex-wrap:wrap;}
+.grid-buttons > button{flex:1 1 auto;}
 .qf-swatch{display:inline-block;width:10px;height:10px;border-radius:2px;border:1px solid var(--border);}
 .export-resolution > input[type=number]{flex:1 1 auto;width:0;min-width:0;}
 .export-resolution > select{flex:0 0 auto;}

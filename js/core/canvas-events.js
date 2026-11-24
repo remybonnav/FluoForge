@@ -20,6 +20,7 @@ import { refreshLayersPanel } from '../ui/layers.js';
 import { isTransformLocked } from '../ui/locks.js';
 import { onSelectionChanged, refreshSelectionBar } from '../ui/selection-bar.js';
 import { installImageMenu } from '../image/display-settings.js';
+import { installGridObject, onGridScaling, onObjectModified as onGridModified, onObjectMoving as onGridMoving, onObjectRemoved as onGridRemoved } from '../layout/grid.js';
 
 // ---- init ----
 export function init() {
@@ -35,6 +36,8 @@ export function init() {
     // Corner handles scale a text box; fontSize stays the single source of truth, so
     // the scale is folded into fontSize/width (and box height) and reset to 1.
     if (obj && obj.type === 'textbox' && normalizeTextScale(obj)) refreshTextPanel();
+    // Layout grids: a dropped panel swaps cells or leaves the grid, a resized grid rescales its cells.
+    onGridModified(obj, e.action);
     if (obj && obj.type === 'activeSelection') obj.getObjects().forEach(o => { if (o.mfcType === 'mfcImage') syncAttachments(o); });
     else if (obj && obj.mfcType === 'mfcImage') syncAttachments(obj);
     refreshSelectionBar();
@@ -63,8 +66,8 @@ export function init() {
   canvas.on('selection:created', onSelectionChanged);
   canvas.on('selection:updated', onSelectionChanged);
   canvas.on('selection:cleared', onSelectionChanged);
-  canvas.on('object:added', e => { if (!isHelper(e.target)) refreshLayersPanel(); });
-  canvas.on('object:removed', e => { if (!isHelper(e.target)) refreshLayersPanel(); });
+  canvas.on('object:added', e => { installGridObject(e.target); if (!isHelper(e.target)) refreshLayersPanel(); });
+  canvas.on('object:removed', e => { onGridRemoved(e.target); if (!isHelper(e.target)) refreshLayersPanel(); });
   canvas.on('text:changed', () => { /* debounced via object:modified on blur */ });
   canvas.on('mouse:down', (opt) => {
     // A highlighted range belongs to the editing session in which it was made; any new
@@ -84,6 +87,7 @@ export function init() {
     else clearSnapGuides();
     if (e.target.mfcType === 'mfcImage') { syncAttachments(e.target); }
     if (e.target.mfcType === 'insetContour') { syncInsetFromContour(e.target); updateInsetReadout(e.target); }
+    onGridMoving(e.target); // a grid's panels and labels follow it
     if (e.target.type === 'activeSelection') {
       e.target.getObjects().forEach(o => { if (o.mfcType === 'mfcImage') syncAttachments(o); });
     }
@@ -105,6 +109,7 @@ export function init() {
     const evt = e.e;
     const obj = e.target;
 
+    if (onGridScaling(obj, e.transform)) { refreshSelectionBar(); return; } // a grid resizes by its width
     if (obj === cropRect) {
       // crop rect resizing is handled by its own logic (free rectangle by default,
       // forced 1:1 only in "square" mode) — see setCropAspectMode/applyCrop section.

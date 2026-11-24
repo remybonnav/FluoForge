@@ -13,8 +13,9 @@ import { migrate as schema2to3 } from './schema-2-to-3.js';
 import { migrate as schema3to4 } from './schema-3-to-4.js';
 import { migrate as schema4to5 } from './schema-4-to-5.js';
 import { migrate as schema5to6 } from './schema-5-to-6.js';
+import { migrate as schema6to7 } from './schema-6-to-7.js';
 
-export const CURRENT_SCHEMA = 6;
+export const CURRENT_SCHEMA = 7;
 
 export const MIGRATIONS = [
   { from: 0, to: 1, file: 'schema-0-to-1.js', migrate: schema0to1 },
@@ -22,7 +23,8 @@ export const MIGRATIONS = [
   { from: 2, to: 3, file: 'schema-2-to-3.js', migrate: schema2to3 },
   { from: 3, to: 4, file: 'schema-3-to-4.js', migrate: schema3to4 },
   { from: 4, to: 5, file: 'schema-4-to-5.js', migrate: schema4to5 },
-  { from: 5, to: 6, file: 'schema-5-to-6.js', migrate: schema5to6 }
+  { from: 5, to: 6, file: 'schema-5-to-6.js', migrate: schema5to6 },
+  { from: 6, to: 7, file: 'schema-6-to-7.js', migrate: schema6to7 }
 ];
 
 /** States written before the schema field was checked always said 1; a missing schema means 1. */

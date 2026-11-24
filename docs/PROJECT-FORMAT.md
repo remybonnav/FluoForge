@@ -51,7 +51,7 @@ Each `versions/<id>.json` is one figure state. States hold no pixels: images ref
 
 | Field | Meaning |
 |---|---|
-| `schema` | The state format (section 6). Currently `6`. |
+| `schema` | The state format (section 6). Currently `7`. |
 | `documentOpen` | `false` only for an empty workspace. |
 | `docProps` | The page: `name`, `width`, `height`, `unit` (`"px"`, `"cm"` or `"in"`), `dpi` and `pages` (missing in projects from before multi-page figures, which have one page). Optional `checkDismissals` (since 0.1.12): figure check findings dismissed in this project, each `{ key, rule, severity, objects, message, note }`; absent means none. Optional `preferences` (since 0.1.14): the project's own values of preferences (Preferences → This project only), `{ key: value }`, overriding the global ones; absent means none, and keys a version does not know are kept. |
 | `nextId` | The counter for new object ids. |
@@ -152,6 +152,17 @@ A montage is not an object of its own: its panels are images and its column head
 
 Every panel is an ordinary image with its own `display` (which channels are on, and their settings). The channel panels use the same source (`sourceId`) as the merge, so the source is stored once. While editing, range, LUT, gamma and invert of a channel, brightness and contrast, and the crop are kept equal on every panel of a montage; this is not checked when a project opens.
 
+### Layout grid: `type: "rect"`, `mfcType: "layoutGrid"` (schema 7)
+
+An invisible rectangle under its panels, as large as the grid. Exports leave it out; the editor draws its cells as dashed guides.
+
+| Field | Meaning |
+|---|---|
+| `mfcGrid` | The grid, in mm: `rows`, `cols`, `cellW`, `cellH` (one cell), `gutter` (between cells), `margin` (around them), `colBand` (height of the column label band above the cells, 0: none), `rowBand` (width of the row label band on their left, 0: none), and `areas`. |
+| `mfcGrid.areas[]` | `{ row, col, rowSpan, colSpan, panel, mode, base, last }`: the cells an area covers (from 0), the image it holds (`mfcId`, or null for an empty spanned area), `"fit"` or `"fill"`, and for fill the crop it starts from and the crop it last gave (`{ cropX, cropY, width, height }` in the image's preview pixels). Cells no area covers are empty. |
+
+Its panels are ordinary images with `mfcGridId` (the grid's `mfcId`); the grid's `areas` decide which images are in it. Its labels are text boxes with `mfcGridId`, `mfcGridLabel` (`"col"` or `"row"`) and `mfcGridIndex` (the column or row, from 0). The grid's top-left corner is its position; panels and labels are placed from it whenever the grid changes.
+
 ### Group: `type: "group"`, `mfcType: "group"`
 
 `objects` holds the children, saved the same way, in group coordinates. Children of a scale bar or a group may be plain Fabric objects without `mfcType`.
@@ -182,7 +193,8 @@ Schemas:
 | 3 | 0.1.7: the LUT library's names in `color`, a file's LUT in `lut`, and calibration bars. All additions, so `schema-2-to-3.js` only changes the number. |
 | 4 | 0.1.9: images may carry `mfcCompareGroup` (comparison groups). An addition, so `schema-3-to-4.js` only changes the number. |
 | 5 | 0.1.10: images record their TIFF decoder in `display.decoder`. `schema-4-to-5.js` sets `decoder: 1` on every image (also inside groups), which is how schema-4 figures were decoded, so they open exactly as before. |
-| 6 | The current state format, since 0.1.25: split-channel montages (Quick figure): images and text boxes may carry the `mfcMontage…` fields (section 4). An addition, so `schema-5-to-6.js` only changes the number. |
+| 6 | 0.1.25: split-channel montages (Quick figure): images and text boxes may carry the `mfcMontage…` fields (section 4). An addition, so `schema-5-to-6.js` only changes the number. |
+| 7 | The current state format, since 0.1.26: the layout grid (section 4), a new object type, with `mfcGridId` on its panels and labels. An addition (the former one-shot grid saved no object), so `schema-6-to-7.js` only changes the number. |
 
 ## 7. Legacy formats
 
