@@ -15,7 +15,7 @@
 <link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#07090C">
-<link rel="stylesheet" href="style.css?v=0.1.33">
+<link rel="stylesheet" href="style.css?v=0.1.34">
 </head>
 <body>
 
@@ -45,6 +45,12 @@
     <button id="zoom-selection" data-requires-document title="Zoom to fit the selection (Shift+2)">Fit selection</button>
     <select id="page-nav" data-requires-document title="Go to page" aria-label="Go to page" hidden></select>
     <button id="btn-add-page" data-requires-document title="Add a page after the last one (multi-page figure)">+ Page</button>
+  </div>
+
+  <div class="tool-group">
+    <button id="btn-rulers" data-requires-document aria-pressed="true" title="Show or hide the rulers (in the document unit); drag from a ruler onto the page to make a guide">Rulers</button>
+    <button id="btn-guides" data-requires-document title="Guides: add, move and delete guides by position, show or hide them, margin and journal column guides">Guides…</button>
+    <button id="btn-snap" data-requires-document aria-pressed="true" title="Snapping on or off: to the page, objects, guides and equal spacing while dragging (hold Alt to move freely once); details in Preferences">Snap on</button>
   </div>
 
   <div class="tool-group">
@@ -161,7 +167,9 @@
     <filter id="vision-greyscale" color-interpolation-filters="linearRGB"><feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0 0 0 1 0"/></filter>
   </svg>
 
-  <!-- Canvas area -->
+  <!-- Canvas area, with its rulers (js/layout/guides.js) over the top and left edges -->
+  <div id="canvas-area">
+  <div id="rulers" class="rulers" hidden><canvas id="ruler-top" class="ruler ruler-top" title="Ruler: drag down onto the page to make a horizontal guide"></canvas><canvas id="ruler-left" class="ruler ruler-left" title="Ruler: drag right onto the page to make a vertical guide"></canvas><span id="ruler-corner" class="ruler-corner" aria-hidden="true"></span></div>
   <div id="canvas-wrap">
     <div id="workspace-empty">
       <img class="empty-logo" src="assets/FluoForge-app-icons/fluoforge-icon.svg" alt="FluoForge" width="88" height="88">
@@ -178,6 +186,7 @@
       <canvas id="mfc-canvas"></canvas>
     </div>
     <div id="drop-hint" class="hidden">Drop image file(s) here (TIFF, JPEG, PNG, BMP)</div>
+  </div>
   </div>
 
   <!-- Right side panel -->
@@ -621,14 +630,14 @@
 <script src="assets/vendor/jszip.min.js"></script>
 
 <!-- ======================= APP ======================= -->
-<script src="js/debug.js?v=0.1.33"></script>
-<script src="js/errors.js?v=0.1.33"></script>
-<script src="js/tiff.js?v=0.1.33"></script>
-<script type="module" src="js/app.js?v=0.1.33"></script>
+<script src="js/debug.js?v=0.1.34"></script>
+<script src="js/errors.js?v=0.1.34"></script>
+<script src="js/tiff.js?v=0.1.34"></script>
+<script type="module" src="js/app.js?v=0.1.34"></script>
 <script defer src="assets/vendor/svg2pdf.umd.min.js"></script>
-<script defer src="js/project.js?v=0.1.33"></script>
-<script defer src="js/autosave.js?v=0.1.33"></script>
-<script defer src="js/export.js?v=0.1.33"></script>
-<script defer src="js/main.js?v=0.1.33"></script>
+<script defer src="js/project.js?v=0.1.34"></script>
+<script defer src="js/autosave.js?v=0.1.34"></script>
+<script defer src="js/export.js?v=0.1.34"></script>
+<script defer src="js/main.js?v=0.1.34"></script>
 </body>
 </html>

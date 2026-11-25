@@ -161,8 +161,8 @@ async function runTemplatesRegressions() {
     assert('The template opens as a new figure with empty frames and no images', frames().length === imagesBefore && !canvas.getObjects().some(o => o.mfcType === 'mfcImage') &&
       !MFC_PROJECT.hasUnsavedChanges() === false && MFC.getDocProps().name === template.name);
     assert('Its labels and letters are there; the letter on its frame', canvas.getObjects().some(o => o.mfcId === 'refTextbox') && LT.letterOf(byId('img1')) && LT.letterOf(byId('img1')).text === before.letter);
-    const svg = await MFC_EXPORT.buildSVG({ page: 0 });
-    assert('Empty frames are not exported', !/8a94a6/i.test(svg) && !/<image/.test(svg));
+    const svg = (await MFC_EXPORT.buildSVG({ page: 0 })).svg;
+    assert('Empty frames are not exported (no frame outline, no image; the page\'s text is there)', typeof svg === 'string' && /<svg/.test(svg) && !/8a94a6|rgb\(138,\s*148,\s*166\)/i.test(svg) && !/<image/.test(svg) && /<text/.test(svg));
     const findings = FC.checkFigure().filter(f => f.rule === 'empty-frame');
     assert('The figure check lists each empty frame on a page', findings.length >= 2 && findings.every(f => f.severity === 'info'), findings.length);
     canvas.setActiveObject(byId('img1')); canvas.fire('selection:created', { selected: [byId('img1')] }); await frame();

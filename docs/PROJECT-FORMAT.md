@@ -245,6 +245,7 @@ A project whose `manifest.version` or `schema` is higher than this version knows
 |---|---|---|
 | before 2026-11-17 | v0.18, v0.19 | Manifest version 2: JSON, gzip or zip with `images/` (section 7). Exact dates are in the history of the earlier repository, which is not part of this one. |
 | before 2026-11-17 | by v0.22 | Manifest version 3 with `versions/`, `sources/` and states of schema 1. |
+| 2026-11-25 | 0.1.34 | No schema change: `docProps` may hold `guides` (`[{ axis: "v" \| "h", pos }]`, in document px: a vertical guide at x = pos on every page, a horizontal one at y = pos) and `layoutGuides` (`{ marginMm, columns }`: margin guides, and whether the journal preset's column guides show). Older versions open such a project unchanged and ignore them. |
 | 2026-11-25 | 0.1.33 | No schema change: a figure may hold empty image frames (`imageFrame`, from a template), and grid labels may carry `mfcFrameSeriesLabel`. Older versions open such a figure and show the frames as dashed rectangles. Templates (`.fftemplate.json`) are a new, separate file. |
 | 2026-11-17 | 0.1.0 | Repository restarted; format 3, schema 1 unchanged. Files named `.mfcproj.zip`. |
 | 2026-11-18 | 0.1.3 | New projects are named `.fluoforge`. The content is unchanged. |

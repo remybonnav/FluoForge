@@ -2,8 +2,9 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  * Copyright (C) 2026 Remy Bonnavion
  */
-/* Snapping to page and object edges and centres while dragging (with guides), and keyboard nudging.
-   What snaps is set in Preferences → Snapping. */
+/* Snapping to page and object edges and centres, to guides, and to equal spacing while dragging (with
+   smart guides: the aligned edge, and the equal gaps), and keyboard nudging. What snaps is set in
+   Preferences → Snapping; the Snap button in the top bar turns it on and off. */
 
 import { pushHistory } from '../core/history.js';
 import { pageBounds, pageCount } from '../core/pages.js';
@@ -11,6 +12,8 @@ import { canvas, isHelper } from '../core/state.js';
 import { zoomLevel } from '../core/zoom.js';
 import { getPreference } from '../core/preferences.js';
 import { cropRect } from '../tools/crop.js';
+import { computeSpacingSnap, guideTarget } from './guides-model.js';
+import { snapGuideLines } from './guides.js';
 import { syncAttachments, syncInsetFromContour } from '../tools/inset.js';
 import { refuseLocked } from '../ui/locks.js';
 import { refreshSelectionBar } from '../ui/selection-bar.js';
@@ -24,6 +27,7 @@ const Y_EDGES = { top: b => b.top, vcenter: b => b.top + b.height / 2, bottom: b
 /** The snap options in effect (Preferences → Snapping; a project can override them). */
 export function snapOptions() {
   return { enabled: getPreference('snap.enabled'), toPage: getPreference('snap.toPage'), toObjects: getPreference('snap.toObjects'),
+    toGuides: getPreference('snap.toGuides'), spacing: getPreference('snap.spacing'),
     edges: getPreference('snap.edges'), threshold: getPreference('snap.distance') / zoomLevel, guides: getPreference('snap.guides') };
 }
 
@@ -68,12 +72,23 @@ export function clearSnapGuides() { if (guides) { guides = null; canvas && canva
     within the snap distance. Uses the object's current position: Fabric does not update its cached
     corners while it is being dragged. */
 export function snapObjectPosition(obj, options = snapOptions()) {
-  if (!options.enabled || !options.edges.length || (!options.toPage && !options.toObjects)) { guides = null; return; }
-  const { dx, dy, guideX, guideY } = computeSnap(obj.getBoundingRect(true, true), getSnapTargets(obj, options), options);
+  if (!options.enabled || ((!options.edges.length || (!options.toPage && !options.toObjects && !options.toGuides)) && !options.spacing)) { guides = null; return; }
+  const targets = options.edges.length ? getSnapTargets(obj, options) : [];
+  if (options.toGuides && options.edges.length) targets.push(...snapGuideLines().map(guideTarget));
+  const { dx, dy, guideX, guideY } = computeSnap(obj.getBoundingRect(true, true), targets, options);
   if (dx !== null) obj.left += dx;
   if (dy !== null) obj.top += dy;
   obj.setCoords();
-  guides = options.guides && (guideX !== null || guideY !== null) ? { x: guideX, y: guideY } : null;
+  // Equal spacing, on an axis no edge snapped on.
+  let marks = { x: [], y: [] };
+  if (options.spacing && (dx === null || dy === null)) {
+    const s = computeSpacingSnap(obj.getBoundingRect(true, true), getSnapTargets(obj, { toPage: false, toObjects: true }), options.threshold);
+    if (dx === null && s.dx !== null) { obj.left += s.dx; marks.x = s.marks.x; }
+    if (dy === null && s.dy !== null) { obj.top += s.dy; marks.y = s.marks.y; }
+    obj.setCoords();
+  }
+  const any = guideX !== null || guideY !== null || marks.x.length || marks.y.length;
+  guides = options.guides && any ? { x: guideX, y: guideY, marks } : null;
 }
 
 /** Draws the current snap guides over the canvas (canvas 'after:render'). */
@@ -86,6 +101,18 @@ export function drawSnapGuides(ctx) {
   ctx.beginPath();
   if (guides.x !== null) { const x = Math.round(guides.x * vpt[0] + vpt[4]) + 0.5; ctx.moveTo(x, 0); ctx.lineTo(x, h); }
   if (guides.y !== null) { const y = Math.round(guides.y * vpt[3] + vpt[5]) + 0.5; ctx.moveTo(0, y); ctx.lineTo(w, y); }
+  ctx.stroke();
+  // Equal gaps: a line across each gap with end ticks.
+  const marks = guides.marks || { x: [], y: [] };
+  ctx.setLineDash([]); ctx.lineWidth = 1.5; ctx.beginPath();
+  for (const m of marks.x) {
+    const x1 = m.from * vpt[0] + vpt[4], x2 = m.to * vpt[0] + vpt[4], y = m.at * vpt[3] + vpt[5];
+    ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.moveTo(x1, y - 4); ctx.lineTo(x1, y + 4); ctx.moveTo(x2, y - 4); ctx.lineTo(x2, y + 4);
+  }
+  for (const m of marks.y) {
+    const y1 = m.from * vpt[3] + vpt[5], y2 = m.to * vpt[3] + vpt[5], x = m.at * vpt[0] + vpt[4];
+    ctx.moveTo(x, y1); ctx.lineTo(x, y2); ctx.moveTo(x - 4, y1); ctx.lineTo(x + 4, y1); ctx.moveTo(x - 4, y2); ctx.lineTo(x + 4, y2);
+  }
   ctx.stroke();
   ctx.restore();
 }

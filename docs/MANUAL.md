@@ -235,7 +235,7 @@ Letters are ordinary text boxes, exported like any text; their font comes from t
 Use the **Select** tool (`V`). Click an object to select it; Shift+click or drag a rectangle to select several.
 
 - **Move**: drag the object, or nudge it with the arrow keys (1 px; Shift+arrow moves 10 px).
-- **Snapping**: while you drag, an object snaps to the edges and centre lines of the pages and of the other objects, and a dashed pink guide shows the edge it snapped to (on screen only, never exported). Hold Alt to move freely. Which edges snap (left, centre, right, top, middle, bottom), the snap distance and the guides are set in [Preferences](#preferences).
+- **Snapping**: while you drag, an object snaps to the edges and centre lines of the pages and of the other objects, and to the [guides](#rulers-and-guides). A dashed pink line shows the edge it snapped to. It also snaps to **equal spacing**: the same gap to its neighbour as two other objects of its row or column have, or centred between its two neighbours, with pink markers across the equal gaps. These lines are on screen only and never exported. Hold Alt to move freely. The **Snap** button in the top bar turns snapping on and off. Which edges snap, the snap distance, snapping to guides and to equal spacing are set in [Preferences](#preferences).
 - **Resize / rotate**: drag the handles. Hold Shift while rotating to snap to 45°.
 - **Exact values**: type **X**, **Y**, **W**, **H** and the rotation **∠** in the selection bar (page pixels). With **Ratio** ticked, the height follows the width. **↺ 90° / ↻ 90°** rotate by a quarter turn.
 - **Duplicate** (Ctrl+D), **Copy / Paste** (Ctrl+C / Ctrl+V), **Delete** (Delete or Backspace).
@@ -243,6 +243,18 @@ Use the **Select** tool (`V`). Click an object to select it; Shift+click or drag
 With two or more objects selected, the bar adds **Align** (left, centre, right, top, middle, bottom), **Distribute** (horizontally or vertically) and **Group** (Ctrl+G; Ctrl+Shift+G ungroups):
 
 ![Two insets selected: the selection bar shows their combined position and the Align, Distribute and Group buttons](images/10-selection-bar.jpg)
+
+### Rulers and guides
+
+Rulers run along the top and left of the canvas, in the document's unit: centimetres with millimetre ticks, inches with eighths, or pixels. They count from the top-left corner of the page, and the left ruler starts again at each page. The selection is shaded on both. The **Rulers** button in the top bar shows or hides them.
+
+- **Make a guide**: drag from the left ruler onto the page for a vertical guide, or from the top ruler for a horizontal one.
+- **Move a guide**: drag it on the canvas, with the Select tool.
+- **Delete a guide**: drag it back onto a ruler.
+- **Guides…** (top bar) lists the guides with their positions. There you can type a position to add or move one, delete one or all of them, and show or hide the guides. This is also the way to do it all with the keyboard.
+- **Margin and column guides**: in **Guides…**, type a margin in mm to get dashed violet guides that far inside every page edge. A figure made for a journal in **Create figure** also gets column guides at that journal's column widths (for example 89, 120 and 183 mm for Nature), measured from the left margin. Untick them in **Guides…** if you do not want them. Journal guidelines state no page margins, so the margin is yours to choose.
+
+Guides are saved with the project and follow undo and redo. Objects snap to them. They are drawn on screen only and never exported.
 
 **Locks**
 
@@ -521,7 +533,10 @@ It is a view only. The figure, the project, undo and the exports do not change, 
 | | Snap these edges: left, centre (the vertical centre line), right, top, middle (the horizontal centre line), bottom. Left, centre and right line up horizontally; top, middle and bottom vertically. Tick only *Top*, for example, to align tops and nothing else. | All |
 | | Snap distance, in pixels on screen (the same at every zoom) | 8 |
 | | Show snap guides | On |
+| | Snap to guides (the guides, and the margin and column guides) | On |
+| | Snap to equal spacing (the same gap as two other objects, or centred between neighbours) | On |
 | Text | Default font, size (document px) and colour of new text boxes | Liberation Sans, 24, black |
+| Rulers and guides | Show rulers; show guides | On; on |
 | Units | Size units: **mm and pt** (positions and sizes in mm; stroke, outline and border widths, scale bar thickness and font sizes in pt, at the document's DPI) or **Document px** | mm and pt |
 
 A preference is **global**: it is saved in this browser and used by every project. Tick **This project only** on a row to give the open project its own value: it overrides the global preference in this project only, is saved with the project and follows undo and redo, and the row shows the global value beside it. Untick it to go back to the global value. **Reset global preferences** sets every global value back to its default; values of the open project are kept.

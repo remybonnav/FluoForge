@@ -4,6 +4,18 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.34 (2026-11-25)
+
+- **Rulers, guides and smart snapping (P3-T7).**
+  - Rulers along the canvas, in the document unit (cm, in or px), counting from each page's corner and shading the selection. The **Rulers** button shows or hides them.
+  - Drag from a ruler to make a guide, drag a guide to move it, drag it onto a ruler to delete it. **Guides…** does the same by typing positions (the keyboard path).
+  - Margin guides (mm), and column guides at the journal preset's column widths.
+  - Objects snap to guides and to equal spacing (the same gap as two other objects, or centred between neighbours), with markers on the equal gaps. The **Snap** button turns snapping on and off.
+  - Guides are saved with the project (`docProps.guides`, `docProps.layoutGuides`), follow undo, and are never exported.
+
+### Development
+- The P3-T6 test that empty frames are not exported now checks the SVG text: `buildSVG` returns an object, so the old check could not fail.
+
 ## v0.1.33 (2026-11-25)
 
 - **Templates and image replacement (P3-T6).**

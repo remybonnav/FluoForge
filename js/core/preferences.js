@@ -30,7 +30,8 @@ export const fontLabel = family => (FONT_REPLACES[family] ? `${family} (${FONT_R
 export const SECTIONS = [
   { id: 'snapping', label: 'Snapping' },
   { id: 'text', label: 'Text' },
-  { id: 'units', label: 'Units' }
+  { id: 'units', label: 'Units' },
+  { id: 'view', label: 'Rulers and guides' }
 ];
 
 /** type: 'boolean' | 'number' (min, max, step) | 'choice' (options) | 'set' (options: any subset) | 'color' | 'font'.
@@ -50,6 +51,10 @@ export const PREFERENCES = [
     help: 'How close, in pixels on screen, an edge must come to snap. The same at every zoom level.' },
   { key: 'snap.guides', section: 'snapping', label: 'Show snap guides', type: 'boolean', default: true,
     help: 'Draw a line along the edge an object snapped to while dragging. Guides are never exported.' },
+  { key: 'snap.toGuides', section: 'snapping', label: 'Snap to guides', type: 'boolean', default: true,
+    help: 'Snap object edges and centres to the guides dragged from the rulers, and to the margin and column guides.' },
+  { key: 'snap.spacing', section: 'snapping', label: 'Snap to equal spacing', type: 'boolean', default: true,
+    help: 'While dragging, give an object the same gap as two other objects of its row or column, or centre it between its neighbours, and mark the equal gaps.' },
   { key: 'text.fontFamily', section: 'text', label: 'Default font', type: 'font', default: 'Liberation Sans',
     help: 'Font of new text boxes. PDF export embeds the Liberation fonts only.' },
   { key: 'text.fontSize', section: 'text', label: 'Default size (document px)', type: 'number', default: 24, min: 1, max: 1000, step: 1,
@@ -58,7 +63,11 @@ export const PREFERENCES = [
     help: 'Colour of new text boxes.' },
   { key: 'units.size', section: 'units', label: 'Size units', type: 'choice', default: 'mm-pt',
     options: [{ value: 'mm-pt', label: 'mm and pt (print size)' }, { value: 'px', label: 'Document px' }],
-    help: 'Units of the size fields: positions and sizes in mm, line widths and font sizes in pt, at the document\'s dpi; or document pixels.' }
+    help: 'Units of the size fields: positions and sizes in mm, line widths and font sizes in pt, at the document\'s dpi; or document pixels.' },
+  { key: 'view.rulers', section: 'view', label: 'Show rulers', type: 'boolean', default: true,
+    help: 'Rulers along the top and left of the canvas, in the document unit. Drag from a ruler to make a guide.' },
+  { key: 'view.guides', section: 'view', label: 'Show guides', type: 'boolean', default: true,
+    help: 'Show the guides, and the margin and column guides. Guides are never exported.' }
 ];
 const byKey = new Map(PREFERENCES.map(def => [def.key, def]));
 export const preferenceDef = key => byKey.get(key);
