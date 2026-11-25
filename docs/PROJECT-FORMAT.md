@@ -167,11 +167,29 @@ Its panels are ordinary images with `mfcGridId` (the grid's `mfcId`); the grid's
 
 Not an object of their own: a lettered panel is an image with `mfcLetter`, `{ skip, text }` (`skip`: no letter, and it does not count; `text`: its own letter instead of the automatic one, keeping its place). Its letter is a text box with `mfcLetterFor`, the panel's `mfcId`. Letters are numbered A, B, C… (or a, b, c…, from `docProps.letterStyle`) in reading order over the whole figure, and recomputed while editing; a project opens with the letters it was saved with.
 
+### Empty image frame: `type: "rect"`, `mfcType: "imageFrame"` (0.1.33, no schema change)
+
+The place a [template](#templates-fftemplatejson) keeps for an image. A dashed rectangle of the image's place and size, with the image's `mfcId` and links (`mfcGridId`, `mfcLetter`, `mfcCompareGroup`, `mfcMontageGroup`…), but no source, crop, pixels or file name. Exports leave it out; the figure check lists it. When an image is dropped in, it becomes an image with the same `mfcId`.
+
+| Field | Meaning |
+|---|---|
+| `mfcFrameDisplay` | Optional: the channel settings of the image it stood for, `{ channels: [{ name, enabled, color, lut?, min, max, gamma, invert }], brightness, contrast }`, offered again for channels of the same name. |
+| `mfcFrameGroup` | Optional: frames of one group are filled together from one file. |
+| `mfcFrameChannel`, `mfcFrameGrey` | Optional: the channel the frame shows (from 0; −1 for all, a merge), in grey. |
+| `mfcFrameT`, `mfcFrameZ` | Optional: the frame's position in a time or Z strip (from 0); the group's frames are spread from the file's first plane to its last. |
+| `mfcFrameInsetContour` | Optional: an inset frame, filled from this inset outline (`mfcId`) when the outline's image is dropped in. |
+
+A grid label with `mfcFrameSeriesLabel` (`{ frame, word }`) is renamed "Frame 3" or "Slice 3" after the plane that frame shows. Versions before 0.1.33 open a figure with empty frames and show them as dashed rectangles, which they export.
+
 ### Group: `type: "group"`, `mfcType: "group"`
 
 `objects` holds the children, saved the same way, in group coordinates. Children of a scale bar or a group may be plain Fabric objects without `mfcType`.
 
 The page frames (`mfcIsPageBounds`), scale bar previews (`mfcIsPreview`) and pen helpers (`mfcIsPathHelper`, `mfcIsPathDraft`) only exist while editing and are not saved; `mfcGrabOffset` belongs to a drag in progress, not to an object.
+
+### Templates (`.fftemplate.json`)
+
+Not a project: a JSON file with `format: "fluoforge-template"`, `version` (1), `name`, `appVersion`, `schema`, `docProps`, `nextId` and `objects`. Its objects are those of a figure state, with every image an empty frame. A template holds no image data: no images, sources, display settings or file names (opening one that does fails). It opens as a new, unsaved figure, migrated from its `schema` like a project.
 
 ## 5. sources/: original images
 
@@ -227,6 +245,7 @@ A project whose `manifest.version` or `schema` is higher than this version knows
 |---|---|---|
 | before 2026-11-17 | v0.18, v0.19 | Manifest version 2: JSON, gzip or zip with `images/` (section 7). Exact dates are in the history of the earlier repository, which is not part of this one. |
 | before 2026-11-17 | by v0.22 | Manifest version 3 with `versions/`, `sources/` and states of schema 1. |
+| 2026-11-25 | 0.1.33 | No schema change: a figure may hold empty image frames (`imageFrame`, from a template), and grid labels may carry `mfcFrameSeriesLabel`. Older versions open such a figure and show the frames as dashed rectangles. Templates (`.fftemplate.json`) are a new, separate file. |
 | 2026-11-17 | 0.1.0 | Repository restarted; format 3, schema 1 unchanged. Files named `.mfcproj.zip`. |
 | 2026-11-18 | 0.1.3 | New projects are named `.fluoforge`. The content is unchanged. |
 | 2026-11-21 | 0.1.14 | No schema change: `docProps` may hold `preferences`, the project's own preference values. Older versions open such a project unchanged and ignore them; their Document properties *Apply* drops them. |

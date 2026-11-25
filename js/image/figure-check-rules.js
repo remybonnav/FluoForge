@@ -13,7 +13,8 @@
                   channels: [{ index, name, enabled, color, lut, min, max, gamma, saturated, black }] }],
        scaleBars: [{ id, attachedTo, page, box }],
        texts: [{ id, text, page, box, minPt, maxPt }],
-       pasteboard: [{ id, label }] }
+       pasteboard: [{ id, label }],
+       frames: [{ id, page }] }  (empty image frames of a template; optional)
    insetContour: null (not an inset), or { found, visible }. saturated and black are the fractions
    (0 to 1) of the panel's pixels at or above max and at or below min. page is -1 on the pasteboard.
 
@@ -165,8 +166,14 @@ export function pasteboardRule(ctx) {
   return ctx.pasteboard.map(o => finding('pasteboard', 'info', [o.id], `${o.label} is on the pasteboard, outside every page, and will not be exported.`));
 }
 
+/** Empty image frames (from a template), which are not exported until an image is dropped in. */
+export function emptyFrameRule(ctx) {
+  return (ctx.frames || []).filter(f => f.page >= 0).map(f =>
+    finding('empty-frame', 'info', [f.id], 'An empty frame is waiting for an image: drop a file on it (or use Fill frame…). Empty frames are not exported.'));
+}
+
 export const RULES = [comparisonRule, scaleBarRule, redGreenRule, channelLabelRule, clippingRule, resolutionRule, textSizeRule,
-  insetOutlineRule, pixelSizeRule, adjustmentRule, pasteboardRule];
+  insetOutlineRule, pixelSizeRule, adjustmentRule, pasteboardRule, emptyFrameRule];
 
 export const findingKey = f => f.rule + ':' + f.objects.join(',') + (f.detail != null ? ':' + f.detail : '');
 

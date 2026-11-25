@@ -4,6 +4,15 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.33 (2026-11-25)
+
+- **Templates and image replacement (P3-T6).**
+  - **Replace image…** in the selection bar, or dropping a file onto an image, swaps the image and keeps the panel: its place and size, letter, labels, grid cell, scale bar and insets. The new file is cropped from its centre to fill the frame. Inset outlines stay where they are and their insets show the new image. Scale bars are recalibrated, with a warning when the new file has no pixel size. A quick-figure row is replaced as a whole.
+  - When the new file's channels have the same names as the old ones, a dialog offers to keep their settings.
+  - **Save as template** saves a figure's layout, styles and labels as a `.fftemplate.json` file, every image an empty frame and no image data. **From template** opens one, or one of five built-in templates (single image with inset, split channels, 2 × 3 comparison, time series strip, Z series strip), with empty frames to drop files into.
+  - Frames of a split-channel or series template fill together from one file, each with its channel, time point or Z slice. An inset frame fills from its outline.
+  - Empty frames are not exported, and the figure check lists them.
+
 ## v0.1.32 (2026-11-24)
 
 - **The page size follows the unit.** In **Create figure** and **Document Properties**, choosing another unit converts the width and height: 21 × 29.7 cm become 8.27 × 11.69 inches, or 2480 × 3508 pixels at 300 DPI. Before, the numbers stayed the same and the page changed size. The fields show two decimals but keep the exact size, so switching back gives the same numbers and applying keeps the page's pixels.

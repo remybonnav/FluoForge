@@ -21,6 +21,7 @@ import { isTransformLocked } from '../ui/locks.js';
 import { onSelectionChanged, refreshSelectionBar } from '../ui/selection-bar.js';
 import { installImageMenu } from '../image/display-settings.js';
 import { onObjectModified as onLettersModified, onObjectRemoved as onLettersRemoved } from '../layout/letters.js';
+import { installFrameObject } from '../layout/frames.js';
 import { installGridObject, onGridScaling, onObjectModified as onGridModified, onObjectMoving as onGridMoving, onObjectRemoved as onGridRemoved } from '../layout/grid.js';
 
 // ---- init ----
@@ -68,7 +69,7 @@ export function init() {
   canvas.on('selection:created', onSelectionChanged);
   canvas.on('selection:updated', onSelectionChanged);
   canvas.on('selection:cleared', onSelectionChanged);
-  canvas.on('object:added', e => { installGridObject(e.target); if (!isHelper(e.target)) refreshLayersPanel(); });
+  canvas.on('object:added', e => { installGridObject(e.target); installFrameObject(e.target); if (!isHelper(e.target)) refreshLayersPanel(); });
   canvas.on('object:removed', e => { onGridRemoved(e.target); onLettersRemoved(e.target); if (!isHelper(e.target)) refreshLayersPanel(); });
   canvas.on('text:changed', () => { /* debounced via object:modified on blur */ });
   canvas.on('mouse:down', (opt) => {

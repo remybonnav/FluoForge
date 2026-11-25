@@ -52,6 +52,7 @@ export function historyObjectName(json) {
   if (json.mfcType === 'insetContour') return 'inset outline';
   if (json.mfcType === 'calibrationBar') return 'calibration bar';
   if (json.mfcType === 'layoutGrid') return 'grid';
+  if (json.mfcType === 'imageFrame') return 'empty frame';
   if (json.mfcShapeKind === 'path') return 'path';
   if (json.mfcType === 'shape') return json.mfcShapeKind || (json.type === 'ellipse' ? 'ellipse' : 'box');
   if (json.type === 'group') return 'group';

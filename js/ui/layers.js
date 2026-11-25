@@ -31,6 +31,7 @@ export function baseLayerLabel(o) {
   if (o.mfcType === 'insetContour') return 'Inset outline';
   if (o.mfcType === 'calibrationBar') return 'Calibration bar';
   if (o.mfcType === 'layoutGrid' && o.mfcGrid) return `Grid (${o.mfcGrid.rows} × ${o.mfcGrid.cols})`;
+  if (o.mfcType === 'imageFrame') return 'Empty frame';
   if (o.type === 'group') return 'Group';
   return o.type ? (o.type[0].toUpperCase() + o.type.slice(1)) : 'Object';
 }

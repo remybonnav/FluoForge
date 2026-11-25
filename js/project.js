@@ -398,6 +398,19 @@ const MFC_PROJECT = (() => {
       status('New figure — not saved yet');
     } finally { busy = false; }
   }
+  /** A new, unsaved figure from a template's state (P3-T6: its objects hold no image data). */
+  async function createFromTemplate(state) {
+    if (busy) throw new Error('Wait for the current project operation to finish.');
+    if (state.objects.some(o => o.mfcType === 'mfcImage')) throw new Error('A template cannot hold images.');
+    const migrated = (await migrateState(copy(state))).state;
+    if (MFC.hasDocument) await MFC_AUTOSAVE.checkpoint();
+    busy = true;
+    try {
+      await restoreState({ ...migrated, documentOpen: true });
+      context = freshContext(); fileHandle = null;
+      status('New figure from a template — not saved yet');
+    } finally { busy = false; }
+  }
   async function restoreVersion(id) {
     if (!context.states[id]) throw new Error('Version not found.');
     await MFC_AUTOSAVE.checkpoint();
@@ -431,6 +444,6 @@ const MFC_PROJECT = (() => {
   }
   return { SCHEMA, FORMAT, migrateState, registerSource, sources, captureState, restoreState, restoreObject, serializeObject, fingerprint,
     referencedSources, prepareSave, buildArchive, commitSave, readArchive, saveProject, loadProject,
-    pickAndLoadProject, createProject, restoreVersion, showVersions, status, adoptRecovery, hasUnsavedChanges,
+    pickAndLoadProject, createProject, createFromTemplate, restoreVersion, showVersions, status, adoptRecovery, hasUnsavedChanges,
     get context() { return context; }, get suspended() { return restoring || busy; } };
 })();

@@ -15,7 +15,7 @@
 <link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#07090C">
-<link rel="stylesheet" href="style.css?v=0.1.32">
+<link rel="stylesheet" href="style.css?v=0.1.33">
 </head>
 <body>
 
@@ -60,6 +60,9 @@
 
   <div class="tool-group">
     <button id="btn-new-document">New figure</button>
+    <button id="btn-new-from-template" title="New figure from a template: five built-in layouts or a template file, with empty frames to drop images into">From template</button>
+    <button id="btn-save-template" data-requires-document title="Save this figure's layout, styles and labels as a template file, without any image data">Save as template</button>
+    <input type="file" id="template-input" accept=".json,.fftemplate.json" hidden>
     <button id="btn-docprops" data-requires-document title="Document Properties">&#9881; Document</button>
     <button id="btn-save-project" data-requires-document title="Save Project (overwrites the file you picked, if supported)">Save Project</button>
     <button id="btn-save-project-as" data-requires-document title="Save to a new file / location">Save As</button>
@@ -119,6 +122,8 @@
     <button id="obj-rotate-cw" title="Rotate +90°">&#8635; 90&deg;</button>
     <button id="obj-position-lock" class="toggle-btn sel-lock" title="Lock position and size: the object cannot be moved, resized or rotated, but channels, colors and styles stay editable">Lock position</button>
     <button id="obj-uncrop" class="hidden" title="Restore this image to its full, uncropped frame">Uncrop</button>
+    <button id="obj-replace-image" class="hidden" title="Replace this image with another file: its frame, letter, labels, grid cell, scale bar and insets stay; an empty frame is filled (you can also drop a file on an image or frame)">Replace image…</button>
+    <input type="file" id="replace-input" accept=".tif,.tiff,.jpg,.jpeg,.png,.bmp,.czi,.lif,.nd2" hidden>
     <button id="obj-release-clip" class="hidden" title="Remove the shape crop and give the shape back as an editable shape">Remove shape crop</button>
   </div>
   <div id="sel-align" class="sel-group hidden">
@@ -616,14 +621,14 @@
 <script src="assets/vendor/jszip.min.js"></script>
 
 <!-- ======================= APP ======================= -->
-<script src="js/debug.js?v=0.1.32"></script>
-<script src="js/errors.js?v=0.1.32"></script>
-<script src="js/tiff.js?v=0.1.32"></script>
-<script type="module" src="js/app.js?v=0.1.32"></script>
+<script src="js/debug.js?v=0.1.33"></script>
+<script src="js/errors.js?v=0.1.33"></script>
+<script src="js/tiff.js?v=0.1.33"></script>
+<script type="module" src="js/app.js?v=0.1.33"></script>
 <script defer src="assets/vendor/svg2pdf.umd.min.js"></script>
-<script defer src="js/project.js?v=0.1.32"></script>
-<script defer src="js/autosave.js?v=0.1.32"></script>
-<script defer src="js/export.js?v=0.1.32"></script>
-<script defer src="js/main.js?v=0.1.32"></script>
+<script defer src="js/project.js?v=0.1.33"></script>
+<script defer src="js/autosave.js?v=0.1.33"></script>
+<script defer src="js/export.js?v=0.1.33"></script>
+<script defer src="js/main.js?v=0.1.33"></script>
 </body>
 </html>

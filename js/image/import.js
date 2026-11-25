@@ -11,7 +11,7 @@ import { refreshScaleBarRefList } from '../tools/scalebar.js';
 import { updateCalibrationBarsForImage } from '../tools/calibration-bar.js';
 
 // Microscope formats a browser cannot read: Fiji (Bio-Formats) converts them to OME-TIFF.
-const MICROSCOPE_FORMATS = /\.(czi|lif|lof|nd2|oib|oif|vsi|ims|dv|r3d|zvi|sld|lei|mvd2)$/i;
+export const MICROSCOPE_FORMATS = /\.(czi|lif|lof|nd2|oib|oif|vsi|ims|dv|r3d|zvi|sld|lei|mvd2)$/i;
 export const CONVERSION_MACRO = 'tools/Export_for_FluoForge.ijm';
 const macroLink = { href: CONVERSION_MACRO, download: 'Export_for_FluoForge.ijm', text: 'Download the Fiji macro Export_for_FluoForge.ijm',
   title: 'A Fiji macro that converts a folder of microscope files (CZI, LIF, ND2, ...) to OME-TIFF with Bio-Formats, keeping channels, Z, time and pixel size' };

@@ -68,6 +68,22 @@ The workspace starts empty. Click **Create figure** to start a new figure, or **
 
 Everything except the name can be changed later in [Document properties](#15-pages-and-document-properties).
 
+### Templates
+
+**From template** (top bar) starts a figure from a layout, with empty frames to drop your images into. An empty frame is a dashed box that says what it waits for. Drop an image file on it, or select it and click **Fill frame…** in the selection bar. Empty frames are not exported, and the [figure check](#checking-the-figure-before-export) lists them.
+
+Five templates are built in:
+
+| Template | What it holds |
+|---|---|
+| Single image with inset | One image and a magnified inset beside it, with its outline on the image. Dropping the image fills the inset from the outline. Both are lettered A and B. |
+| Split channels | Three channel panels in grey and their merge, in a grid with column labels. One file fills all four, each panel with its channel. |
+| 2 × 3 comparison | Two rows of three panels in a [comparison group](#4-channels-contrast-and-calibration) (same range, LUT and gamma), lettered. Each frame takes its own file. |
+| Time series strip | Five panels of one time series, spread from the first time point to the last. The labels name the frame each panel shows. |
+| Z series strip | Five panels of one Z stack, spread from the first slice to the last, labelled with their slice. |
+
+**Save as template** (top bar) saves the open figure as a `.fftemplate.json` file. It keeps the layout, styles and labels: text, shapes, grids, letters and their style, inset outlines, scale bars, comparison groups and quick-figure rows. Every image becomes an empty frame, and no image data, file names or pixel sizes are kept. A frame does remember its image's channel settings (names, LUTs, ranges, gamma). When you drop a file whose channels have the same names, FluoForge offers to use them again. Open the file with **From template ▸ Open a template file…**.
+
 ## 2. The workspace
 
 ![The FluoForge workspace with two imported images and the Channels panel](images/03-import-channels.jpg)
@@ -94,6 +110,18 @@ Click **Import Image** (you can choose several files at once). Supported formats
 | JPEG, PNG, BMP | Three channels (red, green, blue) shown at their full 0–255 range. PNG transparency is kept. These files carry no pixel size; enter it by hand to use scale bars. |
 
 **Converting microscope files.** FluoForge comes with a Fiji macro, `tools/Export_for_FluoForge.ijm` (the error shown when you import a CZI, LIF or ND2 file links to it). In Fiji, choose *Plugins ▸ Macros ▸ Run...*, pick the macro, then a folder of microscope files and a folder for the results. It converts every file Bio-Formats can read to OME-TIFF, one file per image (series), keeping the channels, Z slices, time frames, pixel size and channel names; files that already exist are skipped. Bio-Formats keeps the original metadata in the OME-TIFF, including the path of the source file. The macro can also run without a window: `fiji --headless --run Export_for_FluoForge.ijm "input='/data/raw',output='/data/ome'"`. BigTIFF files (the TIFF variant for files over 4 GB) cannot be imported yet.
+
+### Replacing an image
+
+Select an image and click **Replace image…** in the selection bar, or drop an image file onto the image. The panel keeps its place and size on the page, its letter, its labels, its grid cell, its scale bar and its insets; only the image changes.
+
+- The new file is cropped from its centre to fill the same frame. Crop it again if you need another part.
+- Inset outlines stay where they are on the page, and their insets show the new image there.
+- Scale bars are recalibrated to the new file's pixel size. If the new file has no pixel size, you are told that the scale bar no longer matches.
+- In a [quick figure](#quick-figure-split-channel-montage), replacing one panel replaces its whole row: each panel shows its channel of the new file.
+- When channels of the new file have the same names as the old ones, a dialog offers to keep their settings (LUT, display range, gamma, invert, on/off) or to use the new file's own.
+
+Dropping several files at once, or dropping a file on the page outside any image, imports them as usual. Undo brings the old image back.
 
 **Image info** (in the Channels panel) shows where the dimensions came from: the OME-XML, the ImageJ header, or the page count.
 
@@ -464,6 +492,7 @@ The **Check figure** panel in the Inspector reviews the figure every time it cha
 | Text is smaller than 5 pt or larger than 8 pt at print size | Warning |
 | An inset's outline on its source panel is hidden or deleted | Warning |
 | An object is on the pasteboard and will not be exported | Info |
+| An empty frame (from a [template](#templates)) is waiting for an image and will not be exported | Info |
 
 Errors come first, then warnings, then information. Click a finding to select its object (or every panel of a comparison group). The text size and resolution limits are the default ones (5–8 pt, 300 dpi), or those of the journal chosen in **Create figure**; the panel says which. A journal that states no maximum text size gets none.
 

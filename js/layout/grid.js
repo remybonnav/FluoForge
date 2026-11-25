@@ -22,6 +22,8 @@ import { canvas, currentTool, docProps, documentOpen, registry, takeId } from '.
 import { pageBounds, pageIndexForBox } from '../core/pages.js';
 import * as G from './grid-model.js';
 import { syncAttachments } from '../tools/inset.js';
+import { isFrame } from './frames.js';
+import { followPanel } from './letters.js';
 import { attachTextListeners } from '../tools/text.js';
 import { refreshLayersPanel } from '../ui/layers.js';
 import { applyLockState, isTransformLocked } from '../ui/locks.js';
@@ -161,6 +163,16 @@ export function relayout(grid) {
   let areas = null;
   g.areas.forEach((a, i) => {
     const img = a.panel && byId(a.panel);
+    if (isFrame(img) && !img.group) {
+      // An empty frame (a template's) is its cell.
+      const box = at(G.areaBox(g, a));
+      img.set({ width: box.width, height: box.height, scaleX: 1, scaleY: 1, angle: 0, skewX: 0, skewY: 0, flipX: false, flipY: false });
+      img.setPositionByOrigin(new fabric.Point(box.left, box.top), 'left', 'top');
+      img.mfcGridId = grid.mfcId;
+      img.setCoords();
+      followPanel(img);
+      return;
+    }
     if (!isImage(img) || img.group) return;
     const box = at(G.areaBox(g, a));
     img.set({ angle: 0, skewX: 0, skewY: 0, flipX: false, flipY: false });

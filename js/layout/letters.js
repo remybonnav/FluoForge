@@ -18,7 +18,7 @@ import * as L from './letters-model.js';
 import { attachTextListeners } from '../tools/text.js';
 import { refreshLayersPanel } from '../ui/layers.js';
 
-export const isPanel = o => !!(o && o.mfcType === 'mfcImage' && registry[o.mfcId] && !(o.group && o.group.type !== 'activeSelection'));
+export const isPanel = o => !!(o && ((o.mfcType === 'mfcImage' && registry[o.mfcId]) || o.mfcType === 'imageFrame') && !(o.group && o.group.type !== 'activeSelection')); // an empty frame (template) is lettered like its image
 export const isLetter = o => !!(o && o.type === 'textbox' && o.mfcLetterFor);
 const byId = id => canvas.getObjects().find(o => o.mfcId === id) || null;
 export const letteredPanels = () => canvas.getObjects().filter(o => isPanel(o) && o.mfcLetter);

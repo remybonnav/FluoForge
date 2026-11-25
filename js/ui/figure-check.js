@@ -115,7 +115,8 @@ export function buildCheckContext() {
   const texts = objects.filter(({ obj }) => TEXT_TYPES.includes(obj.type)).map(({ obj, top }) =>
     ({ id: obj.mfcId ?? top.mfcId, text: textOf(obj), page: pageIndexForBox(absoluteBox(top)) < 0 ? -1 : pageOf(obj), box: absoluteBox(obj), ...fontRange(obj) }));
   const pasteboard = objects.filter(({ obj, top }) => obj === top && pageIndexForBox(absoluteBox(obj)) < 0).map(({ obj }) => ({ id: obj.mfcId, label: describe(obj) }));
-  return { dpi, preset: activePreset(), images, scaleBars, texts, pasteboard };
+  const frames = objects.filter(({ obj, top }) => obj === top && obj.mfcType === 'imageFrame').map(({ obj }) => ({ id: obj.mfcId, page: pageIndexForBox(absoluteBox(obj)) }));
+  return { dpi, preset: activePreset(), images, scaleBars, texts, pasteboard: pasteboard.filter(o => !frames.some(f => f.id === o.id)), frames };
 }
 
 export const dismissals = () => (Array.isArray(docProps.checkDismissals) ? docProps.checkDismissals : []);
