@@ -44,6 +44,7 @@ export async function jumpToHistory(index) {
 // ---- history labels ----
 export function historyObjectName(json) {
   if (json.mfcType === 'mfcImage') return (json.mfcFileName || 'image') + (json.mfcIsInset && !/\(inset\)$/.test(json.mfcFileName || '') ? ' (inset)' : '');
+  if (json.mfcType === 'mfcVector') return json.mfcFileName || 'vector panel';
   if (json.type === 'textbox' || json.mfcType === 'text') {
     const t = String(json.text || '').replace(/\s+/g, ' ').trim();
     return 'text "' + (t.length > 16 ? t.slice(0, 16) + '…' : t) + '"';

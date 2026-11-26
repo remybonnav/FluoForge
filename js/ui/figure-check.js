@@ -82,6 +82,7 @@ function fontRange(o) {
 }
 function describe(o) {
   if (o.mfcType === 'mfcImage') return o.mfcFileName || 'An image';
+  if (o.mfcType === 'mfcVector') return o.mfcFileName || 'A vector panel';
   if (TEXT_TYPES.includes(o.type)) return `Text "${textOf(o).trim().slice(0, 30)}"`;
   if (o.mfcType === 'scalebar') return 'A scale bar';
   if (o.mfcType === 'insetContour') return 'An inset outline';
@@ -105,6 +106,7 @@ export function buildCheckContext() {
       box: absoluteBox(obj), inset: !!obj.mfcIsInset, insetContour, pixelSizeUm: raw.voxelSizeUm ?? null,
       brightness: raw.brightness || 0, contrast: raw.contrast || 0, compareGroup: Number.isInteger(obj.mfcCompareGroup) ? obj.mfcCompareGroup : null,
       effectivePpi: Math.min(geometry.ppiX, geometry.ppiY), enlarged: Math.min(geometry.ppiX, geometry.ppiY) < dpi - 0.05,
+      rasterised: obj.mfcRasterised && typeof obj.mfcRasterised === 'object' ? { from: String(obj.mfcRasterised.from || 'pdf'), page: obj.mfcRasterised.page, dpi: obj.mfcRasterised.dpi } : null,
       channels: raw.channels.map((c, index) => ({ index, name: c.name, enabled: c.enabled !== false, color: c.color, lut: c.color === 'file' ? c.lut || null : null,
         min: c.min, max: c.max, gamma: c.gamma, invert: !!c.invert,
         ...(c.enabled !== false && c.data ? clippedFractions(c.data, raw.width, geometry.region, c.min, c.max) : { saturated: 0, black: 0 }) }))

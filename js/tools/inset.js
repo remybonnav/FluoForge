@@ -324,6 +324,8 @@ export function followSourceImage(src) {
   canvas.requestRenderAll();
 }
 
+/** Objects that carry attachments (scale bars, insets, a panel letter, linked labels): images and vector panels. */
+export const hasAttachments = o => !!o && (o.mfcType === 'mfcImage' || o.mfcType === 'mfcVector');
 export function syncAttachments(img) {
   updateScaleBarsForImage(img);
   followSourceImage(img);

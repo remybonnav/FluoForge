@@ -7,7 +7,7 @@
 import { canvas, currentTool, registry } from '../core/state.js';
 import { refreshChannelPanel } from '../image/channels.js';
 import { cropRect, cropToShapePair, keepClipOnContent } from '../tools/crop.js';
-import { followSourceImage, refreshInsetPanel, syncAttachments, syncInsetFromContour } from '../tools/inset.js';
+import { followSourceImage, refreshInsetPanel, hasAttachments, syncAttachments, syncInsetFromContour } from '../tools/inset.js';
 import { refreshPathPanel } from '../tools/path.js';
 import { refreshScaleBarPanel, refreshScaleBarPreview, refreshScaleBarRefList, updateScaleBarsForImage } from '../tools/scalebar.js';
 import { refreshShapePanel } from '../tools/shape.js';
@@ -104,13 +104,18 @@ export function refreshSelectionBar() {
 // Kept for callers/tests written against the former right-hand size panel.
 export const refreshObjectSizePanel = refreshSelectionBar;
 
+/** The uncropped size of an image (its full preview) or of a vector panel (its whole drawing, P3-T10); null when unknown. */
+function fullFrame(img) {
+  const entry = registry[img.mfcId];
+  if (entry) return { width: Math.max(1, Math.round(entry.rawImage.width * entry.workingScale)), height: Math.max(1, Math.round(entry.rawImage.height * entry.workingScale)) };
+  const element = img.mfcType === 'mfcVector' && img.getElement();
+  return element && element.width > 1 ? { width: element.width, height: element.height } : null;
+}
 /** Whether an image currently has an active (non-full-frame) crop applied. */
 export function isCropped(img) {
-  if (!img || img.mfcType !== 'mfcImage') return false;
-  const entry = registry[img.mfcId];
-  if (!entry) return false;
-  const fullW = Math.max(1, Math.round(entry.rawImage.width * entry.workingScale));
-  const fullH = Math.max(1, Math.round(entry.rawImage.height * entry.workingScale));
+  if (!img || (img.mfcType !== 'mfcImage' && img.mfcType !== 'mfcVector')) return false;
+  const { width: fullW, height: fullH } = fullFrame(img) || {};
+  if (!fullW) return false;
   return (img.cropX || 0) > 0.01 || (img.cropY || 0) > 0.01 ||
          Math.abs((img.width || 0) - fullW) > 0.5 || Math.abs((img.height || 0) - fullH) > 0.5;
 }
@@ -124,9 +129,7 @@ export function isCropped(img) {
  */
 export function uncropImage(img) {
   if (!isCropped(img) || refuseLocked(img, 'resized')) return;
-  const entry = registry[img.mfcId];
-  const fullW = Math.max(1, Math.round(entry.rawImage.width * entry.workingScale));
-  const fullH = Math.max(1, Math.round(entry.rawImage.height * entry.workingScale));
+  const { width: fullW, height: fullH } = fullFrame(img);
   const cx = img.cropX || 0, cy = img.cropY || 0;
   const before = { cropX: cx, cropY: cy, width: img.width, height: img.height };
   const placed = { left: img.left, top: img.top, width: img.getScaledWidth(), height: img.getScaledHeight() };
@@ -158,7 +161,7 @@ export function rotateSelected(deltaDeg) {
   active.setPositionByOrigin(center, 'center', 'center');
   active.setCoords();
   canvas.requestRenderAll();
-  if (active.mfcType === 'mfcImage') syncAttachments(active);
+  if (hasAttachments(active)) syncAttachments(active);
   canvas.fire('object:modified', { target: active });
 }
 
@@ -170,7 +173,7 @@ export function setObjectAngle(deg) {
   active.setPositionByOrigin(center, 'center', 'center');
   active.setCoords();
   canvas.requestRenderAll();
-  if (active.mfcType === 'mfcImage') syncAttachments(active);
+  if (hasAttachments(active)) syncAttachments(active);
   canvas.fire('object:modified', { target: active });
 }
 
@@ -198,7 +201,7 @@ export function applyObjectSizeFromFields(changed = 'width') {
   active.set({ left: active.left + before.left - after.left, top: active.top + before.top - after.top });
   active.setCoords();
   if (active.mfcType === 'insetContour') syncInsetFromContour(active);
-  if (active.mfcType === 'mfcImage') syncAttachments(active);
+  if (hasAttachments(active)) syncAttachments(active);
   canvas.requestRenderAll();
   canvas.fire('object:modified', { target: active });
 }
@@ -214,7 +217,7 @@ export function applyObjectPositionFromFields() {
   active.set({ left: active.left + x - box.left, top: active.top + y - box.top });
   active.setCoords();
   const moved = active.type === 'activeSelection' ? active.getObjects() : [active];
-  moved.forEach(o => { if (o.mfcType === 'mfcImage') syncAttachments(o); if (o.mfcType === 'insetContour') syncInsetFromContour(o); });
+  moved.forEach(o => { if (hasAttachments(o)) syncAttachments(o); if (o.mfcType === 'insetContour') syncInsetFromContour(o); });
   canvas.requestRenderAll();
   canvas.fire('object:modified', { target: active });
 }

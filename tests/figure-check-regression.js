@@ -85,7 +85,10 @@ async function runFigureCheckRegressions() {
     all[0].severity === 'error' && all.map(f => f.severity).join().replace(/(error,)+/, '').indexOf('error') < 0 && all.at(-1).severity === 'info' &&
     all.every(f => f.key === R.findingKey(f)) && all[0].key === 'comparison-group:g1,g2:1');
   assert('Every rule is a function of the context only: the same context gives the same findings',
-    JSON.stringify(R.runChecks(ctx({ images: [a, merged] }))) === JSON.stringify(R.runChecks(ctx({ images: [a, merged] }))) && R.RULES.length === 12);
+    JSON.stringify(R.runChecks(ctx({ images: [a, merged] }))) === JSON.stringify(R.runChecks(ctx({ images: [a, merged] }))) && R.RULES.length === 13);
+  assert('Rasterised: a PDF page imported as an image is info, naming its page and dpi (P3-T10)',
+    rules(R.rasterisedRule, ctx({ images: [img('r', { rasterised: { from: 'pdf', page: 2, dpi: 300 } }), img('n')] })).join() === 'rasterised:info:r' &&
+    /page 2 of a PDF, rasterised at 300 dpi: it is an image, not vector/.test(R.rasterisedRule(ctx({ images: [img('r', { rasterised: { from: 'pdf', page: 2, dpi: 300 } })] }))[0].message));
 
   // ---- The reference project ----
   const bytes = await (await fetch('tests/fixtures/reference.mfcproj.zip', { cache: 'no-store' })).arrayBuffer();

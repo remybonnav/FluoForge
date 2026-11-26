@@ -93,6 +93,20 @@ Fields used by every type:
 | `mfcCompareGroup` | Since schema 4: the number of the comparison group the image belongs to (absent when none). The images of a group keep the same `min`, `max`, `color`, `lut` and `gamma` on each channel number; an edit to one is applied to all. A group may have diverged (after a paste); opening does not change it. |
 | `mfcPreShapeCrop` | After **Crop to shape**: the frame before the crop, restored by **Remove shape crop**. |
 
+### Vector panel: `type: "mfcVector"`, `mfcType: "mfcVector"` (since 0.1.39)
+
+An SVG plot imported as a panel (P3-T10). Its `type` is not a Fabric class, so versions before 0.1.39 keep the object unchanged without drawing it (and say that some content may not display).
+
+| Field | Meaning |
+|---|---|
+| `sourceId` | The SVG file in `sources/` (format `"svg"`), byte for byte as imported. |
+| `mfcVectorSource` | The same source id, on the canvas object. |
+| `mfcFileName` | The original file name. |
+| `mfcVectorDpi` | Document pixels per inch the panel was drawn at: its whole drawing is the SVG's size on paper at this dpi. |
+| `width`, `height`, `cropX`, `cropY` | The visible region of that drawing, in its pixels. |
+
+A PDF page imported as a fallback is an ordinary image (above) of a PNG of the page; its `mfcRasterised` is `{ from: "pdf", file, page, pages, dpi }`.
+
 ### Inset outline: `type: "rect"`, `mfcType: "insetContour"`
 
 | Field | Meaning |
@@ -283,6 +297,7 @@ tests/compat/<name>/export.svg        the SVG export of page 1
 
 - **Releases** (`v0.1.0`, `v0.1.1`, …): the reference figure (`tests/reference-figure.js`), built and saved **by that release**, with its `expected.json` and SVG export recorded by that release too. `npm run compat-fixture -- --ref=<tag or commit>` checks the release out into a temporary folder, runs it headless and writes the folder. v0.1.2 to v0.1.4 have no git tag; their fixtures were built from their release commits (`8830445`, `48f86e3`, `e4790e0`). v0.1.0 loaded its libraries from CDNs; its script tags are pointed at the vendored copies, which are byte-identical.
 - **Legacy formats**: `legacy-v0.22` (saved by v0.22), `legacy-v0.18-zip` and the three `legacy-format2-*` files (the synthetic old-format projects of `tests/v024-regression.js` and `tests/project-export-regression.js`, written to files). No version of this repository saved them, so their `expected.json` and `export.svg` were recorded by 0.1.5 and checked against 0.1.4, which opened all five identically.
+- **Features** (`kind: "feature"`): a project made to keep a newer kind of object opening in every later version, which the reference figure (shared by all releases) cannot hold. `v0.1.39-vector-panel` has a cropped, scaled vector panel (an SVG plot, P3-T10): saved as an object of type `mfcVector` with its `sourceId` (the SVG file, stored in `sources/` like an image), crop and `mfcVectorDpi`; versions before 0.1.39 keep such an object without drawing it. Built with `node tests/make-compat-fixture.mjs --ref=worktree --open=<project file> --name=<dir>`.
 - **Each new release adds its own fixture before it ships**: after `npm run release -- <version>`, run `npm run compat-fixture -- --ref=worktree` and add the folder to `index.json`. `npm test` fails while a release in `CHANGELOG.md`, or the current version, has no fixture.
 
 The `compat-regression` suite opens every fixture and checks that it matches its `expected.json`, that its SVG export matches `export.svg` (structurally, numbers within 0.02 px, embedded images by pixels), that saving copies its sources byte for byte, that a migrated project keeps its original version, and that the saved file reopens identically. It runs in `npm test`, so in CI on every push and pull request.

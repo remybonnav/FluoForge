@@ -2,13 +2,16 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  * Copyright (C) 2026 Remy Bonnavion
  */
-/* Image import: decodes TIFF and raster files, adds them to the canvas as images, and recomposites an image from its raw channels. */
+/* Image import: decodes TIFF and raster files, adds them to the canvas as images, and recomposites an image from its raw channels.
+   SVG files become vector panels (js/image/vector.js); a PDF page is rasterised (js/image/pdf-import.js). */
 
 import { pushHistory } from '../core/history.js';
 import { canvas, registry, takeId } from '../core/state.js';
 import { refreshChannelPanel } from './channels.js';
 import { refreshScaleBarRefList } from '../tools/scalebar.js';
 import { updateCalibrationBarsForImage } from '../tools/calibration-bar.js';
+import { addVectorToCanvas } from './vector.js';
+import { isPDFFile, isSVGFile } from './vector-model.js';
 
 // Microscope formats a browser cannot read: Fiji (Bio-Formats) converts them to OME-TIFF.
 export const MICROSCOPE_FORMATS = /\.(czi|lif|lof|nd2|oib|oif|vsi|ims|dv|r3d|zvi|sld|lei|mvd2)$/i;
@@ -31,6 +34,9 @@ export async function importFiles(fileList) {
   for (const file of Array.from(fileList)) {
     try {
       if (MICROSCOPE_FORMATS.test(file.name)) throw microscopeFormatError(file.name);
+      // A plot from R, Python or Prism stays vector (P3-T10); a PDF page is rasterised, as a labelled fallback.
+      if (isSVGFile(file)) { await addVectorToCanvas(file); continue; }
+      if (isPDFFile(file)) { await (await import('./pdf-import.js')).importPDF(file); continue; }
       const isTiff = /\.tiff?$/i.test(file.name);
       const rawImage = isTiff ? await MFC_TIFF.decodeFile(file) : await MFC_TIFF.decodeRasterImage(file);
       await addImageToCanvas(rawImage, file);
@@ -42,7 +48,9 @@ export async function importFiles(fileList) {
   }
 }
 
-export async function addImageToCanvas(rawImage, sourceFile) {
+/** Adds a decoded image to the canvas (one History step). `props` are mfc* fields set before that
+    step; `physical` places it at its pixel size in document pixels (a rasterised PDF page). */
+export async function addImageToCanvas(rawImage, sourceFile, { props = null, physical = false } = {}) {
   const scale = MFC_TIFF.workingScale(rawImage.width, rawImage.height);
   const compositeCanvas = await MFC_TIFF.composite(rawImage, scale, null, null, null, { cache: true });
 
@@ -63,6 +71,8 @@ export async function addImageToCanvas(rawImage, sourceFile) {
   fabricImg.mfcRawWidth = rawImage.width;
   fabricImg.mfcRawHeight = rawImage.height;
   fabricImg.mfcFileName = rawImage.fileName;
+  if (props) Object.assign(fabricImg, props);
+  if (physical) fabricImg.set({ scaleX: rawImage.width / fabricImg.width, scaleY: rawImage.height / fabricImg.height });
 
   canvas.add(fabricImg);
   canvas.setActiveObject(fabricImg);

@@ -1,0 +1,70 @@
+{
+  "fixture": "v0.1.39-vector-panel",
+  "project": "project.fluoforge",
+  "recordedBy": {
+    "appVersion": "0.1.39",
+    "commit": "working tree",
+    "how": "opened vector-panel.fluoforge"
+  },
+  "summary": {
+    "docProps": {
+      "name": "Vector panel",
+      "width": 1500,
+      "height": 1000,
+      "unit": "px",
+      "dpi": 300
+    },
+    "pages": 1,
+    "objectCount": 2,
+    "objects": [
+      {
+        "type": "mfcVector",
+        "mfcType": "mfcVector",
+        "mfcId": "vec1",
+        "left": 60,
+        "top": 60,
+        "width": 1080,
+        "height": 900,
+        "scaleX": 1.1,
+        "scaleY": 1.1,
+        "angle": 0,
+        "flipX": false,
+        "flipY": false,
+        "originX": "left",
+        "originY": "top",
+        "opacity": 1,
+        "visible": true,
+        "fill": "rgb(0,0,0)",
+        "strokeWidth": 0,
+        "mfcFileName": "dose.svg",
+        "cropX": 60,
+        "cropY": 0
+      },
+      {
+        "type": "textbox",
+        "mfcType": "text",
+        "mfcId": "txt1",
+        "left": 20,
+        "top": 20,
+        "width": 40,
+        "height": 45.2,
+        "scaleX": 1,
+        "scaleY": 1,
+        "angle": 0,
+        "flipX": false,
+        "flipY": false,
+        "originX": "left",
+        "originY": "top",
+        "opacity": 1,
+        "visible": true,
+        "fill": "rgb(0,0,0)",
+        "strokeWidth": 1,
+        "text": "A",
+        "fontFamily": "Liberation Sans",
+        "fontSize": 40,
+        "fontWeight": "normal",
+        "textAlign": "left"
+      }
+    ]
+  }
+}
