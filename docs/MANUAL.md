@@ -328,14 +328,14 @@ To change a path later, select it and click **Edit nodes**: drag nodes and handl
 
 ### Annotations (arrows, markers, ROIs, linked labels)
 
-Choose **Annotate** (`A`). The **Annotate** panel sets what a click on the figure places, its **Color** and **Size** (the height of a mark in pt; an arrow is three times as long):
+Select an image first, then choose **Annotate** (`A`). Every mark and ROI is linked to that image (or, with several images selected, to the one you click on): it moves with the image, and keeps its place on it when the image is resized (its own size stays). Drag a mark elsewhere and it keeps its new place on the image. With no image selected, a click places nothing and the panel says to select one. The **Annotate** panel sets what a click places, its **Color** (yellow by default) and **Size** (the height of a mark in pt; an arrow is three times as long):
 
 - **Filled arrow** and **Open arrow**: a Pen path coming from the upper right, its tip on the point clicked. Edit it afterwards like any path (nodes, arrow ends, width).
 - **Arrowhead only**: a filled head without a line, its tip on the point clicked, as used to point at cells.
 - **Asterisk**, **Dot**, **Triangle** and **Star** markers, centred on the point clicked. They are shapes: recolour them in the Shape panel.
 - **ROI box** and **ROI ellipse**: drag to draw a dashed outline (or dotted, long dash or solid: **ROI outline**). Shift keeps it square or round. Each ROI gets a label, "ROI 1", "ROI 2" (the first free number), just above it. The label follows the outline when you move or resize it; drag the label elsewhere and it keeps its new place from the outline. Deleting the outline deletes its label.
 
-The tool stays active for the next mark; after an ROI it goes back to Select with the outline selected.
+The tool stays active for the next mark or ROI on the same image; press `V` (Select) to finish. Deleting the image deletes its marks and ROIs; a mark copied without its image is pasted as a free mark.
 
 **Labels linked to the image.** Select an image, choose **Annotate**, then click:
 

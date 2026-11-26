@@ -80,13 +80,25 @@ async function runAnnotateRegressions() {
     assert('The auto-labels go on the image selected before the tool', /the selected image/.test($('annotate-status').textContent) && !$('panel-annotate').querySelector('[data-auto-label]').disabled);
     assert('The interval field shows the file\'s interval', /30 \(from the file\)/.test($('annotate-interval').placeholder));
 
+    // ---- no image selected: nothing is placed ----
+    const image = () => canvas.getObjects().find(o => o.mfcType === 'mfcImage' && !o.mfcIsInset);
+    const toast = MFC_UI.toast, toasts = [];
+    MFC.setTool('select'); canvas.discardActiveObject(); MFC.setTool('annotate');
+    MFC_UI.toast = m => toasts.push(m);
+    let before0 = canvas.getObjects().slice(); click(100, 300); drag(100, 100, 200, 200);
+    MFC_UI.toast = toast;
+    assert('With no image selected, a click or drag places nothing and says to select an image', added(before0).length === 0 && toasts.some(m => /Select an image first/.test(m)) &&
+      /No image selected/.test($('annotate-status').textContent));
+    assert('The default colour is yellow', $('annotate-color').value === '#ffff00');
+
     // ---- stamps ----
-    const place = (kind, x, y) => { MFC.setTool('annotate'); choose('annotate-place', kind); const before = canvas.getObjects().slice(); click(x, y); return added(before); };
+    const select = () => { MFC.setTool('select'); canvas.setActiveObject(image()); };
+    const place = (kind, x, y) => { select(); MFC.setTool('annotate'); choose('annotate-place', kind); const before = canvas.getObjects().slice(); click(x, y); return added(before); };
     let made = place('arrow', 100, 300);
     const arrow = made[0];
     assert('A filled arrow: one editable Pen path, its tip on the point clicked', made.length === 1 && arrow.mfcShapeKind === 'path' && arrow.mfcArrowEnd === 'arrow' &&
       arrow.mfcArrowStart === 'none' && near(arrow.mfcPathNodes[1].x, 100, 1) && near(arrow.mfcPathNodes[1].y, 300, 1) && arrow.mfcPathNodes[0].x > 100 && arrow.mfcPathNodes[0].y < 300);
-    assert('…in the panel\'s colour, three times the mark size long (12 pt at 300 dpi = 50 px)', arrow.stroke === '#ffffff' && near(Math.hypot(arrow.mfcPathNodes[0].x - 100, arrow.mfcPathNodes[0].y - 300), 150, 1));
+    assert('…in the panel\'s colour, three times the mark size long (12 pt at 300 dpi = 50 px)', arrow.stroke === '#ffff00' && arrow.mfcAnnotationFor === img.mfcId && near(Math.hypot(arrow.mfcPathNodes[0].x - 100, arrow.mfcPathNodes[0].y - 300), 150, 1));
     const open = place('open-arrow', 200, 300)[0];
     assert('An open arrow: an "open" arrow end', open.mfcArrowEnd === 'open' && open.mfcShapeKind === 'path');
     const stamps = {};
@@ -100,7 +112,7 @@ async function runAnnotateRegressions() {
     for (const kind of ['circle', 'triangle', 'star']) { const b = box(stamps[kind]), x = { circle: 460, triangle: 540, star: 620 }[kind];
       const cy = kind === 'triangle' ? b.top + b.height * 2 / 3 : b.top + b.height / 2; // a triangle: on its centroid
       assert(`The ${kind} is centred on the point`, near(b.left + b.width / 2, x, 3) && Math.abs(cy - 600) < 3, JSON.stringify(b)); }
-    assert('Markers are filled, the asterisk is stroked', stamps.circle.fill === '#ffffff' && stamps.circle.strokeWidth === 0 && stamps.asterisk.fill === 'transparent' && stamps.asterisk.strokeWidth > 0);
+    assert('Markers are filled, the asterisk is stroked', stamps.circle.fill === '#ffff00' && stamps.circle.strokeWidth === 0 && stamps.asterisk.fill === 'transparent' && stamps.asterisk.strokeWidth > 0);
     const steps = MFC.getHistory().labels.length; place('circle', 700, 700);
     assert('Each stamp is one History step', MFC.getHistory().labels.length === steps + 1);
     assert('After a stamp the tool stays, for the next one', MFC.currentTool === 'annotate');
@@ -109,7 +121,7 @@ async function runAnnotateRegressions() {
 
     // ---- open and filled arrowheads in export ----
     let svg = (await MFC_EXPORT.buildSVG()).svg;
-    assert('SVG: the filled arrowhead is a filled polygon, the open one a stroked polyline with no fill', /<polygon [^>]*fill="#ffffff"/.test(svg) && /<polyline [^>]*fill="none" stroke="#ffffff"/.test(svg));
+    assert('SVG: the filled arrowhead is a filled polygon, the open one a stroked polyline with no fill', /<polygon [^>]*fill="#ffff00"/.test(svg) && /<polyline [^>]*fill="none" stroke="#ffff00"/.test(svg));
     const openCanvas = document.createElement('canvas'); openCanvas.width = 120; openCanvas.height = 120;
     const ctx = openCanvas.getContext('2d'), ob = box(open);
     ctx.translate(-ob.left + 10, -ob.top + 10); open.render(ctx);
@@ -120,13 +132,13 @@ async function runAnnotateRegressions() {
     checks.push('PDF export with open and filled arrows, stamps and markers');
 
     // ---- ROIs ----
-    const roi = (kind, x1, y1, x2, y2) => { MFC.setTool('annotate'); choose('annotate-place', kind); const before = canvas.getObjects().slice(); drag(x1, y1, x2, y2); return added(before); };
+    const roi = (kind, x1, y1, x2, y2) => { select(); MFC.setTool('annotate'); choose('annotate-place', kind); const before = canvas.getObjects().slice(); drag(x1, y1, x2, y2); return added(before); };
     made = roi('roi-rect', 100, 100, 300, 250);
     const rect = made.find(o => o.mfcRoi), rectLabel = made.find(o => o.mfcRoiFor);
     assert('A drag draws a dashed ROI box with a label', made.length === 2 && rect.type === 'rect' && rect.strokeDashArray && rect.strokeDashArray.length === 2 && rectLabel.mfcRoiFor === rect.mfcId);
     assert('…the size of the drag', near(rect.width, 200, 1) && near(rect.height, 150, 1));
     assert('The label reads "ROI 1", just above the outline\'s corner', rectLabel.text === 'ROI 1' && near(rectLabel.left, rect.left, 1) && rectLabel.top + rectLabel.height <= rect.top, JSON.stringify([rectLabel.text, rectLabel.left, rectLabel.top, rectLabel.height, rect.left, rect.top]));
-    assert('After an ROI the tool goes back to Select, with the outline selected', MFC.currentTool === 'select' && canvas.getActiveObject() === rect);
+    assert('After an ROI the tool stays, for the next one; the outline is linked to the image, its label in the panel\'s colour', MFC.currentTool === 'annotate' && rect.mfcAnnotationFor === img.mfcId && rectLabel.fill === '#ffff00' && !rectLabel.mfcAnnotationFor);
     made = roi('roi-ellipse', 400, 100, 500, 160);
     const ellipse = made.find(o => o.mfcRoi), ellipseLabel = made.find(o => o.mfcRoiFor);
     assert('An ROI ellipse is "ROI 2"', ellipse.type === 'ellipse' && ellipseLabel.text === 'ROI 2');
@@ -144,8 +156,41 @@ async function runAnnotateRegressions() {
     assert('Undo brings both back', canvas.getObjects().some(o => o.mfcRoiFor && o.text === 'ROI 2' && byId(o.mfcRoiFor)));
     await MFC.redo(); await MFC_TIFF.whenIdle(); await frame();
 
+    // ---- marks follow their image ----
+    {
+      const im0 = image(), find = id => byId(id);
+      const star = place('star', 800, 250)[0], starId = star.mfcId;
+      const roiMade = roi('roi-rect', 650, 150, 700, 200), outline = roiMade.find(o => o.mfcRoi), outlineLabel = roiMade.find(o => o.mfcRoiFor);
+      assert('A mark placed on the image is linked to it', star.mfcAnnotationFor === im0.mfcId && outline.mfcAnnotationFor === im0.mfcId);
+      MFC.setTool('select');
+      const c0 = star.getCenterPoint(), o0 = { x: outline.left, y: outline.top }, l0 = { x: outlineLabel.left, y: outlineLabel.top };
+      const ib0 = box(im0);
+      im0.set({ left: im0.left + 60, top: im0.top + 30 }); im0.setCoords(); canvas.fire('object:moving', { target: im0 });
+      const dx = box(im0).left - ib0.left, dy = box(im0).top - ib0.top; // (the image may snap)
+      assert('Moving the image moves its marks, ROIs and ROI labels with it', Math.abs(dx) > 40 && near(star.getCenterPoint().x, c0.x + dx, 1) && near(star.getCenterPoint().y, c0.y + dy, 1) &&
+        near(outline.left, o0.x + dx, 1) && near(outline.top, o0.y + dy, 1) && near(outlineLabel.left, l0.x + dx, 1) && near(outlineLabel.top, l0.y + dy, 1), JSON.stringify([c0, star.getCenterPoint(), o0, outline.left, outline.top, l0, outlineLabel.left, outlineLabel.top, star.mfcAnnotationAnchor]));
+      canvas.fire('object:modified', { target: im0 });
+      const b0 = box(im0), rel = { u: (star.getCenterPoint().x - b0.left) / b0.width, v: (star.getCenterPoint().y - b0.top) / b0.height }, size0 = star.getScaledWidth();
+      im0.set({ scaleX: im0.scaleX * 1.5, scaleY: im0.scaleY * 1.5 }); im0.setCoords(); canvas.fire('object:modified', { target: im0 });
+      const b1 = box(im0);
+      assert('Resizing the image keeps each mark at the same place on it, at its own size', near((star.getCenterPoint().x - b1.left) / b1.width, rel.u, 0.005) &&
+        near((star.getCenterPoint().y - b1.top) / b1.height, rel.v, 0.005) && near(star.getScaledWidth(), size0, 0.01));
+      star.set({ left: star.left - 40 }); star.setCoords(); canvas.fire('object:modified', { target: star });
+      const c1 = star.getCenterPoint();
+      im0.set({ left: im0.left - 50 }); im0.setCoords(); canvas.fire('object:modified', { target: im0 });
+      assert('A mark moved by the user keeps its new place on the image', near(star.getCenterPoint().x, c1.x - 50, 1) && near(star.getCenterPoint().y, c1.y, 1), JSON.stringify([c1, star.getCenterPoint(), star.mfcAnnotationAnchor]));
+      star.set({ top: star.top + 20 }); star.setCoords(); MFC.pushHistory(); // moved without a modified event (arrow keys, typed position)
+      const c2 = star.getCenterPoint();
+      im0.set({ left: im0.left + 50 }); im0.setCoords(); canvas.fire('object:modified', { target: im0 });
+      assert('…also when it was moved with the arrow keys or typed coordinates', near(star.getCenterPoint().x, c2.x + 50, 1) && near(star.getCenterPoint().y, c2.y, 1));
+      canvas.setActiveObject(star); MFC.copySelection(); await MFC.pasteSelection();
+      const freeMark = canvas.getActiveObject();
+      assert('A mark pasted without its image is free', freeMark !== star && !freeMark.mfcAnnotationFor);
+      canvas.remove(freeMark); canvas.remove(outline); canvas.remove(star); MFC.pushHistory();
+      assert('(cleanup)', !find(starId) && !canvas.getObjects().includes(outlineLabel));
+    }
+
     // ---- auto-labels ----
-    const image = () => canvas.getObjects().find(o => o.mfcType === 'mfcImage' && !o.mfcIsInset);
     const labelOn = (target, kind) => { canvas.setActiveObject(target); MFC.setTool('annotate'); $('panel-annotate').querySelector(`[data-auto-label="${kind}"]`).click(); return labelsOf(target, kind)[0]; };
     let im = image();
     const chLabel = labelOn(im, 'channels');
@@ -157,8 +202,7 @@ async function runAnnotateRegressions() {
     assert('…at the bottom-left corner', zLabel.top + zLabel.height < ib.top + ib.height && zLabel.top + zLabel.height > ib.top + ib.height - 20);
     const tLabel = labelOn(im, 'time');
     assert('Time: t = 0 s on the first frame, at the top-right corner', tLabel.text === 't = 0 s' && tLabel.left + tLabel.width > ib.left + ib.width - 20 && tLabel.left + tLabel.width < ib.left + ib.width);
-    const toasts = [];
-    const toast = MFC_UI.toast; MFC_UI.toast = m => toasts.push(m);
+    toasts.length = 0; MFC_UI.toast = m => toasts.push(m);
     labelOn(im, 'zoom');
     assert('Magnification on an image that is not an inset: refused with a reason', !labelsOf(im, 'zoom').length && toasts.some(m => /inset/.test(m)));
     MFC_UI.toast = toast;
@@ -224,9 +268,12 @@ async function runAnnotateRegressions() {
     canvas.remove(pasted);
 
     // ---- deleting the image ----
-    const labelCount = labelsOf(im).length;
+    const labelCount = labelsOf(im).length, marks = canvas.getObjects().filter(o => o.mfcAnnotationFor === im.mfcId);
     canvas.remove(im); MFC.pushHistory();
-    assert('Deleting an image deletes its labels', labelCount === 3 && !canvas.getObjects().some(o => o.mfcAutoLabel && o.mfcAutoLabel.for === im.mfcId));
+    assert('Deleting an image deletes its labels, marks and ROIs (with their labels)', labelCount === 3 && marks.length > 5 && !canvas.getObjects().some(o => (o.mfcAutoLabel && o.mfcAutoLabel.for === im.mfcId) || o.mfcAnnotationFor === im.mfcId || o.mfcRoiFor));
+    await MFC.undo(); await MFC_TIFF.whenIdle(); await frame();
+    assert('Undo brings them all back', canvas.getObjects().filter(o => o.mfcAnnotationFor).length === marks.length && labelsOf(image()).length === 3);
+    await MFC.redo(); await MFC_TIFF.whenIdle(); await frame();
 
     // ---- text: superscript, subscript, palette ----
     const text = new fabric.Textbox('Ca2+ and CO2', { left: 100, top: 400, width: 400, fontSize: 40, fontFamily: 'Liberation Sans' });

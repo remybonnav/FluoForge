@@ -2,7 +2,10 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  * Copyright (C) 2026 Remy Bonnavion
  */
-/* Annotate tool (P3-T8): microscopy annotations.
+/* Annotate tool (P3-T8): microscopy annotations. The tool works on the image(s) selected when it is
+   chosen: every mark and ROI is linked to an image (`mfcAnnotationFor`, the image's id, and
+   `mfcAnnotationAnchor` { u, v }, its centre as a fraction of the image's box) and follows it when the
+   image moves or is resized; with no image selected, a click places nothing and says why.
    - Stamps, placed by a click: filled and open arrows (editable Pen paths pointing at the point clicked),
      an arrowhead, an asterisk and markers (dot, triangle, star), in the panel's colour and size.
    - ROIs, drawn by a drag: a dashed box or ellipse with a numbered label ("ROI 1") that follows it.
@@ -14,7 +17,8 @@
      `mfcTimeIntervalS`) or 'zoom' (an inset's magnification). The label sits at a corner of its image
      and follows it; it is re-filled before every History step, so a new slice, frame, channel name or
      inset size shows at once. Editing the label's text keeps the user's text from then on.
-   Labels and outlines are ordinary objects: an image or outline deleted takes its labels with it. */
+   Marks, labels and outlines are ordinary objects: an image deleted takes its marks, ROIs and labels
+   with it, an outline its label. */
 
 import { onBeforeHistoryStep, pushHistory } from '../core/history.js';
 import { DASH_PRESETS, canvas, currentTool, documentOpen, registry, takeId } from '../core/state.js';
@@ -23,13 +27,12 @@ import * as M from './annotate-model.js';
 import { legendEntries } from './legend.js';
 import { makeEditablePath, pathStyleFromPanel } from './path.js';
 import { attachTextListeners } from './text.js';
-import { setTool } from './tool-switch.js';
 import { refreshLayersPanel } from '../ui/layers.js';
 import { selectedObjects } from '../ui/selection-bar.js';
 
 const KINDS = ['arrow', 'open-arrow', ...Object.keys(M.STAMPS), 'roi-rect', 'roi-ellipse'];
 /** The panel's choices for the next annotation. */
-export const annotateOptions = { place: 'arrow', color: '#ffffff', sizePt: 12, roiDash: 'dashed' };
+export const annotateOptions = { place: 'arrow', color: '#ffff00', sizePt: 12, roiDash: 'dashed' };
 const isImage = o => !!(o && o.mfcType === 'mfcImage' && registry[o.mfcId]);
 const byId = id => (id ? canvas.getObjects().find(o => o.mfcId === id) || null : null);
 const ptToPx = pt => (pt / 72) * (MFC.getDocProps().dpi || 300);
@@ -67,6 +70,30 @@ export function placeStamp(kind, point, { color = annotateOptions.color, sizePt 
   return obj;
 }
 
+// ---- marks linked to an image ----
+const linkedMarks = () => canvas.getObjects().filter(o => o.mfcAnnotationFor && !(o.type === 'textbox' && (o.mfcRoiFor || o.mfcAutoLabel)));
+const liveTargets = () => labelTargets.filter(o => isImage(o) && canvas.getObjects().includes(o));
+/** The image a mark at `point` belongs to: the selected image under it, else the first selected one. */
+function targetFor(point) {
+  const list = liveTargets();
+  return list.find(o => { const b = boxOf(o); return point.x >= b.left && point.x <= b.left + b.width && point.y >= b.top && point.y <= b.top + b.height; }) || list[0] || null;
+}
+/** Records where a mark sits on its image: its centre as a fraction of the image's box. */
+function anchorMark(obj, img) {
+  const b = boxOf(img), m = boxOf(obj);
+  obj.mfcAnnotationAnchor = { u: (m.left + m.width / 2 - b.left) / (b.width || 1), v: (m.top + m.height / 2 - b.top) / (b.height || 1) };
+}
+function linkMark(obj, img) { obj.mfcAnnotationFor = img.mfcId; anchorMark(obj, img); }
+/** Puts a mark back at its place on its image (its size stays). */
+function placeMark(obj, img) {
+  const a = obj.mfcAnnotationAnchor;
+  if (obj.group || !a || !Number.isFinite(a.u) || !Number.isFinite(a.v)) return;
+  const b = boxOf(img);
+  obj.setPositionByOrigin(new fabric.Point(b.left + a.u * b.width, b.top + a.v * b.height), 'center', 'center');
+  obj.setCoords();
+  if (obj.mfcRoi) followRoi(obj);
+}
+
 // ---- ROIs ----
 const roiLabels = () => canvas.getObjects().filter(o => o.type === 'textbox' && o.mfcRoiFor);
 const labelFor = (list, id) => list.find(l => l.mfcRoiFor === id || (l.mfcAutoLabel && l.mfcAutoLabel.for === id));
@@ -84,14 +111,14 @@ function fitWidth(box) {
   box.set({ width: Math.ceil(measure.width) + 2 });
   box.initDimensions();
 }
-function startRoi(pointer) {
+function startRoi(pointer, img) {
   const style = { left: pointer.x, top: pointer.y, stroke: annotateOptions.color, strokeWidth: Math.max(1, ptToPx(1)), strokeDashArray: DASH_PRESETS[annotateOptions.roiDash] || null,
     fill: 'transparent', strokeUniform: true, cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff' };
   const ellipse = annotateOptions.place === 'roi-ellipse';
   const shape = ellipse ? new fabric.Ellipse({ ...style, rx: 0.5, ry: 0.5 }) : new fabric.Rect({ ...style, width: 1, height: 1 });
   Object.assign(shape, { mfcId: 'shp' + takeId(), mfcType: 'shape', mfcRoi: true }, ellipse ? { mfcShapeKind: 'ellipse' } : {});
   canvas.add(shape);
-  roiDrag = { shape, startX: pointer.x, startY: pointer.y, ellipse };
+  roiDrag = { shape, startX: pointer.x, startY: pointer.y, ellipse, img };
 }
 function moveRoi(pointer, shift) {
   let w = pointer.x - roiDrag.startX, h = pointer.y - roiDrag.startY;
@@ -102,7 +129,7 @@ function moveRoi(pointer, shift) {
   canvas.requestRenderAll();
 }
 function endRoi() {
-  const { shape, ellipse } = roiDrag; roiDrag = null;
+  const { shape, ellipse, img } = roiDrag; roiDrag = null;
   const b = boxOf(shape), fallback = ptToPx(36);
   if (b.width < 5 && b.height < 5) shape.set(ellipse ? { rx: fallback / 2, ry: fallback / 2 } : { width: fallback, height: fallback });
   shape.setCoords();
@@ -111,6 +138,7 @@ function endRoi() {
   label.mfcRoiOffset = { dx: 0, dy: -label.height - Math.max(1, ptToPx(1)) }; // just above the outline's top-left corner
   canvas.insertAt(label, canvas.getObjects().indexOf(shape) + 1);
   followRoi(shape);
+  if (img && canvas.getObjects().includes(img)) linkMark(shape, img);
   return { shape, label };
 }
 /** Keeps an ROI's label at its place from the outline. */
@@ -165,7 +193,7 @@ export function addAutoLabel(kind, images = null) {
     if (content.error) { errors.add(content.error); continue; }
     const corner = M.DEFAULT_CORNER[kind] || 'tl';
     const label = makeText(content.text, {});
-    label.set({ styles: content.styles, fill: '#ffffff' });
+    label.set({ styles: content.styles, fill: annotateOptions.color });
     fitWidth(label);
     label.mfcAutoLabel = { for: img.mfcId, kind, corner, ...M.insideOffset(corner, Math.max(1, ptToPx(2))), text: content.text };
     canvas.insertAt(label, canvas.getObjects().indexOf(img) + 1);
@@ -176,9 +204,10 @@ export function addAutoLabel(kind, images = null) {
   if (made.length) { canvas.requestRenderAll(); pushHistory(); refreshLayersPanel(); }
   return made;
 }
-/** Keeps an image's auto-labels on their corners (called with the image's other attachments). */
+/** Keeps an image's marks, ROIs and auto-labels at their places on it (called with the image's other attachments). */
 export function followAutoLabels(img) {
   if (!img || !canvas) return;
+  linkedMarks().filter(o => o.mfcAnnotationFor === img.mfcId).forEach(o => placeMark(o, img));
   autoLabels().filter(l => l.mfcAutoLabel.for === img.mfcId).forEach(l => placeAuto(l, img));
 }
 /** Re-fills every auto-label whose text is still its own; removes labels whose image or outline is gone. */
@@ -199,6 +228,12 @@ export function refreshAnnotations() {
       link.text = content.text;
       placeAuto(label, img);
     }
+    // Marks: gone with their image; otherwise their place on it is read again, so a mark moved by any
+    // means (drag, arrow keys, typed position) keeps its new place when the image moves next.
+    for (const mark of linkedMarks()) {
+      const img = byId(mark.mfcAnnotationFor);
+      if (!isImage(img)) canvas.remove(mark); else anchorMark(mark, img);
+    }
     for (const label of roiLabels()) { const shape = byId(label.mfcRoiFor); if (!shape) canvas.remove(label); }
   } finally { internal = false; }
 }
@@ -206,6 +241,7 @@ export function refreshAnnotations() {
 export function onObjectModified(obj) {
   const list = obj && obj.type === 'activeSelection' ? obj.getObjects() : [obj];
   for (const o of list) {
+    if (o && o.mfcAnnotationFor && !o.mfcRoiFor && !o.mfcAutoLabel) { const img = byId(o.mfcAnnotationFor); if (isImage(img)) anchorMark(o, img); }
     if (!o || o.type !== 'textbox') continue;
     if (o.mfcAutoLabel && typeof o.mfcAutoLabel === 'object') {
       const img = byId(o.mfcAutoLabel.for);
@@ -222,10 +258,11 @@ export function onObjectMoving(obj) {
   if (obj.type === 'activeSelection') obj.getObjects().forEach(o => { if (o.mfcRoi) followRoi(o); });
   else if (obj.mfcRoi) followRoi(obj);
 }
-/** An outline removed by the user takes its label; an image its auto-labels. */
+/** An outline removed by the user takes its label; an image its marks, ROIs (with their labels) and auto-labels. */
 export function onObjectRemoved(obj) {
   if (internal || !obj || !obj.mfcId || !canvas) return;
-  const gone = canvas.getObjects().filter(o => o.type === 'textbox' && (o.mfcRoiFor === obj.mfcId || (o.mfcAutoLabel && o.mfcAutoLabel.for === obj.mfcId)));
+  const marks = canvas.getObjects().filter(o => o.mfcAnnotationFor === obj.mfcId), ids = new Set([obj.mfcId, ...marks.map(m => m.mfcId)]);
+  const gone = [...marks, ...canvas.getObjects().filter(o => o.type === 'textbox' && (ids.has(o.mfcRoiFor) || (o.mfcAutoLabel && o.mfcAutoLabel.for === obj.mfcId)))];
   if (!gone.length) return;
   internal = true;
   try { gone.forEach(l => canvas.remove(l)); } finally { internal = false; }
@@ -245,9 +282,12 @@ export function setFrameInterval(value) {
 // ---- tool ----
 /** Mouse down with the Annotate tool: a stamp at the point, or the start of an ROI. */
 export function onMouseDown(pointer) {
-  if (annotateOptions.place.startsWith('roi-')) { startRoi(pointer); return; }
+  const img = targetFor(pointer);
+  if (!img) { MFC_UI.toast('Select an image first (Select tool, V), then choose Annotate (A): marks are linked to that image and move with it.'); return; }
+  if (annotateOptions.place.startsWith('roi-')) { startRoi(pointer, img); return; }
   const obj = placeStamp(annotateOptions.place, pointer);
   if (!obj) return;
+  linkMark(obj, img);
   canvas.requestRenderAll();
   pushHistory();
   refreshLayersPanel();
@@ -255,14 +295,11 @@ export function onMouseDown(pointer) {
 export function onMouseMove(opt) { if (!roiDrag) return false; moveRoi(canvas.getPointer(opt.e), !!(opt.e && opt.e.shiftKey)); return true; }
 export function onMouseUp() {
   if (!roiDrag) return false;
-  const { shape } = endRoi();
+  endRoi();
   canvas.requestRenderAll();
   pushHistory();
   refreshLayersPanel();
-  setTool('select');
-  canvas.setActiveObject(shape);
-  canvas.requestRenderAll();
-  return true;
+  return true; // the tool stays, for the next ROI or mark on the same image
 }
 export function cancelRoi() { if (roiDrag) { canvas.remove(roiDrag.shape); roiDrag = null; } }
 
@@ -285,8 +322,8 @@ export function refreshPanel() {
   if (document.activeElement !== interval) interval.value = first && Number.isFinite(first.mfcTimeIntervalS) ? first.mfcTimeIntervalS : '';
   interval.placeholder = stack && stack.frameIntervalS ? `${M.trimNumber(stack.frameIntervalS, 3)} (from the file)` : 'not in the file';
   document.getElementById('annotate-status').textContent = targets.length
-    ? `Auto-labels go on ${targets.length === 1 ? 'the selected image' : `the ${targets.length} selected images`}.`
-    : 'For auto-labels, select an image first, then choose Annotate (A).';
+    ? `Marks and labels go on ${targets.length === 1 ? 'the selected image' : `the ${targets.length} selected images`} and move with it.`
+    : 'No image selected: select an image first (Select tool, V), then choose Annotate (A). Marks and labels are linked to it.';
 }
 export function activate() {
   labelTargets = selectedObjects(isImage);

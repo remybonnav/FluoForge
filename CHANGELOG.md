@@ -8,7 +8,7 @@ Each release lists what changed for users first, then development changes. New n
 
 - **Microscopy annotations (P3-T8).**
   - Pen paths have **Open arrow** ends (a stroked chevron) besides filled ones.
-  - The **Annotate** tool (`A`) places, with a click, a filled or open arrow pointing at the point, an arrowhead alone, an asterisk, or a dot, triangle or star marker, in the panel's colour and size. A drag draws a dashed ROI box or ellipse with a numbered label ("ROI 1") that follows it.
+  - The **Annotate** tool (`A`) works on the selected image: a click places a filled or open arrow pointing at the point, an arrowhead alone, an asterisk, or a dot, triangle or star marker, in the panel's colour (yellow by default) and size. A drag draws a dashed ROI box or ellipse with a numbered label ("ROI 1") that follows it. Marks and ROIs are linked to the image: they move with it and keep their place on it when it is resized.
   - Labels linked to an image: channel names in their colours, Z position in µm (or the projection's depth), time stamp (the frame interval read from ImageJ `finterval` or OME `TimeIncrement`, or typed once) and the magnification of an inset. They follow the image, update when the slice, frame, channel names or inset size change, keep an edited text, and go with their image.
   - The Text panel has **Superscript** and **Subscript** toggles and a **Special characters** palette (µ, °, ±, Greek letters, arrows…); every palette character is embedded in PDF in all twelve Liberation faces.
   - SVG, PDF and TIFF exports put a superscript or subscript at the same height: the SVG no longer carries a second, `baseline-shift` copy of the shift, which Chromium added to the first.

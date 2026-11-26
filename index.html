@@ -29,7 +29,7 @@
     <button id="tool-text" data-requires-document class="tool-btn" data-tool="text" title="Text tool (T)">A Text</button>
     <button id="tool-scalebar" data-requires-document class="tool-btn" data-tool="scalebar" title="Scale bar tool (S)">&#8213; Scale bar</button>
     <button id="tool-legend" data-requires-document class="tool-btn" data-tool="legend" title="Channel legend tool (L): select an image, then this tool, to add a text box with its channel names in their colours">&#9636; Legend</button>
-    <button id="tool-annotate" data-requires-document class="tool-btn" data-tool="annotate" title="Annotate tool (A): click to place arrows, arrowheads, asterisks and markers, drag for a dashed ROI; select an image first for its channel, Z, time or magnification label">&#8601; Annotate</button>
+    <button id="tool-annotate" data-requires-document class="tool-btn" data-tool="annotate" title="Annotate tool (A): select an image first, then click to place arrows, arrowheads, asterisks and markers, or drag for a dashed ROI, linked to the image; also its channel, Z, time or magnification label">&#8601; Annotate</button>
     <button id="tool-shape" data-requires-document class="tool-btn" data-tool="shape" title="Rectangle/square tool (R)">&#9633; Shape</button>
     <button id="tool-path" data-requires-document class="tool-btn" data-tool="path" title="Pen / Path tool (P)">&#9998; Pen / Path</button>
     <button id="tool-inset" data-requires-document class="tool-btn" data-tool="inset" title="Inset tool — draw an outline on an image (I)">&#8862; Inset</button>
@@ -444,7 +444,7 @@
     </section>
     <section id="panel-annotate" class="panel hidden">
       <h3>Annotate</h3>
-      <p class="hint">Click on the figure to place the chosen mark, pointing at or centred on the point clicked; drag for an ROI. Each mark is an ordinary shape or Pen path afterwards.</p>
+      <p class="hint">Select an image first, then choose Annotate: click to place the chosen mark, pointing at or centred on the point clicked; drag for an ROI. Marks are linked to the image and move with it; each is an ordinary shape or Pen path afterwards.</p>
       <label title="What a click (or, for an ROI, a drag) on the figure places">Click places
         <select id="annotate-place">
           <option value="arrow">Filled arrow</option>
@@ -458,7 +458,7 @@
           <option value="roi-ellipse">ROI ellipse (drag)</option>
         </select>
       </label>
-      <label title="Colour of the next mark, ROI and its label">Color <input type="color" id="annotate-color" value="#ffffff"></label>
+      <label title="Colour of the next mark, ROI and its label">Color <input type="color" id="annotate-color" value="#ffff00"></label>
       <label title="Height of a mark in points; an arrow is three times as long">Size (pt) <input type="number" id="annotate-size" value="12" min="2" step="1"></label>
       <label title="Line style of the next ROI outline">ROI outline
         <select id="annotate-roi-dash">
