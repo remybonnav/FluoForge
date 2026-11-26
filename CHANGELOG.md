@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.36 (2026-11-26)
+
+- **Series montages (P3-T9).**
+  - **Series** in the top bar turns a Z stack or time series into a strip or grid of linked panels: choose Z slices or time frames, the first and last plane and a step, a strip or a number of columns, and the gap. The dialog says how many panels and which planes before you create them.
+  - Each panel is labelled with its time ("t = 1:30 min") or Z position ("z = 3.5 µm"), with the labels linked to the panel from P3-T8; they follow the panel and change with its plane.
+  - The panels are views of one source, stored once. Crop, display range, LUT, gamma, invert, channel on/off, brightness and contrast are edited once for all of them, and so is the other axis (the Z display of a time series, the frame of a Z series). The montage fits the page and is one History step.
+  - Replace image keeps each panel's plane; Save as template keeps each panel's place in the series.
+
 ## v0.1.35 (2026-11-26)
 
 - **Microscopy annotations (P3-T8).**

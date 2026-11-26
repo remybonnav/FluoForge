@@ -29,6 +29,7 @@ import { runJournalPresetsRegressions } from './journal-presets-regression.mjs';
 import { runTemplatesModelRegressions } from './templates-model-regression.mjs';
 import { runGuidesModelRegressions } from './guides-model-regression.mjs';
 import { runAnnotateModelRegressions } from './annotate-model-regression.mjs';
+import { runSeriesModelRegressions } from './series-model-regression.mjs';
 import { check as checkVersion, describeMismatch } from '../scripts/release.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -150,7 +151,8 @@ async function nodeStep(results) {
     'journal-presets-regression': runJournalPresetsRegressions,
     'templates-model-regression': runTemplatesModelRegressions,
     'guides-model-regression': runGuidesModelRegressions,
-    'annotate-model-regression': runAnnotateModelRegressions
+    'annotate-model-regression': runAnnotateModelRegressions,
+    'series-model-regression': runSeriesModelRegressions
   };
   for (const [suite, run] of Object.entries(suites)) {
     const started = Date.now();

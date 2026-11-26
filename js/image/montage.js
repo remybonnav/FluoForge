@@ -12,7 +12,8 @@
    channel panel keeps its grey LUT; cropping or uncropping one panel crops all of them and lays the row
    out again (cropMontageLike, called by js/tools/crop.js and js/ui/selection-bar.js). Each panel also
    stores the channel it shows (`mfcMontageChannel`, -1 for the merge), its column, the gap and the
-   grey option; headers store their group and column. */
+   grey option; headers store their group and column. A series montage (js/image/series.js) uses the
+   same link and layout, with a row (`mfcMontageRow`) for its grid. */
 
 import { pushHistory } from '../core/history.js';
 import { getPreference } from '../core/preferences.js';
@@ -67,11 +68,12 @@ function refusal(img) {
   return null;
 }
 
-/** Places the panels (by column) and headers of a row from `origin`, with panels of `w` × `h` page px. */
-function layoutRow(group, origin, w, h) {
+/** Places the panels (by column, and by row for a series grid) and headers of a row from `origin`, with
+    panels of `w` × `h` page px. */
+export function layoutRow(group, origin, w, h) {
   const gap = group.panels[0].mfcMontageGap || 0;
   for (const panel of group.panels) {
-    panel.set({ left: origin.x + panel.mfcMontageColumn * (w + gap), top: origin.y });
+    panel.set({ left: origin.x + panel.mfcMontageColumn * (w + gap), top: origin.y + (panel.mfcMontageRow || 0) * (h + gap) });
     panel.setCoords();
     syncAttachments(panel);
   }
@@ -82,7 +84,7 @@ function layoutRow(group, origin, w, h) {
     header.setCoords();
   }
 }
-const groupParts = id => ({ panels: montageMembers(id), headers: canvas.getObjects().filter(o => o.type === 'textbox' && o.mfcMontageGroup === id) });
+export const groupParts = id => ({ panels: montageMembers(id), headers: canvas.getObjects().filter(o => o.type === 'textbox' && o.mfcMontageGroup === id) });
 
 /**
  * Turns each image into a row of linked panels. Returns the montage ids made. One History step.
@@ -159,7 +161,7 @@ export function cropMontageLike(img, before) {
   const id = montageOf(img);
   if (!id) return;
   const parts = groupParts(id), gap = img.mfcMontageGap || 0;
-  const origin = { x: before.left - img.mfcMontageColumn * (before.width + gap), y: before.top };
+  const origin = { x: before.left - img.mfcMontageColumn * (before.width + gap), y: before.top - (img.mfcMontageRow || 0) * (before.height + gap) };
   for (const panel of parts.panels) {
     if (panel === img) continue;
     panel.set({ cropX: img.cropX || 0, cropY: img.cropY || 0, width: img.width, height: img.height, scaleX: img.scaleX, scaleY: img.scaleY });

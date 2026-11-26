@@ -184,6 +184,20 @@ Time series also get a **frame** slider. Colours, display ranges and channel tog
 
 Each image (and each inset) keeps its own Z display. The choice is listed in the History panel, saved with the project and used when exporting. TIFFs without an ImageJ header or OME-XML still open with one channel per page.
 
+### Series montage (a strip or grid of slices or frames)
+
+**Series** in the top bar turns the selected Z stack or time series into a strip or grid of panels, one per chosen slice or frame. The dialog asks for:
+
+- **Series**: **Time frames** or **Z slices** (only those the file has; time first).
+- **First**, **Last** and **Step**: the planes shown, counted from 1 as in the sliders. Step 1 shows every plane in the range; the last plane is shown when the step lands on it. By default the step shows the whole series in about eight panels. A line under the fields says how many panels this makes and which planes; a range outside the series, or more than 100 panels, is refused with a message.
+- **Layout**: **Strip (one row)**, or **Grid** with a number of **Columns** (filled row by row).
+- **Gap (mm)**: the space between panels (1 mm by default).
+- **Labels**: each panel gets a label linked to it (see [Annotations](#annotations-arrows-markers-rois-linked-labels)) in its top-right corner (time) or bottom-left corner (Z): its time ("t = 1:30 min", from the frame interval in the file or typed once in the Annotate panel; "t 6/40" without one) or its depth ("z = 3.5 µm" from the first slice; "z 8/25" without a Z step). The labels share one size, smaller when the panels are narrow.
+
+The image becomes the first panel. The montage keeps the image's place and size, scaled down when needed so it fits in the page with the same margin on the right and below as on the left. The panels are views of the same image, stored once in the project, and are linked: a crop, **Uncrop**, a channel's range, LUT, gamma, invert or on/off, and brightness and contrast reach every panel. Each panel keeps its own plane along the series; the other axis is shared, so choosing the Z display (or a slice) on one panel of a time series shows it on all of them, and choosing a frame on one panel of a Z series does too. Choosing a new frame on one panel of a time series (or a slice in a Z series) changes that panel only, and its label follows. A Z series shows single slices, not projections.
+
+The whole montage is one History step. **Replace image…** on a panel keeps each panel's plane (the last plane when the new file has fewer), and **Save as template** keeps each panel's place in the series. Copying and pasting panels makes a separate montage. An image that is rotated, inside a group, cropped to a shape or already part of a quick figure or series is not used.
+
 ## 6. Laying out panels with the Grid tool
 
 The usual layout of a fluorescence figure is single channels next to the merge, one row per condition. A **grid** holds it together: it stays on the page, so panels can be swapped, rows added and the whole figure resized to a journal column without arranging anything again.

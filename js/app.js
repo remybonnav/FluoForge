@@ -50,6 +50,7 @@ import { applyPathStyle, cancelPathDrawing, deleteSelectedPathNode, enterPathEdi
 import { onScaleBarFieldChanged, placeScaleBarAtCorner, placeScaleBarOnSelectedImages, refreshScaleBarPanel, refreshScaleBarPreview, refreshScaleBarRefList, scaleBarProps } from './tools/scalebar.js';
 import { installLegendPanel } from './tools/legend.js';
 import { installQuickFigure } from './ui/quick-figure-dialog.js';
+import { installSeriesMontage } from './ui/series-dialog.js';
 import { applyShapeStyle, installCurveControls, refreshShapePanel, setShapeAspectMode, setShapeKind } from './tools/shape.js';
 import { applyTextAlign, applyTextBorder, applyTextBoxSize, applyTextStyle, applyTextVerticalAlign, attachTextListeners, centerTextInBox, effectiveFontSize, normalizeTextScale, refreshTextPanel } from './tools/text.js';
 import { setTool } from './tools/tool-switch.js';
@@ -98,6 +99,7 @@ export const MFC = {
 window.MFC = MFC;
 installLegendPanel();
 installQuickFigure();
+installSeriesMontage();
 installGridPanel();
 installLettersPanel();
 installSizeUnits();

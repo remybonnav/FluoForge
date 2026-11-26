@@ -97,8 +97,10 @@ function placeMark(obj, img) {
 // ---- ROIs ----
 const roiLabels = () => canvas.getObjects().filter(o => o.type === 'textbox' && o.mfcRoiFor);
 const labelFor = (list, id) => list.find(l => l.mfcRoiFor === id || (l.mfcAutoLabel && l.mfcAutoLabel.for === id));
+/** The text size of labels made by the panel (document px). */
+export const labelFontSize = () => Math.max(1, ptToPx(Math.max(4, annotateOptions.sizePt * 0.75)));
 function makeText(text, extra) {
-  const box = new fabric.Textbox(text, { fontFamily: getPreference('text.fontFamily'), fontSize: Math.max(1, ptToPx(Math.max(4, annotateOptions.sizePt * 0.75))),
+  const box = new fabric.Textbox(text, { fontFamily: getPreference('text.fontFamily'), fontSize: labelFontSize(),
     fill: annotateOptions.color, textAlign: 'left', originX: 'left', originY: 'top' });
   Object.assign(box, { mfcId: 'txt' + takeId(), mfcType: 'text' }, extra);
   fitWidth(box);
@@ -183,8 +185,10 @@ function placeAuto(label, img) {
   label.set({ left: p.left, top: p.top });
   label.setCoords();
 }
-/** Adds a `kind` label to each image (default: the images selected when the tool was chosen, or now). */
-export function addAutoLabel(kind, images = null) {
+/** Adds a `kind` label to each image (default: the images selected when the tool was chosen, or now).
+    `history: false` leaves the History step to the caller (a series montage makes one step of it all);
+    `fontSize` (document px) replaces the panel's size. */
+export function addAutoLabel(kind, images = null, { history = true, fontSize = null } = {}) {
   const targets = (images || (labelTargets.length ? labelTargets : selectedObjects(isImage))).filter(o => isImage(o) && canvas.getObjects().includes(o));
   if (!targets.length) { MFC_UI.toast('Select an image first, then choose Annotate: the label goes on that image.'); return []; }
   const made = [], errors = new Set();
@@ -193,7 +197,7 @@ export function addAutoLabel(kind, images = null) {
     if (content.error) { errors.add(content.error); continue; }
     const corner = M.DEFAULT_CORNER[kind] || 'tl';
     const label = makeText(content.text, {});
-    label.set({ styles: content.styles, fill: annotateOptions.color });
+    label.set({ styles: content.styles, fill: annotateOptions.color, ...(fontSize > 0 ? { fontSize } : {}) });
     fitWidth(label);
     label.mfcAutoLabel = { for: img.mfcId, kind, corner, ...M.insideOffset(corner, Math.max(1, ptToPx(2))), text: content.text };
     canvas.insertAt(label, canvas.getObjects().indexOf(img) + 1);
@@ -201,7 +205,7 @@ export function addAutoLabel(kind, images = null) {
     made.push(label);
   }
   if (errors.size) MFC_UI.toast([...errors].join(' '));
-  if (made.length) { canvas.requestRenderAll(); pushHistory(); refreshLayersPanel(); }
+  if (made.length && history) { canvas.requestRenderAll(); pushHistory(); refreshLayersPanel(); }
   return made;
 }
 /** Keeps an image's marks, ROIs and auto-labels at their places on it (called with the image's other attachments). */

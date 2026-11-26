@@ -186,6 +186,13 @@ export async function replaceImage(img, file, { carry = 'ask' } = {}) {
       showChannel(view, k, !!panel.mfcMontageGrey);
       name = `${name} (${channelName(view.channels[k], k)})`;
     }
+    if (panel.mfcSeries && view.stack) {
+      // A series montage panel keeps its plane (the last one when the new file has fewer).
+      const z = panel.mfcSeries.axis === 'z';
+      const index = Math.min(z ? own.zIndex | 0 : own.tIndex | 0, (z ? view.stack.sizeZ : view.stack.sizeT) - 1);
+      await showPlane(view, z ? { z: index } : { t: index });
+      name = `${name} (${z ? 'slice' : 'frame'} ${index + 1})`;
+    }
     setSource(panel, view, sourceId, file, boxOf(panel), name);
   }
   const { warning } = afterNewSource(row, raw, keep);

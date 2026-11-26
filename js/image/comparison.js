@@ -9,7 +9,8 @@
    per image. Pasting display settings onto one member is deliberately not passed on, so a group
    can diverge; the layers panel then shows a warning badge and offers to match the group again.
    The panels of a split-channel montage (`mfcMontageGroup`, js/image/montage.js) are linked the same
-   way, and also on invert: they are views of one image. A grey channel panel keeps its grey LUT. */
+   way, and also on invert: they are views of one image. A grey channel panel keeps its grey LUT. The
+   panels of a series montage (js/image/series.js) also share turning a channel on or off. */
 
 import { pushHistory } from '../core/history.js';
 import { canvas, registry } from '../core/state.js';
@@ -106,7 +107,9 @@ export function propagate(images, idx, fields) {
       if (member === source || images.includes(member)) continue;
       const to = channelsOf(member)[idx];
       if (!to) continue;
-      const own = keepsGrey(source, idx) || keepsGrey(member, idx) ? fields.filter(f => f !== 'color' && f !== 'lut') : fields;
+      let own = keepsGrey(source, idx) || keepsGrey(member, idx) ? fields.filter(f => f !== 'color' && f !== 'lut') : fields;
+      // On/off is per panel in a quick figure (each shows its channel), shared by a series montage's panels.
+      if (!(source.mfcSeries && member.mfcSeries)) own = own.filter(f => f !== 'enabled');
       if (!own.length) continue;
       copyChannel(from, to, own);
       if (!changed.includes(member)) changed.push(member);

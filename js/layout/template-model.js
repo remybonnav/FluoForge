@@ -51,6 +51,8 @@ export function imageToFrame(json) {
   if (json.mfcIsInset && json.mfcInsetContourId) frame.mfcFrameInsetContour = json.mfcInsetContourId;
   // A quick-figure row fills again from one file: each panel its channel.
   if (typeof json.mfcMontageGroup === 'string') { frame.mfcFrameGroup = json.mfcMontageGroup; frame.mfcFrameChannel = Number.isInteger(json.mfcMontageChannel) ? json.mfcMontageChannel : -1; if (json.mfcMontageGrey) frame.mfcFrameGrey = true; }
+  // A series montage panel: the frame shows its place in the series (spread over the new file's planes).
+  if (json.mfcSeries && typeof json.mfcSeries === 'object' && Number.isInteger(json.mfcSeries.position)) frame[json.mfcSeries.axis === 'z' ? 'mfcFrameZ' : 'mfcFrameT'] = json.mfcSeries.position;
   const display = displaySettings(json.display);
   if (display) frame.mfcFrameDisplay = display;
   return frame;

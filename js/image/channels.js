@@ -181,7 +181,8 @@ export function refreshChannelPanel() {
 
     toggle.addEventListener('change', (e) => {
       peers.forEach(p => { p.enabled = e.target.checked; });
-      commitImages(images);
+      propagate(images, idx, ['enabled']); // the other panels of a series montage
+      commitImages(withMontageMembers(images));
     });
     lutButton.addEventListener('click', () => openLutPicker(lutButton, ch, (color, lut) => {
       peers.forEach(p => { p.color = color; if (color === FILE_LUT) p.lut = lut; });
@@ -319,13 +320,22 @@ export async function applyStackPlane(change, commit) {
   if (!images.length) return;
   // The settings change at once (so the controls and history see them); the planes follow when
   // a projection, computed off the main thread, is ready.
-  const planes = images.map(img => {
+  // The panels of a series montage each show their own plane along the series, and share the other
+  // axis: a new frame (Z series) or Z display (time series) reaches all of them.
+  const across = new Map();
+  for (const img of images) {
+    const axis = img.mfcSeries && img.mfcSeries.axis, shared = axis === 'z' ? { tIndex: change.tIndex } : axis === 't' ? { zMode: change.zMode, zIndex: change.zIndex } : null;
+    if (!shared || !Object.values(shared).some(v => v != null)) continue;
+    for (const member of withMontageMembers([img])) if (member.mfcSeries && !images.includes(member)) across.set(member, shared);
+  }
+  const apply = (img, ch) => {
     const raw = registry[img.mfcId].rawImage;
-    if (change.zMode) raw.zMode = change.zMode;
-    if (Number.isFinite(change.zIndex) && raw.stack.sizeZ > 1) { raw.zIndex = change.zIndex; raw.zMode = 'slice'; }
-    if (Number.isFinite(change.tIndex)) raw.tIndex = change.tIndex;
+    if (ch.zMode) raw.zMode = ch.zMode;
+    if (Number.isFinite(ch.zIndex) && raw.stack.sizeZ > 1) { raw.zIndex = ch.zIndex; raw.zMode = 'slice'; }
+    if (Number.isFinite(ch.tIndex)) raw.tIndex = ch.tIndex;
     return MFC_TIFF.track(MFC_TIFF.selectPlane(raw).then(() => recomposite(img)));
-  });
+  };
+  const planes = [...images.map(img => apply(img, change)), ...[...across].map(([img, ch]) => apply(img, ch))];
   refreshStackControls(images);
   if (commit) canvas.fire('object:modified', { target: canvas.getActiveObject() });
   else canvas.requestRenderAll();
