@@ -78,7 +78,7 @@ async function runAnnotateRegressions() {
     assert('The A key chooses the Annotate tool and shows its panel', MFC.currentTool === 'annotate' && !$('panel-annotate').classList.contains('hidden'));
     assert('Every control of the panel has a title or a label', [...$('panel-annotate').querySelectorAll('select, input, button')].every(el => el.title || el.closest('label')?.title));
     assert('The auto-labels go on the image selected before the tool', /the selected image/.test($('annotate-status').textContent) && !$('panel-annotate').querySelector('[data-auto-label]').disabled);
-    assert('The interval field shows the file\'s interval', /30 \(from the file\)/.test($('annotate-interval').placeholder));
+    assert('The frame interval is set in the Channels panel only (P3-T9a)', !$('annotate-interval') && !!$('ch-finterval'));
 
     // ---- no image selected: nothing is placed ----
     const image = () => canvas.getObjects().find(o => o.mfcType === 'mfcImage' && !o.mfcIsInset);
@@ -212,12 +212,11 @@ async function runAnnotateRegressions() {
     assert('Showing slice 3 updates the Z label: z = 1 µm', zLabel.text === 'z = 1 µm', zLabel.text);
     await MFC.applyStackPlane({ tIndex: 3 }, true); await MFC_TIFF.whenIdle();
     assert('Frame 4 updates the time label: 3 × 30 s = 1:30 min', tLabel.text === 't = 1:30 min', tLabel.text);
-    canvas.setActiveObject(im); MFC.setTool('annotate');
-    $('annotate-interval').value = '2'; $('annotate-interval').dispatchEvent(new Event('change'));
-    assert('A typed interval (2 s) replaces the file\'s: t = 6 s', tLabel.text === 't = 6 s' && im.mfcTimeIntervalS === 2, tLabel.text);
-    $('annotate-interval').value = ''; $('annotate-interval').dispatchEvent(new Event('change'));
+    MFC.setTool('select'); canvas.setActiveObject(im); MFC.refreshChannelPanel();
+    $('ch-finterval').value = '2'; $('ch-finterval').dispatchEvent(new Event('change'));
+    assert('A frame interval typed in the Channels panel (2 s) replaces the file\'s: t = 6 s', tLabel.text === 't = 6 s' && im.mfcTimeIntervalS === 2, tLabel.text);
+    $('ch-finterval').value = ''; $('ch-finterval').dispatchEvent(new Event('change'));
     assert('Clearing it goes back to the file\'s interval', tLabel.text === 't = 1:30 min' && !('mfcTimeIntervalS' in im));
-    MFC.setTool('select');
     MFC.getRegistry()[im.mfcId].rawImage.channels[0].name = 'DAPI'; MFC.pushHistory();
     assert('Renaming a channel updates the channel label', chLabel.text === 'DAPI Ch 2', chLabel.text);
 

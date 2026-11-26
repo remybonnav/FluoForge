@@ -15,7 +15,7 @@
 <link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#07090C">
-<link rel="stylesheet" href="style.css?v=0.1.36">
+<link rel="stylesheet" href="style.css?v=0.1.37">
 </head>
 <body>
 
@@ -281,8 +281,26 @@
 
       <div id="channel-calibration" class="hidden">
         <hr style="border-color:var(--border);margin:10px 0;">
-        <label>Pixel size (µm/px) <input type="number" id="ch-pixelsize" step="any" min="0" placeholder="unset"></label>
+        <label title="Physical size of one pixel, used by scale bars">Pixel size (µm/px) <input type="number" id="ch-pixelsize" step="any" min="0" placeholder="unset" title="Physical size of one pixel, used by scale bars"></label>
         <p class="hint" id="ch-pixelsize-hint"></p>
+        <div class="calib-warning-row hidden" id="ch-pixelsize-warn-row">
+          <p class="calib-warning" id="ch-pixelsize-warn" role="status"></p>
+          <button type="button" class="calib-reset" id="ch-pixelsize-reset" title="Use the pixel size stored in the image file">Use file value</button>
+        </div>
+        <div id="ch-zstep-row" class="hidden">
+          <label title="Distance between Z slices, used by Z labels (z = 3.5 µm)">Z step (µm) <input type="number" id="ch-zstep" step="any" min="0" title="Distance between Z slices, used by Z labels; leave empty to use the file's"></label>
+          <div class="calib-warning-row hidden" id="ch-zstep-warn-row">
+            <p class="calib-warning" id="ch-zstep-warn" role="status"></p>
+            <button type="button" class="calib-reset" id="ch-zstep-reset" title="Use the Z step stored in the image file">Use file value</button>
+          </div>
+        </div>
+        <div id="ch-finterval-row" class="hidden">
+          <label title="Time between frames, used by time labels (t = 1:30 min)">Frame interval (s) <input type="number" id="ch-finterval" step="any" min="0" title="Seconds between frames, used by time labels; leave empty to use the file's"></label>
+          <div class="calib-warning-row hidden" id="ch-finterval-warn-row">
+            <p class="calib-warning" id="ch-finterval-warn" role="status"></p>
+            <button type="button" class="calib-reset" id="ch-finterval-reset" title="Use the frame interval stored in the image file">Use file value</button>
+          </div>
+        </div>
         <button type="button" id="btn-image-info" aria-haspopup="dialog" title="Image info: dimensions, bit depth, channels, Z and T, pixel size and its source, and the file's ImageJ header">Image info</button>
       </div>
 
@@ -476,7 +494,6 @@
         <button data-auto-label="time" title="The time of the frame shown: the frame interval comes from the file, or type it below">Time</button>
         <button data-auto-label="zoom" title="The magnification of an inset over its source image">Magnification</button>
       </div>
-      <label title="Seconds between frames, for the time label; leave empty to use the file's own interval">Frame interval (s) <input type="number" id="annotate-interval" min="0" step="any"></label>
       <p id="annotate-status" class="hint" role="status"></p>
       <p class="hint">A label follows its image and updates with it (another slice, frame, channel name or inset size). Edit its text to keep your own.</p>
     </section>
@@ -677,14 +694,14 @@
 <script src="assets/vendor/jszip.min.js"></script>
 
 <!-- ======================= APP ======================= -->
-<script src="js/debug.js?v=0.1.36"></script>
-<script src="js/errors.js?v=0.1.36"></script>
-<script src="js/tiff.js?v=0.1.36"></script>
-<script type="module" src="js/app.js?v=0.1.36"></script>
+<script src="js/debug.js?v=0.1.37"></script>
+<script src="js/errors.js?v=0.1.37"></script>
+<script src="js/tiff.js?v=0.1.37"></script>
+<script type="module" src="js/app.js?v=0.1.37"></script>
 <script defer src="assets/vendor/svg2pdf.umd.min.js"></script>
-<script defer src="js/project.js?v=0.1.36"></script>
-<script defer src="js/autosave.js?v=0.1.36"></script>
-<script defer src="js/export.js?v=0.1.36"></script>
-<script defer src="js/main.js?v=0.1.36"></script>
+<script defer src="js/project.js?v=0.1.37"></script>
+<script defer src="js/autosave.js?v=0.1.37"></script>
+<script defer src="js/export.js?v=0.1.37"></script>
+<script defer src="js/main.js?v=0.1.37"></script>
 </body>
 </html>

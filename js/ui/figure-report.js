@@ -11,6 +11,7 @@
    No global and no MFC name: js/export.js and js/main.js import this module. Names and other text from files
    go into the dialog with textContent and value, never as HTML. */
 
+import { zStepOf } from '../image/calibration.js';
 import { docProps, getAppVersion, getCanvas, registry } from '../core/state.js';
 import { docPropsToPixels, pageBounds, pageCount } from '../core/pages.js';
 import { FILE_LUT } from '../image/luts.js';
@@ -57,7 +58,7 @@ function sampleKind(info) {
   return 'unsigned integer';
 }
 
-function projectionOf(raw) {
+function projectionOf(raw, image) {
   const stack = raw.stack;
   if (!stack) return null;
   const mode = Z_LABELS[raw.zMode] ? raw.zMode : stack.sizeZ > 1 ? 'max' : 'slice';
@@ -65,7 +66,7 @@ function projectionOf(raw) {
   const all = mode !== 'slice' && stack.sizeZ > 1;
   return { mode: all ? mode : 'slice', label: Z_LABELS[all ? mode : 'slice'], sizeZ: stack.sizeZ,
     firstSlice: all ? 1 : z + 1, lastSlice: all ? stack.sizeZ : z + 1, sizeT: stack.sizeT, frame: t + 1,
-    zStepUm: round(stack.zStepUm || null, 6) };
+    zStepUm: round(zStepOf(image) || null, 6) }; // the typed Z step (P3-T9a) or the file's
 }
 
 /** A panel's crop in source pixels, printed size in document pixels and effective resolution: the
@@ -107,7 +108,7 @@ function panelEntry(image, number, pages) {
       wholeImage: Math.abs(region.x) < 0.01 && Math.abs(region.y) < 0.01 && Math.abs(region.width - raw.width) < 0.01 && Math.abs(region.height - raw.height) < 0.01 },
     fieldOfViewUm: um ? { width: round(region.width * um, 3), height: round(region.height * um, 3) } : null,
     shapeMask: image.clipPath ? MASKS[image.clipPath.mfcShapeKind] || MASKS[image.clipPath.type] || 'shape' : null,
-    projection: projectionOf(raw),
+    projection: projectionOf(raw, image),
     channels: raw.channels.map((c, i) => ({
       channel: i + 1, name: c.name, shown: c.enabled !== false,
       lut: c.color === FILE_LUT ? 'From file' : c.color,

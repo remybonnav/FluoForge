@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.37 (2026-11-26)
+
+- **Calibration fields with warnings (P3-T9a).**
+  - The Channels panel has **Z step (µm)** for Z stacks and **Frame interval (s)** for time series, next to **Pixel size**. They start with the file's values; a typed value changes the Z and time labels, is saved with the project, and reaches every panel of a quick figure or series montage.
+  - When the pixel size, Z step or frame interval is not the one in the file, a warning under the field gives the file's value, with **Use file value** to put it back.
+  - The Annotate panel's **Frame interval** field is gone: the interval is set in the Channels panel only. Projects with an interval typed there keep it.
+  - Image info lists the frame interval and where a typed Z step or interval came from; the figure report gives the Z step in use.
+
 ## v0.1.36 (2026-11-26)
 
 - **Series montages (P3-T9).**

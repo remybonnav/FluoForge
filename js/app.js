@@ -51,6 +51,7 @@ import { onScaleBarFieldChanged, placeScaleBarAtCorner, placeScaleBarOnSelectedI
 import { installLegendPanel } from './tools/legend.js';
 import { installQuickFigure } from './ui/quick-figure-dialog.js';
 import { installSeriesMontage } from './ui/series-dialog.js';
+import { installCalibration } from './ui/calibration-panel.js';
 import { applyShapeStyle, installCurveControls, refreshShapePanel, setShapeAspectMode, setShapeKind } from './tools/shape.js';
 import { applyTextAlign, applyTextBorder, applyTextBoxSize, applyTextStyle, applyTextVerticalAlign, attachTextListeners, centerTextInBox, effectiveFontSize, normalizeTextScale, refreshTextPanel } from './tools/text.js';
 import { setTool } from './tools/tool-switch.js';
@@ -100,6 +101,7 @@ window.MFC = MFC;
 installLegendPanel();
 installQuickFigure();
 installSeriesMontage();
+installCalibration();
 installGridPanel();
 installLettersPanel();
 installSizeUnits();

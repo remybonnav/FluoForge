@@ -63,6 +63,7 @@ function seriesPanel(img) {
     cornerStyle: img.cornerStyle, transparentCorners: img.transparentCorners, cornerColor: img.cornerColor, borderColor: img.borderColor });
   Object.assign(panel, { mfcId: id, mfcType: 'mfcImage', mfcRawWidth: img.mfcRawWidth, mfcRawHeight: img.mfcRawHeight });
   if (Number.isFinite(img.mfcTimeIntervalS)) panel.mfcTimeIntervalS = img.mfcTimeIntervalS;
+  if (Number.isFinite(img.mfcZStepUm)) panel.mfcZStepUm = img.mfcZStepUm;
   return panel;
 }
 

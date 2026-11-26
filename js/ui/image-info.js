@@ -8,6 +8,7 @@
 
 import { registry } from '../core/state.js';
 import { selectedObjects } from './selection-bar.js';
+import { positive, showNumber, valueSource } from '../image/calibration-model.js';
 
 const FORMATS = { tiff: 'TIFF', raster: 'Raster image (PNG, JPEG or BMP)' };
 
@@ -26,8 +27,9 @@ function pixelSizeSource(raw, info) {
   return 'Entered in the Channels panel' + (fromFile != null ? ` (the file says ${fromFile} µm/px)` : '');
 }
 
-/** The rows of the dialog for one image, as [label, value] pairs. */
-export function imageInfoRows(raw) {
+/** The rows of the dialog for one image, as [label, value] pairs. With the canvas image `img`, the Z
+    step and frame interval are the ones it uses (typed in the Channels panel or the file's). */
+export function imageInfoRows(raw, img = null) {
   const info = raw.meta && raw.meta.decodeInfo;
   const kind = info && /floating-point/.test(info.sampleType || '') ? ' float' : info && /signed integer/.test(info.sampleType || '') && !/unsigned/.test(info.sampleType) ? ' signed' : '';
   const depths = [...new Set(raw.channels.map(c => c.bitDepth).filter(Boolean))].map(d => d + '-bit' + kind);
@@ -40,7 +42,14 @@ export function imageInfoRows(raw) {
     ['Z slices', String(raw.stack ? raw.stack.sizeZ : 1)],
     ['Time frames', String(raw.stack ? raw.stack.sizeT : 1)]
   ];
-  if (raw.stack && raw.stack.zStepUm) rows.push(['Z step', raw.stack.zStepUm + ' µm']);
+  const stack = raw.stack, typed = key => (img ? positive(img[key]) : null);
+  for (const [label, size, fromFile, key, unit] of [['Z step', 'sizeZ', stack && positive(stack.zStepUm), 'mfcZStepUm', 'µm'],
+    ['Frame interval', 'sizeT', stack && positive(stack.frameIntervalS), 'mfcTimeIntervalS', 's']]) {
+    const current = typed(key) ?? fromFile;
+    if (!stack || (stack[size] < 2 && current == null)) continue;
+    rows.push([label, current != null ? showNumber(current) + ' ' + unit : 'Not set']);
+    if (typed(key) != null) rows.push([label + ' source', valueSource(current, fromFile)]);
+  }
   if (info) rows.push(['Pages in the file', String(info.pages)]);
   if (info && raw.sourceFormat === 'tiff') rows.push(['Dimensions from', info.metadata || 'Page count (every page is a channel)']);
   rows.push(['Pixel size', raw.voxelSizeUm != null ? raw.voxelSizeUm + ' µm/px' : 'Not set']);
@@ -63,7 +72,7 @@ export function showImageInfo() {
   const title = element('h2', null, 'Image info'); title.id = 'image-info-title';
 
   const list = element('dl', 'image-info-list');
-  for (const [label, value] of imageInfoRows(raw)) list.append(element('dt', null, label), element('dd', null, value));
+  for (const [label, value] of imageInfoRows(raw, image)) list.append(element('dt', null, label), element('dd', null, value));
 
   const channels = element('table', 'image-info-channels');
   const head = channels.createTHead().insertRow();

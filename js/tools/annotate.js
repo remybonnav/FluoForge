@@ -13,8 +13,8 @@
      outline's top-left corner, kept when either is moved).
    - Auto-labels linked to an image: a text box with `mfcAutoLabel` { for, kind, corner, dx, dy, text }:
      kind 'channels' (names in their colours), 'z' (position in µm, or projection depth), 'time'
-     (frame time: the interval read from the file's metadata, or typed once for the image, kept as
-     `mfcTimeIntervalS`) or 'zoom' (an inset's magnification). The label sits at a corner of its image
+     (frame time: the frame interval of js/image/calibration.js, the file's or the one typed in the
+     Channels panel) or 'zoom' (an inset's magnification). The label sits at a corner of its image
      and follows it; it is re-filled before every History step, so a new slice, frame, channel name or
      inset size shows at once. Editing the label's text keeps the user's text from then on.
    Marks, labels and outlines are ordinary objects: an image deleted takes its marks, ROIs and labels
@@ -25,6 +25,7 @@ import { DASH_PRESETS, canvas, currentTool, documentOpen, registry, takeId } fro
 import { getPreference } from '../core/preferences.js';
 import * as M from './annotate-model.js';
 import { legendEntries } from './legend.js';
+import { frameIntervalOf, zStepOf } from '../image/calibration.js';
 import { makeEditablePath, pathStyleFromPanel } from './path.js';
 import { attachTextListeners } from './text.js';
 import { refreshLayersPanel } from '../ui/layers.js';
@@ -163,12 +164,11 @@ export function autoLabelContent(img, kind) {
     return entries.length ? M.channelsText(entries) : { error: 'This image shows no channel: turn one on first.' };
   }
   if (kind === 'z') {
-    const text = stack && M.zLabel({ sizeZ: stack.sizeZ, zMode: raw.zMode, zIndex: raw.zIndex, zStepUm: stack.zStepUm });
+    const text = stack && M.zLabel({ sizeZ: stack.sizeZ, zMode: raw.zMode, zIndex: raw.zIndex, zStepUm: zStepOf(img) });
     return text ? { text, styles: {} } : { error: 'This image is not a Z stack.' };
   }
   if (kind === 'time') {
-    const interval = Number.isFinite(img.mfcTimeIntervalS) && img.mfcTimeIntervalS > 0 ? img.mfcTimeIntervalS : stack && stack.frameIntervalS;
-    const text = stack && M.timeLabel({ sizeT: stack.sizeT, tIndex: raw.tIndex }, interval);
+    const text = stack && M.timeLabel({ sizeT: stack.sizeT, tIndex: raw.tIndex }, frameIntervalOf(img));
     return text ? { text, styles: {} } : { error: 'This image is not a time series.' };
   }
   if (kind === 'zoom') {
@@ -272,17 +272,6 @@ export function onObjectRemoved(obj) {
   try { gone.forEach(l => canvas.remove(l)); } finally { internal = false; }
 }
 
-/** Sets (or, empty, clears) the frame interval of the target images: seconds between frames. */
-export function setFrameInterval(value) {
-  const v = parseFloat(value);
-  const images = (labelTargets.length ? labelTargets : selectedObjects(isImage)).filter(isImage);
-  if (!images.length) return;
-  images.forEach(img => { if (Number.isFinite(v) && v > 0) img.mfcTimeIntervalS = v; else delete img.mfcTimeIntervalS; });
-  pushHistory(); // re-fills the time labels
-  canvas.requestRenderAll();
-  refreshPanel();
-}
-
 // ---- tool ----
 /** Mouse down with the Annotate tool: a stamp at the point, or the start of an ROI. */
 export function onMouseDown(pointer) {
@@ -320,11 +309,6 @@ export function refreshPanel() {
   document.getElementById('annotate-roi-dash').value = annotateOptions.roiDash;
   const targets = labelTargets.filter(o => canvas.getObjects().includes(o));
   panel.querySelectorAll('[data-auto-label]').forEach(b => { b.disabled = !targets.length; });
-  const interval = document.getElementById('annotate-interval');
-  interval.disabled = !targets.length;
-  const first = targets[0], stack = first && registry[first.mfcId]?.rawImage?.stack;
-  if (document.activeElement !== interval) interval.value = first && Number.isFinite(first.mfcTimeIntervalS) ? first.mfcTimeIntervalS : '';
-  interval.placeholder = stack && stack.frameIntervalS ? `${M.trimNumber(stack.frameIntervalS, 3)} (from the file)` : 'not in the file';
   document.getElementById('annotate-status').textContent = targets.length
     ? `Marks and labels go on ${targets.length === 1 ? 'the selected image' : `the ${targets.length} selected images`} and move with it.`
     : 'No image selected: select an image first (Select tool, V), then choose Annotate (A). Marks and labels are linked to it.';
@@ -344,7 +328,6 @@ export function installAnnotate() {
   on('annotate-color', 'input', e => { annotateOptions.color = e.target.value; });
   on('annotate-size', 'change', e => { const v = parseFloat(e.target.value); if (v > 0) annotateOptions.sizePt = v; refreshPanel(); });
   on('annotate-roi-dash', 'change', e => { if (e.target.value in DASH_PRESETS) annotateOptions.roiDash = e.target.value; });
-  on('annotate-interval', 'change', e => setFrameInterval(e.target.value));
   document.querySelectorAll('#panel-annotate [data-auto-label]').forEach(b => b.addEventListener('click', () => addAutoLabel(b.dataset.autoLabel)));
   onBeforeHistoryStep(refreshAnnotations);
 }

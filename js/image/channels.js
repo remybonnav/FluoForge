@@ -11,6 +11,8 @@ import { selectedObjects } from '../ui/selection-bar.js';
 import { refreshLayersPanel } from '../ui/layers.js';
 import { LUT_GROUPS, LUT_LABELS, FILE_LUT, channelLUT, lutGradient } from './luts.js';
 import { addCalibrationBar } from '../tools/calibration-bar.js';
+import { fileCalibration, zStepOf } from './calibration.js';
+import { refreshCalibration } from '../ui/calibration-panel.js';
 import { autoRange, logBins, sliderLimits } from './composite-core.js';
 import { divergedChannels, groupLabel, groupMembers, groupOf, matchGroup, onComparisonChange, propagate, withGroupMembers, withMontageMembers } from './comparison.js';
 
@@ -87,6 +89,7 @@ export function refreshChannelPanel() {
     : entry.rawImage.voxelSizeUm != null
       ? 'Used to calibrate scale bars for this image.'
       : 'No pixel size found in this file — enter one manually to enable scale bars for this image.';
+  refreshCalibration(images);
 
   const withAlpha = raws.filter(r => r.hasAlpha);
   alphaBox.classList.toggle('hidden', !withAlpha.length);
@@ -292,12 +295,13 @@ export function refreshStackControls(images) {
   box.classList.toggle('hidden', !stacked.length);
   if (!stacked.length) return;
   const raw = stacked[0], st = raw.stack;
+  const zStep = zStepOf(images.find(img => registry[img.mfcId].rawImage === raw));
   const maxZ = Math.max(...stacked.map(r => r.stack.sizeZ)), maxT = Math.max(...stacked.map(r => r.stack.sizeT));
   const plural = (n, word) => n + ' ' + word + (n === 1 ? '' : 's');
   document.getElementById('ch-stack-info').textContent = stacked.length > 1
     ? stacked.length + ' selected images are Z stacks or time series; changes apply to all of them.'
     : plural(st.sizeC, 'channel') + ' × ' + plural(st.sizeZ, 'Z slice') + (st.sizeT > 1 ? ' × ' + plural(st.sizeT, 'time frame') : '') +
-      (st.sizeZ > 1 && st.zStepUm ? ' (Z step ' + st.zStepUm + ' µm)' : '') + '.';
+      (st.sizeZ > 1 && zStep ? ' (Z step ' + zStep + ' µm)' : '') + '.';
   const zModeRow = document.getElementById('ch-zmode-row');
   zModeRow.classList.toggle('hidden', maxZ < 2);
   const zMode = document.getElementById('ch-zmode');
@@ -349,6 +353,18 @@ export function applyPixelSize(value) {
   const v = parseFloat(value);
   images.forEach(img => {
     registry[img.mfcId].rawImage.voxelSizeUm = (isFinite(v) && v > 0) ? v : null;
+    updateScaleBarsForImage(img);
+  });
+  refreshChannelPanel();
+  canvas.fire('object:modified', { target: canvas.getActiveObject() });
+}
+
+/** "Use file value": every selected image gets the pixel size stored in its file again (P3-T9a). */
+export function resetPixelSize() {
+  const images = selectedImages().filter(img => fileCalibration(img).pixelSizeUm != null);
+  if (!images.length) return;
+  images.forEach(img => {
+    registry[img.mfcId].rawImage.voxelSizeUm = fileCalibration(img).pixelSizeUm;
     updateScaleBarsForImage(img);
   });
   refreshChannelPanel();
