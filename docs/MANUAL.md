@@ -319,12 +319,32 @@ Choose **Pen / Path** (`P`) to draw lines, arrows and free outlines.
 - Click to add a straight node; click and drag to pull out Bézier handles for a curve. Straight and curved segments can be mixed.
 - Double-click or press Enter to finish, and Escape to cancel. Clicking the first node closes the path.
 - Shift constrains to 45° angles. Ctrl snaps to nearby nodes and object edges or centres.
-- Style: colour, width, opacity, dash style, line cap and join, and an **arrow** at the start and/or end.
+- Style: colour, width, opacity, dash style, line cap and join, and an arrowhead at the start and/or end: **Filled arrow** (a solid triangle) or **Open arrow** (two strokes in the line's width, cap and join, never dashed; the line runs to the tip).
 - An arrowhead is 4 times the line width long (at least 10 px), and 0.9 times its length wide. Like the line width, it keeps its size on the page when you resize the path, also when you stretch it unevenly or resize a group holding it. The line stops inside the arrowhead, near its base, so it does not show through the head and its cap never sticks out of the tip. On a curved arrow, the head follows the line under it, so the middle of its base sits on the curve.
 
 To change a path later, select it and click **Edit nodes**: drag nodes and handles, double-click a segment to insert a node, and use **Corner / Smooth**, **Delete node**, **Straight segment / Curve segment** and **Close path**. Hold Alt while dragging a smooth node's handle to break the symmetry. **Done editing** returns to normal selection.
 
 ![The arrow in inset B in node-editing mode, with its two nodes and the Pen / Path panel](images/08-pen-path.jpg)
+
+### Annotations (arrows, markers, ROIs, linked labels)
+
+Choose **Annotate** (`A`). The **Annotate** panel sets what a click on the figure places, its **Color** and **Size** (the height of a mark in pt; an arrow is three times as long):
+
+- **Filled arrow** and **Open arrow**: a Pen path coming from the upper right, its tip on the point clicked. Edit it afterwards like any path (nodes, arrow ends, width).
+- **Arrowhead only**: a filled head without a line, its tip on the point clicked, as used to point at cells.
+- **Asterisk**, **Dot**, **Triangle** and **Star** markers, centred on the point clicked. They are shapes: recolour them in the Shape panel.
+- **ROI box** and **ROI ellipse**: drag to draw a dashed outline (or dotted, long dash or solid: **ROI outline**). Shift keeps it square or round. Each ROI gets a label, "ROI 1", "ROI 2" (the first free number), just above it. The label follows the outline when you move or resize it; drag the label elsewhere and it keeps its new place from the outline. Deleting the outline deletes its label.
+
+The tool stays active for the next mark; after an ROI it goes back to Select with the outline selected.
+
+**Labels linked to the image.** Select an image, choose **Annotate**, then click:
+
+- **Channels**: the shown channel names, each in its channel's colour (as the [channel legend](#channel-legend)), in the top-left corner.
+- **Z position**: for a slice, its depth from the first slice ("z = 3.5 µm", or "z 8/25" when the file has no Z step); for a projection, the depth it covers ("MIP z 0–12 µm"). Bottom-left corner.
+- **Time**: the time of the frame shown, frame × interval ("t = 2:30 min"). The interval comes from the file (ImageJ `finterval`, in its time unit, or OME `TimeIncrement`); type it in **Frame interval (s)** when the file has none, or to replace it. Without an interval, the frame number ("t 6/40"). Top-right corner.
+- **Magnification**: for an inset made with the Inset tool, how much larger it shows its source pixels than the source image does ("3×"). Bottom-right corner.
+
+A linked label follows its image when it is moved or resized, and updates itself when you show another slice or frame, rename a channel or resize the inset. Drag it elsewhere (also outside the image) and it keeps that place. Edit its text and your text is kept from then on. Deleting the image deletes its labels; a label copied without its image is pasted as ordinary text.
 
 ## 13. Text and captions
 
@@ -336,7 +356,9 @@ Choose **Text** (`T`) and click where the label should go, including on top of a
 - **Box**: a text box has its own width and height, independent of the font size. Drag the side and top/bottom handles (or type W/H in the selection bar) to resize the box; corner handles scale the text itself. The **Size** field always shows the real font size.
 - **Alignment**: left / centre / right, and **Top / Middle / Bottom** inside the box. **Center both** centres it both ways.
 - **Box background** and **Box border** (with **Border width**) turn a text box into a caption or a label patch.
-- **Styling part of the text**: double-click into the text, highlight some words, and use the controls (colour, bold…). This is how superscripts and coloured words are made.
+- **Styling part of the text**: double-click into the text, highlight some words, and use the controls (colour, bold, italic…). Gene names in italics and coloured words are made this way.
+- **Superscript and subscript** (x² and x₂): highlight the characters (Ca²⁺, CO₂) and click the button; click it again to take it off. With nothing highlighted, it applies to the whole box. A superscript or subscript keeps its size and shift relative to the text when you change the font size, and exports at the same place in SVG, PDF and TIFF.
+- **Special characters**: open **Special characters** under the style buttons and click µ, °, ±, ×, ≤, ≥, Greek letters (α–ω, Γ, Δ, Σ, Φ, Ψ, Ω), arrows (← → ↑ ↓ ↔ ↕) or other signs (•, –, —, †, ‡, §, ∞, √): the character goes in at the caret, or replaces the highlighted text, and you can go on typing. Every one of them is in the three Liberation fonts, in all four styles, so PDF export embeds it.
 
 ![A caption box with a grey background and border, centred vertically](images/09b-text-box.jpg)
 
@@ -553,6 +575,7 @@ A preference is **global**: it is saved in this browser and used by every projec
 | `P` | Pen / Path tool |
 | `I` | Inset tool |
 | `L` | Channel legend tool |
+| `A` | Annotate tool (arrows, markers, ROIs, linked labels) |
 | `+` / `-` | Zoom in / out (around the selection) |
 | Ctrl+, | Preferences |
 | Ctrl+Shift+C | Copy for other software |

@@ -238,8 +238,16 @@ export function installPathRendering(path) {
     ctx.save();ctx.fillStyle=this.stroke||'#000';
     const draw=geometry=>{if(!geometry)return;ctx.beginPath();ctx.moveTo(geometry[0].x-this.pathOffset.x,geometry[0].y-this.pathOffset.y);
       ctx.lineTo(geometry[1].x-this.pathOffset.x,geometry[1].y-this.pathOffset.y);ctx.lineTo(geometry[2].x-this.pathOffset.x,geometry[2].y-this.pathOffset.y);ctx.closePath();ctx.fill();};
-    if(this.mfcArrowStart==='arrow')draw(pathArrowGeometry(this,true));
-    if(this.mfcArrowEnd==='arrow')draw(pathArrowGeometry(this,false));ctx.restore();
+    // Open arrowheads: a stroked chevron (corner, tip, corner) with the line's own width, cap and join;
+    // a strokeUniform path draws it in page pixels, like its line.
+    const open=geometry=>{if(!geometry)return;const s=this.strokeUniform?this.getObjectScaling():{scaleX:1,scaleY:1},sx=Math.abs(s.scaleX)||1,sy=Math.abs(s.scaleY)||1;
+      ctx.save();ctx.scale(1/sx,1/sy);ctx.beginPath();
+      [geometry[1],geometry[0],geometry[2]].forEach((q,i)=>ctx[i?'lineTo':'moveTo']((q.x-this.pathOffset.x)*sx,(q.y-this.pathOffset.y)*sy));
+      ctx.setLineDash([]);ctx.lineWidth=this.strokeWidth;ctx.strokeStyle=this.stroke||'#000';ctx.lineCap=this.strokeLineCap||'round';ctx.lineJoin=this.strokeLineJoin||'round';ctx.miterLimit=this.strokeMiterLimit||4;
+      ctx.stroke();ctx.restore();};
+    for(const atStart of [true,false]){const kind=atStart?this.mfcArrowStart:this.mfcArrowEnd;
+      if(kind==='arrow')draw(pathArrowGeometry(this,atStart));else if(kind==='open')open(pathArrowGeometry(this,atStart));}
+    ctx.restore();
   };
   const baseSVG=path._toSVG;
   path._toSVG=function(){
@@ -248,8 +256,9 @@ export function installPathRendering(path) {
     let parts;try{parts=baseSVG.call(this);}finally{this.path=original;}
     const color=String(this.stroke||'#000').replace(/"/g,'');
     const polygon=geometry=>geometry?`<polygon points="${geometry.map(p=>`${p.x},${p.y}`).join(' ')}" transform="translate(${-this.pathOffset.x} ${-this.pathOffset.y})" fill="${color}" stroke="none" opacity="${this.opacity}" />\n`:'';
-    if(this.mfcArrowStart==='arrow')parts.push(polygon(pathArrowGeometry(this,true)));
-    if(this.mfcArrowEnd==='arrow')parts.push(polygon(pathArrowGeometry(this,false)));
+    const chevron=geometry=>geometry?`<polyline points="${[geometry[1],geometry[0],geometry[2]].map(p=>`${p.x},${p.y}`).join(' ')}" transform="translate(${-this.pathOffset.x} ${-this.pathOffset.y})" fill="none" stroke="${color}" stroke-width="${this.strokeWidth}" stroke-linecap="${this.strokeLineCap||'round'}" stroke-linejoin="${this.strokeLineJoin||'round'}" opacity="${this.opacity}" />\n`:'';
+    for(const atStart of [true,false]){const kind=atStart?this.mfcArrowStart:this.mfcArrowEnd;
+      if(kind==='arrow')parts.push(polygon(pathArrowGeometry(this,atStart)));else if(kind==='open')parts.push(chevron(pathArrowGeometry(this,atStart)));}
     return parts;
   };
 }

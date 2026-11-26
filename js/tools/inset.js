@@ -14,6 +14,7 @@ import { setTool } from './tool-switch.js';
 import { applyLockState, refuseLocked } from '../ui/locks.js';
 import { selectedObjects } from '../ui/selection-bar.js';
 import { followPanel } from '../layout/letters.js';
+import { followAutoLabels } from './annotate.js';
 
 // ---- inset tool (draw an outline on an image, then "Create Inset" duplicates that
 // region as a separate, independently-editable image kept in sync with the outline) ----
@@ -327,6 +328,7 @@ export function syncAttachments(img) {
   updateScaleBarsForImage(img);
   followSourceImage(img);
   followPanel(img); // its panel letter
+  followAutoLabels(img); // its Z, time, channel and magnification labels
 }
 
 /** While an inset outline is being dragged out: resize it. Returns true if there was one. */

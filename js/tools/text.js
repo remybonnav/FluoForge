@@ -30,6 +30,13 @@ export function refreshTextPanel() {
   document.getElementById('text-bold').classList.toggle('active', active.fontWeight === 'bold');
   document.getElementById('text-italic').classList.toggle('active', active.fontStyle === 'italic');
   document.getElementById('text-underline').classList.toggle('active', !!active.underline);
+  // Super- and subscript: of the character at the caret (or the first highlighted one) while editing, else the first.
+  const at = active.isEditing ? active.selectionStart : (lastTextSelection && lastTextSelection.id === active.mfcId ? lastTextSelection.start : 0);
+  const script = scriptAt(active, at);
+  for (const kind of ['superscript', 'subscript']) {
+    const b = document.getElementById('text-' + kind);
+    if (b) { b.classList.toggle('active', script === kind); b.setAttribute('aria-pressed', String(script === kind)); }
+  }
   ['left', 'center', 'right'].forEach(a =>
     document.getElementById('text-align-' + a).classList.toggle('active', (active.textAlign || 'left') === a));
   ['top', 'middle', 'bottom'].forEach(a =>
@@ -52,6 +59,7 @@ export function normalizeTextScale(box) {
   if (Math.abs(sx - 1) < 1e-9 && Math.abs(sy - 1) < 1e-9) return false;
   Object.values(box.styles || {}).forEach(line => Object.values(line).forEach(style => {
     if (style.fontSize) style.fontSize = Math.max(1, style.fontSize * sy);
+    if (style.deltaY) style.deltaY *= sy; // a super- or subscript keeps its place
   }));
   const boxHeight = box.mfcBoxHeight ? box.mfcBoxHeight * sy : null;
   box.set({ fontSize: Math.max(1, Math.round(box.fontSize * sy)), width: Math.max(10, box.width * sx),
@@ -100,6 +108,15 @@ export let lastTextSelection = null; // {id, start, end} — captured while edit
                                // panel can still restyle a highlighted range after the
                                // panel control (e.g. color swatch) steals focus.
 export function forgetTextSelection() { lastTextSelection = null; }
+/** Remembers a caret or range of a text box for the panel (after a palette insert). */
+export function rememberTextSelection(sel) { lastTextSelection = sel; }
+/** 'superscript', 'subscript' or null: the script of the character at `index` (Fabric's deltaY style). */
+export function scriptAt(box, index) {
+  if (!box || !box.text) return null;
+  const loc = box.get2DCursorLocation(Math.max(0, Math.min(index, box.text.length - 1)), true);
+  const style = box.styles && box.styles[loc.lineIndex] && box.styles[loc.lineIndex][loc.charIndex];
+  return style && style.deltaY ? (style.deltaY < 0 ? 'superscript' : 'subscript') : null;
+}
 
 export function attachTextListeners(t) {
   t.on('selection:changed', () => {
@@ -120,6 +137,14 @@ export function attachTextListeners(t) {
 // strokeRect), while SVG export silently dropped it. Patched once, globally, on the
 // Text prototype (mfcBorderWidth defaults to 0/undefined on plain text boxes, so this
 // is a no-op for any textbox that never had a border applied).
+// Super- and subscripts (a deltaY style): Fabric writes both a dy attribute and a baseline-shift style on
+// their tspan. Chromium applies both (the character is raised twice as far), Firefox and svg2pdf only dy;
+// so exports keep dy alone, which every renderer reads the same way.
+const baseSpanStyles = fabric.Text.prototype.getSvgSpanStyles;
+fabric.Text.prototype.getSvgSpanStyles = function (style, useWhiteSpace) {
+  return baseSpanStyles.call(this, style, useWhiteSpace).replace(/baseline-shift: [^;]*; /, '');
+};
+
 fabric.util.object.extend(fabric.Text.prototype, {
   _toSVG: function () {
     const offsets = this._getSVGLeftTopOffsets();
@@ -278,7 +303,14 @@ export function applyTextStyleToBox(box, prop, value, allowRangeSelection) {
   } else {
     // A whole-box value must win over older per-character overrides, otherwise the
     // field would show a size that isn't what's drawn.
-    if (box.removeStyle) box.removeStyle(prop);
+    if (prop === 'fontSize') {
+      // Super- and subscripts keep their size and shift relative to the new size; other sizes go.
+      const ratio = value / (box.fontSize || value);
+      Object.values(box.styles || {}).forEach(line => Object.entries(line).forEach(([i, style]) => {
+        if (style.deltaY) { style.deltaY *= ratio; if (style.fontSize) style.fontSize *= ratio; }
+        else { delete style.fontSize; if (!Object.keys(style).length) delete line[i]; }
+      }));
+    } else if (box.removeStyle) box.removeStyle(prop);
     box.set(prop, value);
   }
   if (prop === 'fontSize') box.initDimensions();

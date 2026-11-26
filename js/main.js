@@ -75,7 +75,7 @@ const MFC_UI = (function () {
     if (force) { setPanelExpanded(panel, true); panel.scrollIntoView({ block: 'nearest' }); }
   }
   function focusSelection(object, tool, force = false) {
-    const tools = {crop:'panel-crop',text:'panel-text',scalebar:'panel-scalebar',shape:'panel-shape',path:'panel-path',inset:'panel-inset',legend:'panel-legend'};
+    const tools = {crop:'panel-crop',text:'panel-text',scalebar:'panel-scalebar',shape:'panel-shape',path:'panel-path',inset:'panel-inset',legend:'panel-legend',annotate:'panel-annotate'};
     let panel = tool !== 'select' ? tools[tool] : null;
     if (!panel && object) {
       panel = object.mfcShapeKind === 'path' ? 'panel-path' :
@@ -603,6 +603,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     else if (e.key.toLowerCase() === 'p' && !ctrl) { MFC.setTool('path'); }
     else if (e.key.toLowerCase() === 'i' && !ctrl) { MFC.setTool('inset'); }
     else if (e.key.toLowerCase() === 'l' && !ctrl) { MFC.setTool('legend'); }
+    else if (e.key.toLowerCase() === 'a' && !ctrl) { MFC.setTool('annotate'); }
     else if (!ctrl && (e.key === '+' || e.key === '=')) { e.preventDefault(); MFC.zoomIn(); }
     else if (!ctrl && (e.key === '-' || e.key === '_')) { e.preventDefault(); MFC.zoomOut(); }
     else if (!ctrl && e.key === '0') { MFC.zoomReset(); }

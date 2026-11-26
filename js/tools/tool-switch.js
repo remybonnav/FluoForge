@@ -5,6 +5,7 @@
 /* Switching tools: updates the toolbar, canvas selection mode and cursor, and activates or deactivates each tool. */
 
 import { canvas, documentOpen, setCurrentTool } from '../core/state.js';
+import * as annotateTool from './annotate.js';
 import * as cropTool from './crop.js';
 import * as insetTool from './inset.js';
 import * as legendTool from './legend.js';
@@ -20,6 +21,8 @@ export function setTool(tool) {
   if (!documentOpen) return;
   if (tool !== 'path') pathTool.deactivate();
   setCurrentTool(tool);
+  if (tool === 'annotate') annotateTool.activate(); // remembers the selected images (auto-labels go on them)
+  else annotateTool.deactivate();
   // Non-selectable flags do not stop Fabric dragging an object that is already
   // active. Creation tools must release that selection before the next pointer down.
   if (['inset','shape','path','text'].includes(tool)) canvas.discardActiveObject();
@@ -42,5 +45,6 @@ export function setTool(tool) {
   insetTool.refreshPanel();
   if (tool === 'legend') legendTool.activate();
   legendTool.refreshPanel();
+  annotateTool.refreshPanel();
   MFC_UI.focusSelection(canvas.getActiveObject(), tool);
 }

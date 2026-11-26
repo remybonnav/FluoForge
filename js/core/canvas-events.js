@@ -16,6 +16,7 @@ import { refreshScaleBarPreview } from '../tools/scalebar.js';
 import { endShapeDrag, moveShapeDrag, startShapeDrag } from '../tools/shape.js';
 import { attachTextListeners, forgetTextSelection, normalizeTextScale, refreshTextPanel } from '../tools/text.js';
 import { setTool } from '../tools/tool-switch.js';
+import { onMouseDown as annotateDown, onMouseMove as annotateMove, onMouseUp as annotateUp, onObjectModified as onAnnotationModified, onObjectMoving as onAnnotationMoving, onObjectRemoved as onAnnotationRemoved } from '../tools/annotate.js';
 import { refreshLayersPanel } from '../ui/layers.js';
 import { isTransformLocked } from '../ui/locks.js';
 import { onSelectionChanged, refreshSelectionBar } from '../ui/selection-bar.js';
@@ -41,6 +42,8 @@ export function init() {
     // Layout grids: a dropped panel swaps cells or leaves the grid, a resized grid rescales its cells.
     onGridModified(obj, e.action);
     onLettersModified(obj); // panel letters: an edited letter, and renumbering after a reorder
+    onAnnotationModified(obj); // a moved auto-label or ROI label keeps its new place
+    onAnnotationMoving(obj); // an ROI label follows its outline
     if (obj && obj.type === 'activeSelection') obj.getObjects().forEach(o => { if (o.mfcType === 'mfcImage') syncAttachments(o); });
     else if (obj && obj.mfcType === 'mfcImage') syncAttachments(obj);
     refreshSelectionBar();
@@ -70,7 +73,7 @@ export function init() {
   canvas.on('selection:updated', onSelectionChanged);
   canvas.on('selection:cleared', onSelectionChanged);
   canvas.on('object:added', e => { installGridObject(e.target); installFrameObject(e.target); if (!isHelper(e.target)) refreshLayersPanel(); });
-  canvas.on('object:removed', e => { onGridRemoved(e.target); onLettersRemoved(e.target); if (!isHelper(e.target)) refreshLayersPanel(); });
+  canvas.on('object:removed', e => { onGridRemoved(e.target); onLettersRemoved(e.target); onAnnotationRemoved(e.target); if (!isHelper(e.target)) refreshLayersPanel(); });
   canvas.on('text:changed', () => { /* debounced via object:modified on blur */ });
   canvas.on('mouse:down', (opt) => {
     // A highlighted range belongs to the editing session in which it was made; any new
@@ -91,6 +94,7 @@ export function init() {
     if (e.target.mfcType === 'mfcImage') { syncAttachments(e.target); }
     if (e.target.mfcType === 'insetContour') { syncInsetFromContour(e.target); updateInsetReadout(e.target); }
     onGridMoving(e.target); // a grid's panels and labels follow it
+    onAnnotationMoving(e.target);
     if (e.target.type === 'activeSelection') {
       e.target.getObjects().forEach(o => { if (o.mfcType === 'mfcImage') syncAttachments(o); });
     }
@@ -131,6 +135,7 @@ export function init() {
 
     if (obj.mfcType === 'mfcImage') { syncAttachments(obj); }
     if (obj.mfcType === 'insetContour') { syncInsetFromContour(obj); updateInsetReadout(obj); }
+    onAnnotationMoving(obj);
     refreshSelectionBar();
     if (obj.type === 'textbox') refreshTextPanel();
   });
@@ -165,6 +170,8 @@ export function onCanvasMouseDown(opt) {
     canvas.requestRenderAll();
     pushHistory();
     setTool('select');
+  } else if (currentTool === 'annotate') {
+    annotateDown(canvas.getPointer(opt.e));
   } else if (currentTool === 'shape') {
     startShapeDrag(canvas.getPointer(opt.e), opt.e);
   } else if (currentTool === 'inset' && opt.target && opt.target.mfcType === 'mfcImage') {
@@ -179,6 +186,7 @@ export function onCanvasMouseMove(opt) {
     return;
   }
   if (moveInsetDrag(opt)) return;
+  if (annotateMove(opt)) return;
   moveShapeDrag(opt);
 }
 
@@ -188,6 +196,7 @@ export function onCanvasMouseUp(opt) {
     return;
   }
   if (endInsetDrag()) return;
+  if (annotateUp()) return;
   endShapeDrag();
 }
 

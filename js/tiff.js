@@ -92,6 +92,7 @@ const MFC_TIFF = (function () {
       images: null,           // ImageJ total plane count (images=)
       unit: null,
       spacing: null,
+      frameIntervalS: null,   // time between frames (finterval=, in tunit=; seconds by default)
       globalMin: null,
       globalMax: null,
       perChannelRanges: null, // filled in later from IJMetadata, if present
@@ -118,6 +119,13 @@ const MFC_TIFF = (function () {
 
     const spacingMatch = desc.match(/spacing=([\d.eE+-]+)/i);
     if (spacingMatch) meta.spacing = parseFloat(spacingMatch[1]);
+
+    const intervalMatch = desc.match(/(?:^|\n)finterval=([\d.eE+-]+)/i);
+    if (intervalMatch) {
+      const tunit = (desc.match(/(?:^|\n)tunit=([^\s\r\n]+)/i) || [])[1];
+      const seconds = parseFloat(intervalMatch[1]) * (TIME_S[String(tunit || 's').toLowerCase()] || 0);
+      if (Number.isFinite(seconds) && seconds > 0) meta.frameIntervalS = seconds;
+    }
 
     const minMatch = desc.match(/min=([\d.eE+-]+)/i);
     const maxMatch = desc.match(/max=([\d.eE+-]+)/i);
@@ -358,6 +366,8 @@ const MFC_TIFF = (function () {
   // OME-XML (the ImageDescription of an OME-TIFF)
   // ---------------------------------------------------------------------
 
+  /** Seconds per time unit (ImageJ tunit=, OME TimeIncrementUnit). */
+  const TIME_S = { 'ms': 1e-3, 's': 1, 'sec': 1, 'second': 1, 'seconds': 1, 'min': 60, 'minute': 60, 'minutes': 60, 'h': 3600, 'hr': 3600, 'hour': 3600, 'hours': 3600 };
   /** Micrometres per unit of the OME length units (UnitsLength) a pixel size may use. */
   const LENGTH_UM = { 'Å': 1e-4, 'pm': 1e-6, 'nm': 1e-3, 'µm': 1, 'μm': 1, 'um': 1, 'mm': 1e3, 'cm': 1e4, 'dm': 1e5, 'm': 1e6,
     'in': 25400, 'ft': 304800, 'mil': 25.4 };
@@ -400,6 +410,8 @@ const MFC_TIFF = (function () {
       sizeC: count(pixels, 'SizeC', 1), sizeZ: count(pixels, 'SizeZ', 1), sizeT: count(pixels, 'SizeT', 1), order,
       pixelSizeUm, pixelSizeText: pixelSizeUm ? `${pixels.getAttribute('PhysicalSizeX')} ${sizeXUnit}` : null,
       zStepUm: length(pixels.getAttribute('PhysicalSizeZ'), pixels.getAttribute('PhysicalSizeZUnit')),
+      frameIntervalS: (() => { const v = Number(pixels.getAttribute('TimeIncrement')), f = TIME_S[String(pixels.getAttribute('TimeIncrementUnit') || 's').toLowerCase()];
+        return pixels.hasAttribute('TimeIncrement') && Number.isFinite(v) && v > 0 && f ? v * f : null; })(),
       significantBits: count(pixels, 'SignificantBits', null), type: pixels.getAttribute('Type') || null,
       channels: all(pixels, 'Channel').map(ch => {
         const colour = Number(ch.getAttribute('Color'));
@@ -713,7 +725,8 @@ const MFC_TIFF = (function () {
         channelsRaw.push({ data: null, bitDepth });
       }
       stack = { sizeC: channelCount, sizeZ: layout.sizeZ, sizeT: layout.sizeT, planes,
-        zStepUm: (ome && ome.zStepUm) || descMeta.spacing || null, cache: new Map() };
+        zStepUm: (ome && ome.zStepUm) || descMeta.spacing || null,
+        frameIntervalS: (ome && ome.frameIntervalS) || descMeta.frameIntervalS || null, cache: new Map() };
     } else {
       for (let k = 0; k < channelCount; k++) channelsRaw.push({ data: pagePlanes.get(layout.pageOf(Math.floor(k / kept), 0, 0))[k % kept], bitDepth });
     }

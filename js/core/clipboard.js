@@ -25,8 +25,11 @@ export async function pasteSelection() {
     if (o.mfcId) { const id = (o.mfcType || 'obj') + takeId(); idMap.set(o.mfcId, id); o.mfcId = id; }
   }));
   items.forEach(item => visit(item, o => {
-    for (const key of ['mfcAttachedTo','mfcInsetSourceId','mfcInsetContourId','mfcInsetTargetId','mfcLetterFor'])
+    for (const key of ['mfcAttachedTo','mfcInsetSourceId','mfcInsetContourId','mfcInsetTargetId','mfcLetterFor','mfcRoiFor'])
       if (idMap.has(o[key])) o[key] = idMap.get(o[key]);
+    // An auto-label or ROI label pasted without its image or outline is plain text.
+    if (o.mfcAutoLabel && typeof o.mfcAutoLabel === 'object') { if (idMap.has(o.mfcAutoLabel.for)) o.mfcAutoLabel.for = idMap.get(o.mfcAutoLabel.for); else delete o.mfcAutoLabel; }
+    if (o.mfcRoiFor && ![...idMap.values()].includes(o.mfcRoiFor)) { delete o.mfcRoiFor; delete o.mfcRoiOffset; }
     // A letter pasted without its panel is plain text (the panel keeps its own letter).
     if (o.mfcLetterFor && ![...idMap.values()].includes(o.mfcLetterFor)) delete o.mfcLetterFor;
     if (o.mfcType === 'insetContour' && ![...idMap.values()].includes(o.mfcInsetTargetId)) o.mfcInsetTargetId = null;

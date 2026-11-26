@@ -15,7 +15,7 @@
 <link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#07090C">
-<link rel="stylesheet" href="style.css?v=0.1.34">
+<link rel="stylesheet" href="style.css?v=0.1.35">
 </head>
 <body>
 
@@ -29,6 +29,7 @@
     <button id="tool-text" data-requires-document class="tool-btn" data-tool="text" title="Text tool (T)">A Text</button>
     <button id="tool-scalebar" data-requires-document class="tool-btn" data-tool="scalebar" title="Scale bar tool (S)">&#8213; Scale bar</button>
     <button id="tool-legend" data-requires-document class="tool-btn" data-tool="legend" title="Channel legend tool (L): select an image, then this tool, to add a text box with its channel names in their colours">&#9636; Legend</button>
+    <button id="tool-annotate" data-requires-document class="tool-btn" data-tool="annotate" title="Annotate tool (A): click to place arrows, arrowheads, asterisks and markers, drag for a dashed ROI; select an image first for its channel, Z, time or magnification label">&#8601; Annotate</button>
     <button id="tool-shape" data-requires-document class="tool-btn" data-tool="shape" title="Rectangle/square tool (R)">&#9633; Shape</button>
     <button id="tool-path" data-requires-document class="tool-btn" data-tool="path" title="Pen / Path tool (P)">&#9998; Pen / Path</button>
     <button id="tool-inset" data-requires-document class="tool-btn" data-tool="inset" title="Inset tool — draw an outline on an image (I)">&#8862; Inset</button>
@@ -441,6 +442,43 @@
       <button id="legend-add" title="Add a channel legend to each selected image">Add legend to selected image</button>
       <p id="legend-status" class="hint" role="status"></p>
     </section>
+    <section id="panel-annotate" class="panel hidden">
+      <h3>Annotate</h3>
+      <p class="hint">Click on the figure to place the chosen mark, pointing at or centred on the point clicked; drag for an ROI. Each mark is an ordinary shape or Pen path afterwards.</p>
+      <label title="What a click (or, for an ROI, a drag) on the figure places">Click places
+        <select id="annotate-place">
+          <option value="arrow">Filled arrow</option>
+          <option value="open-arrow">Open arrow</option>
+          <option value="arrowhead">Arrowhead only</option>
+          <option value="asterisk">Asterisk</option>
+          <option value="circle">Dot marker</option>
+          <option value="triangle">Triangle marker</option>
+          <option value="star">Star marker</option>
+          <option value="roi-rect">ROI box (drag)</option>
+          <option value="roi-ellipse">ROI ellipse (drag)</option>
+        </select>
+      </label>
+      <label title="Colour of the next mark, ROI and its label">Color <input type="color" id="annotate-color" value="#ffffff"></label>
+      <label title="Height of a mark in points; an arrow is three times as long">Size (pt) <input type="number" id="annotate-size" value="12" min="2" step="1"></label>
+      <label title="Line style of the next ROI outline">ROI outline
+        <select id="annotate-roi-dash">
+          <option value="dashed">Dashed</option>
+          <option value="dotted">Dotted</option>
+          <option value="longdash">Long dash</option>
+          <option value="solid">Solid</option>
+        </select>
+      </label>
+      <h4>Labels linked to the image</h4>
+      <div class="btn-row annotate-labels">
+        <button data-auto-label="channels" title="The image's shown channel names, each in its colour">Channels</button>
+        <button data-auto-label="z" title="The Z position of the slice shown, in µm (or the depth of the projection)">Z position</button>
+        <button data-auto-label="time" title="The time of the frame shown: the frame interval comes from the file, or type it below">Time</button>
+        <button data-auto-label="zoom" title="The magnification of an inset over its source image">Magnification</button>
+      </div>
+      <label title="Seconds between frames, for the time label; leave empty to use the file's own interval">Frame interval (s) <input type="number" id="annotate-interval" min="0" step="any"></label>
+      <p id="annotate-status" class="hint" role="status"></p>
+      <p class="hint">A label follows its image and updates with it (another slice, frame, channel name or inset size). Edit its text to keep your own.</p>
+    </section>
     <section id="panel-shape" class="panel hidden">
       <h3>Shape</h3>
       <div class="btn-row">
@@ -505,15 +543,17 @@
         </select>
       </label>
       <label>Start arrow
-        <select id="path-arrow-start">
+        <select id="path-arrow-start" title="Start of the path: no arrowhead, a filled one, or an open (line) one">
           <option value="none">None</option>
-          <option value="arrow">Arrow</option>
+          <option value="arrow">Filled arrow</option>
+          <option value="open">Open arrow</option>
         </select>
       </label>
       <label>End arrow
-        <select id="path-arrow-end">
+        <select id="path-arrow-end" title="End of the path: no arrowhead, a filled one, or an open (line) one">
           <option value="none">None</option>
-          <option value="arrow">Arrow</option>
+          <option value="arrow">Filled arrow</option>
+          <option value="open">Open arrow</option>
         </select>
       </label>
       <div class="btn-row path-edit-actions">
@@ -601,7 +641,13 @@
         <button id="text-bold" class="toggle-btn" title="Bold"><b>B</b></button>
         <button id="text-italic" class="toggle-btn" title="Italic"><i>I</i></button>
         <button id="text-underline" class="toggle-btn" title="Underline"><u>U</u></button>
+        <button id="text-superscript" class="toggle-btn" title="Superscript: the highlighted characters (or the whole box) raised and smaller, e.g. Ca²⁺" aria-pressed="false">x<sup>2</sup></button>
+        <button id="text-subscript" class="toggle-btn" title="Subscript: the highlighted characters (or the whole box) lowered and smaller, e.g. CO₂" aria-pressed="false">x<sub>2</sub></button>
       </div>
+      <details id="text-special">
+        <summary title="Insert µ, °, ±, Greek letters, arrows and other signs at the caret">Special characters</summary>
+        <div id="text-special-grid"></div>
+      </details>
       <div class="btn-row">
         <button id="text-align-left" class="toggle-btn active" title="Align left" style="width:auto;padding:6px 10px;">&#8676;</button>
         <button id="text-align-center" class="toggle-btn" title="Center" style="width:auto;padding:6px 10px;">&#8596;</button>
@@ -630,14 +676,14 @@
 <script src="assets/vendor/jszip.min.js"></script>
 
 <!-- ======================= APP ======================= -->
-<script src="js/debug.js?v=0.1.34"></script>
-<script src="js/errors.js?v=0.1.34"></script>
-<script src="js/tiff.js?v=0.1.34"></script>
-<script type="module" src="js/app.js?v=0.1.34"></script>
+<script src="js/debug.js?v=0.1.35"></script>
+<script src="js/errors.js?v=0.1.35"></script>
+<script src="js/tiff.js?v=0.1.35"></script>
+<script type="module" src="js/app.js?v=0.1.35"></script>
 <script defer src="assets/vendor/svg2pdf.umd.min.js"></script>
-<script defer src="js/project.js?v=0.1.34"></script>
-<script defer src="js/autosave.js?v=0.1.34"></script>
-<script defer src="js/export.js?v=0.1.34"></script>
-<script defer src="js/main.js?v=0.1.34"></script>
+<script defer src="js/project.js?v=0.1.35"></script>
+<script defer src="js/autosave.js?v=0.1.35"></script>
+<script defer src="js/export.js?v=0.1.35"></script>
+<script defer src="js/main.js?v=0.1.35"></script>
 </body>
 </html>

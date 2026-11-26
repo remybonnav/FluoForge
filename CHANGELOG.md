@@ -4,6 +4,16 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.35 (2026-11-26)
+
+- **Microscopy annotations (P3-T8).**
+  - Pen paths have **Open arrow** ends (a stroked chevron) besides filled ones.
+  - The **Annotate** tool (`A`) places, with a click, a filled or open arrow pointing at the point, an arrowhead alone, an asterisk, or a dot, triangle or star marker, in the panel's colour and size. A drag draws a dashed ROI box or ellipse with a numbered label ("ROI 1") that follows it.
+  - Labels linked to an image: channel names in their colours, Z position in µm (or the projection's depth), time stamp (the frame interval read from ImageJ `finterval` or OME `TimeIncrement`, or typed once) and the magnification of an inset. They follow the image, update when the slice, frame, channel names or inset size change, keep an edited text, and go with their image.
+  - The Text panel has **Superscript** and **Subscript** toggles and a **Special characters** palette (µ, °, ±, Greek letters, arrows…); every palette character is embedded in PDF in all twelve Liberation faces.
+  - SVG, PDF and TIFF exports put a superscript or subscript at the same height: the SVG no longer carries a second, `baseline-shift` copy of the shift, which Chromium added to the first.
+  - Changing a text box's font size keeps its superscripts and subscripts in proportion instead of resetting their size.
+
 ## v0.1.34 (2026-11-25)
 
 - **Rulers, guides and smart snapping (P3-T7).**

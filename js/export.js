@@ -102,11 +102,16 @@ const MFC_EXPORT = (() => {
         style = style.replace(/stroke-dasharray: [^;]+;/, 'stroke-dasharray: ' + this.strokeDashArray.map(n => fixed(n / groupScale)).join(' ') + ';');
       const markup = ['<path style="' + style + '" d="' + d + '" />\n'];
       // Pen paths: arrowheads are filled triangles in the same command coordinates.
+      // Open arrowheads: a stroked chevron (corner, tip, corner) with the line's width, cap and join, never dashed.
       if (this.mfcShapeKind === 'path' && MFC.pathArrowGeometry) for (const atStart of [true, false]) {
-        if ((atStart ? this.mfcArrowStart : this.mfcArrowEnd) !== 'arrow') continue;
+        const kind = atStart ? this.mfcArrowStart : this.mfcArrowEnd;
+        if (kind !== 'arrow' && kind !== 'open') continue;
         const tri = MFC.pathArrowGeometry(this, atStart);
-        if (tri) markup.push('<polygon points="' + tri.map(p => at(p.x - this.pathOffset.x, p.y - this.pathOffset.y).replace(' ', ',')).join(' ') +
-          '" fill="' + String(this.stroke).replace(/"/g, '') + '" stroke="none" opacity="' + this.opacity + '" />\n');
+        if (!tri) continue;
+        const color = String(this.stroke).replace(/"/g, ''), point = p => at(p.x - this.pathOffset.x, p.y - this.pathOffset.y).replace(' ', ',');
+        if (kind === 'arrow') markup.push('<polygon points="' + tri.map(point).join(' ') + '" fill="' + color + '" stroke="none" opacity="' + this.opacity + '" />\n');
+        else markup.push('<polyline points="' + [tri[1], tri[0], tri[2]].map(point).join(' ') + '" fill="none" stroke="' + color + '" stroke-width="' + fixed(this.strokeWidth / groupScale) +
+          '" stroke-linecap="' + (this.strokeLineCap || 'round') + '" stroke-linejoin="' + (this.strokeLineJoin || 'round') + '" opacity="' + this.opacity + '" />\n');
       }
       return markup.join('');
     };
