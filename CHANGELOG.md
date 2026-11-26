@@ -4,6 +4,10 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.38 (2026-11-26)
+
+- **Specific frames or slices in a series montage (P3-T9b).** The Series dialog's **Show** choice adds **Specific frames** (or **Specific slices**): type the planes as `1, 2, 5, 10` or `1, 5, 12-20`, and the panels follow your order. Mistakes are named ("Frame 130 is outside the series…") and turn **Create** off.
+
 ## v0.1.37 (2026-11-26)
 
 - **Calibration fields with warnings (P3-T9a).**

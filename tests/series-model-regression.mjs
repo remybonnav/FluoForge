@@ -28,6 +28,17 @@ export async function runSeriesModelRegressions() {
   assert('The default step shows the whole series in about eight panels', S.defaultStep(121) === 16 && S.seriesPlanes(121, { step: S.defaultStep(121) }).length === 8 &&
     S.defaultStep(5) === 1 && S.defaultStep(1) === 1);
 
+  // ---- specific planes (P3-T9b) ----
+  assert('A typed list: those planes, in that order', S.parsePlanes('1, 2, 5, 10', 121).join() === '0,1,4,9' && S.parsePlanes('10 2;5', 10).join() === '9,1,4');
+  assert('Ranges, counting up or down, mixed with numbers', S.parsePlanes('1, 5, 12-15', 121).join() === '0,4,11,12,13,14' && S.parsePlanes('4-2, 7', 10).join() === '3,2,1,6' && S.parsePlanes('3–4', 10).join() === '2,3');
+  assert('A plane may come more than once', S.parsePlanes('2, 2', 5).join() === '1,1');
+  assert('An empty list, a word or a bad range is refused with an example', fails(() => S.parsePlanes(' ', 10, 'z'), /Type the slices to show, such as 1, 2, 5, 10/) &&
+    fails(() => S.parsePlanes('1, x', 10), /"x" is not a frame number or range/) && fails(() => S.parsePlanes('1-', 10), /"1-" is not/) && fails(() => S.parsePlanes('1.5', 10), /not a frame number/));
+  assert('A plane outside the series is named', fails(() => S.parsePlanes('0', 10), /Frame 0 is outside the series: enter frames between 1 and 10/) && fails(() => S.parsePlanes('3-12', 10, 'z'), /Slice 12 is outside/));
+  assert(`At most ${S.MAX_PANELS} panels from a list too`, fails(() => S.parsePlanes('1-121', 121), /121 panels; at most 100: type fewer frames/) && S.parsePlanes('1-100', 121).length === 100);
+  assert('A one-plane image has no list either', fails(() => S.parsePlanes('1', 1, 'z'), /single slice/));
+  assert('Planes print back as a list to edit, runs of three or more joined', S.formatPlanes([0, 4, 11, 12, 13, 14]) === '1, 5, 12-15' && S.formatPlanes([0, 1, 3]) === '1, 2, 4' && S.formatPlanes([4, 3, 2]) === '5, 4, 3');
+
   // ---- shape ----
   assert('A strip: one row of every panel', JSON.stringify(S.gridShape(7)) === '{"columns":7,"rows":1}' && JSON.stringify(S.gridShape(7, 0)) === '{"columns":7,"rows":1}');
   assert('A grid: the columns asked, as many rows as needed', JSON.stringify(S.gridShape(7, 3)) === '{"columns":3,"rows":3}' && JSON.stringify(S.gridShape(8, 4)) === '{"columns":4,"rows":2}');

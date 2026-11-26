@@ -10,6 +10,7 @@
      plane (Z display of a time series) reach them all, and the grid is laid out again;
    - save and reopen keep planes, links and labels; copy and paste make a montage of its own; SVG, PDF
      and TIFF export; replacing the image keeps each panel's plane; a template frame keeps its place;
+   - specific planes typed as "1, 2, 5, 12-20", in their order (P3-T9b);
    - refusals with messages; the dialog (button, fields, summary, errors, keyboard). */
 async function runSeriesRegressions() {
   const checks = [];
@@ -91,7 +92,26 @@ async function runSeriesRegressions() {
     assert('…and the summary its shape', /^3 panels \(2 × 2\)/.test($('sm-summary').textContent));
     $('sm-axis').value = 'z'; $('sm-axis').dispatchEvent(new Event('change', { bubbles: true }));
     assert('Choosing Z slices resets the range to the 5 slices', $('sm-to').value === '5' && $('sm-from').value === '1' && /slices 1, 2, 3, 4, 5/.test($('sm-summary').textContent) && /1 to 5/.test($('sm-to').title));
+    // ---- specific planes (P3-T9b) ----
+    assert('Planes by range and step at first; the list field is hidden', $('sm-pick').value === 'range' && $('sm-list').disabled && $('sm-list').closest('label').classList.contains('hidden'));
+    $('sm-pick').value = 'list'; $('sm-pick').dispatchEvent(new Event('change', { bubbles: true }));
+    assert('"Specific slices" shows the list, filled with the range\'s planes, and hides the range', $('sm-pick').selectedOptions[0].textContent === 'Specific slices' &&
+      !$('sm-list').disabled && !$('sm-list').closest('label').classList.contains('hidden') && $('sm-list').value === '1-5' &&
+      [$('sm-from'), $('sm-to'), $('sm-step')].every(i => i.disabled && i.closest('label').classList.contains('hidden')) && /1 to 5/.test($('sm-list').title));
+    set('sm-list', '5, 1 3');
+    assert('A typed list: those slices in that order', /^3 panels \(2 × 2\): slices 5, 1, 3\.$/.test($('sm-summary').textContent) && !$('sm-ok').disabled, $('sm-summary').textContent);
+    set('sm-list', '1, 9');
+    assert('A slice outside the series: a message, and Create is off', /Slice 9 is outside the series: enter slices between 1 and 5/.test(dialog.querySelector('.export-error').textContent) && $('sm-ok').disabled);
+    set('sm-list', '2, two');
+    assert('Text that is not a number: a message', /"two" is not a slice number or range/.test(dialog.querySelector('.export-error').textContent) && $('sm-ok').disabled);
+    set('sm-list', '');
+    assert('An empty list: a message', /Type the slices to show/.test(dialog.querySelector('.export-error').textContent) && $('sm-ok').disabled);
+    set('sm-list', '1, 2, 3, 4, 5, 1, 3, 5');
+    assert('A long typed list is said back whole, runs joined, not shortened', /^8 panels .*: slices 1-5, 1, 3, 5\.$/.test($('sm-summary').textContent), $('sm-summary').textContent);
+    set('sm-list', '4-2');
+    assert('A range counting down', /slices 4, 3, 2\./.test($('sm-summary').textContent));
     const items = [...dialog.querySelectorAll('input:not([disabled]), select:not([disabled]), button:not([disabled])')];
+    assert('The hidden range fields are out of the Tab order', !items.includes($('sm-from')) && items.includes($('sm-list')));
     items.at(-1).focus(); dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
     assert('Tab from the last control goes back to the first (the focus stays in the dialog)', document.activeElement === items[0]);
     dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
@@ -238,6 +258,26 @@ async function runSeriesRegressions() {
       zt.map(p => value(p)).join() === '130,330,530', zt.map(p => value(p)).join());
     canvas.discardActiveObject();
 
+    // ================= Specific frames, from the dialog (P3-T9b) =================
+    const pick = await importOne(makeTiff('pick.tif', { C: 1, Z: 1, T: 6 }), { left: 40, top: 700, scaleX: 2, scaleY: 2 });
+    canvas.setActiveObject(pick); button.click(); await frame();
+    $('sm-pick').value = 'list'; $('sm-pick').dispatchEvent(new Event('change', { bubbles: true }));
+    $('sm-layout').value = 'strip'; $('sm-layout').dispatchEvent(new Event('change', { bubbles: true }));
+    $('sm-list').value = '6, 2, 4'; $('sm-list').dispatchEvent(new Event('input', { bubbles: true }));
+    $('sm-ok').click(); await idle();
+    const picked = group(pick.mfcMontageGroup);
+    assert('Frames 6, 2, 4 make three panels in that order, each showing its frame', picked.length === 3 && picked[0] === pick &&
+      picked.map(p => rawOf(p).tIndex).join() === '5,1,3' && picked.map(p => value(p)).join() === '150,110,130', picked.map(p => rawOf(p).tIndex).join());
+    assert('…labelled with their times and named with their frames', picked.map(p => labelOf(p).text).join() === 't = 2:30 min,t = 30 s,t = 1:30 min' &&
+      picked.map(p => p.mfcFileName).join() === 'pick.tif (frame 6),pick.tif (frame 2),pick.tif (frame 4)', picked.map(p => labelOf(p).text).join());
+    assert('…laid out left to right in that order', picked[0].left < picked[1].left && picked[1].left < picked[2].left);
+    canvas.discardActiveObject(); const other = await importOne(makeTiff('pick2.tif', { C: 1, Z: 1, T: 4 }), { left: 600, top: 700, scaleX: 2, scaleY: 2 });
+    canvas.setActiveObject(other); button.click(); await frame();
+    assert('The dialog remembers "Specific frames", with this file\'s frames to edit', $('sm-pick').value === 'list' && $('sm-list').value === '1-4');
+    dialog = document.querySelector('.series-modal'); dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    assert('seriesMontage takes a typed list too', (await S.seriesMontage(other, { axis: 't', list: '4 1' })).map(p => rawOf(p).tIndex).join() === '3,0');
+    canvas.discardActiveObject();
+
     // ================= Refusals =================
     const fails = async (fn, re) => { try { await fn(); return false; } catch (e) { return re.test(e.message); } };
     const flat = await importOne(makeTiff('flat.tif', { C: 1, Z: 1, T: 1 }), { left: 900, top: 700, scaleX: 2, scaleY: 2 });
@@ -246,6 +286,7 @@ async function runSeriesRegressions() {
     const tonly = await importOne(makeTiff('tonly.tif', { C: 1, Z: 1, T: 3 }), { left: 900, top: 800, scaleX: 2, scaleY: 2, angle: 0 });
     assert('A Z series of a time series without Z is refused', await fails(() => S.seriesMontage(tonly, { axis: 'z' }), /not a Z stack/));
     assert('A range outside the series is refused with its message', await fails(() => S.seriesMontage(tonly, { axis: 't', to: 9 }), /last frame between 1 and 3/));
+    assert('A typed frame outside the series is refused with its message', await fails(() => S.seriesMontage(tonly, { axis: 't', list: '1, 7' }), /Frame 7 is outside the series/) && !tonly.mfcMontageGroup);
     tonly.set({ angle: 15 }); tonly.setCoords();
     assert('A rotated image is refused', await fails(() => S.seriesMontage(tonly, { axis: 't' }), /rotated/) && !tonly.mfcMontageGroup);
     canvas.setActiveObject(flat); $('toast').textContent = ''; button.click();

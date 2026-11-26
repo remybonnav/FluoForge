@@ -27,8 +27,9 @@ import { groupParts, layoutRow, mmToPx } from './montage.js';
 import * as S from './series-model.js';
 
 /** The options of the next series montage: axis (null: the image's own), range (null: all), step
-    (null: about eight panels), columns (0: a strip), gap in mm, labels. */
-export const seriesOptions = { axis: null, from: null, to: null, step: null, columns: 0, gapMm: 1, labels: true };
+    (null: about eight panels), pick ('range' or 'list': how the dialog picks planes), columns (0: a
+    strip), gap in mm, labels. */
+export const seriesOptions = { axis: null, from: null, to: null, step: null, pick: 'range', columns: 0, gapMm: 1, labels: true };
 
 const isImage = o => !!(o && o.mfcType === 'mfcImage' && registry[o.mfcId]);
 const stackOf = img => (isImage(img) ? registry[img.mfcId].rawImage.stack || null : null);
@@ -84,7 +85,8 @@ function showPlane(panel, axis, index) {
 
 /**
  * Turns `img` (a Z stack or time series) into a series montage. Options: axis ('z' | 't'), from and
- * to (1-based planes), step, columns (0: a strip), gapMm, labels. Throws with a message when the image
+ * to (1-based planes) and step, or `list` (typed planes such as "1, 2, 5, 12-20", in their order) or
+ * `planes` (0-based); columns (0: a strip), gapMm, labels. Throws with a message when the image
  * or the range cannot be used. One History step. Resolves to the panels, in series order.
  */
 export async function seriesMontage(img, options = {}) {
@@ -92,7 +94,10 @@ export async function seriesMontage(img, options = {}) {
   const why = seriesRefusal(img, axis);
   if (why) throw new Error(why);
   const size = seriesSize(img, axis);
-  const planes = S.seriesPlanes(size, { from: options.from ?? 1, to: options.to ?? size, step: options.step ?? S.defaultStep(size) }, axis);
+  // Specific planes (P3-T9b): a typed list, or its planes (0-based); else a range and step.
+  const planes = typeof options.list === 'string' ? S.parsePlanes(options.list, size, axis)
+    : Array.isArray(options.planes) ? S.parsePlanes(options.planes.map(p => p + 1).join(','), size, axis)
+      : S.seriesPlanes(size, { from: options.from ?? 1, to: options.to ?? size, step: options.step ?? S.defaultStep(size) }, axis);
   canvas.discardActiveObject(); // page coordinates for the image
   const { columns, rows } = S.gridShape(planes.length, options.columns || 0);
   const gap = mmToPx(options.gapMm ?? 1);
