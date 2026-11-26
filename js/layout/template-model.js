@@ -24,7 +24,8 @@ export const FRAME_STYLE = { fill: 'rgba(120,130,150,0.12)', stroke: '#8a94a6', 
 
 const copy = value => JSON.parse(JSON.stringify(value));
 /** Image fields that hold pixels or point at a file: a template keeps none of them. */
-const IMAGE_ONLY = ['sourceId', 'workingScale', 'cropX', 'cropY', 'filters', 'display', 'src', 'crossOrigin', 'mfcRawWidth', 'mfcRawHeight', 'mfcFileName', 'resizeFilter'];
+const IMAGE_ONLY = ['sourceId', 'workingScale', 'cropX', 'cropY', 'filters', 'display', 'src', 'crossOrigin', 'mfcRawWidth', 'mfcRawHeight', 'mfcFileName', 'resizeFilter',
+  'mfcVectorSource', 'mfcVectorDpi', 'mfcRasterised'];
 /** An inset view's links, kept on its frame under other names (the inset code would act on them). */
 const INSET_LINKS = ['mfcIsInset', 'mfcInsetContourId', 'mfcInsetSourceId'];
 
@@ -60,11 +61,11 @@ export function imageToFrame(json) {
 
 /** An object of a saved figure with its images (also inside groups) turned into frames. */
 function stripObject(json) {
-  if (json.mfcType === 'mfcImage') return imageToFrame(json);
+  if (json.mfcType === 'mfcImage' || json.mfcType === 'mfcVector') return imageToFrame(json); // a plot leaves a frame too (P3-T10)
   const out = copy(json);
   if (Array.isArray(json.objects)) out.objects = json.objects.map(stripObject);
   // A shape crop of an image goes with the image; others stay.
-  if (json.clipPath && json.clipPath.mfcType === 'mfcImage') delete out.clipPath;
+  if (json.clipPath && (json.clipPath.mfcType === 'mfcImage' || json.clipPath.mfcType === 'mfcVector')) delete out.clipPath;
   return out;
 }
 

@@ -10,6 +10,8 @@ const MFC_PROJECT = (() => {
   // Migrations are ES modules (pure functions on JSON), loaded the first time a project is opened.
   const MIGRATIONS_URL = new URL('migrations/index.js', document.currentScript?.src || new URL('js/', document.baseURI)).href;
   let migrations = null;
+  // Vector panels (P3-T10) are drawn by an ES module, loaded the first time one is restored.
+  const VECTOR_URL = new URL('image/vector.js', document.currentScript?.src || new URL('js/', document.baseURI)).href;
   const loadMigrations = () => (migrations ||= import(MIGRATIONS_URL).then(module => {
     if (module.CURRENT_SCHEMA !== SCHEMA) throw new Error(`js/migrations/index.js is at format ${module.CURRENT_SCHEMA}, js/project.js at ${SCHEMA}.`);
     return module;
@@ -44,19 +46,25 @@ const MFC_PROJECT = (() => {
   async function registerSource(blob, raw, suppliedId) {
     if (!blob) throw new Error('The original image file is required to save this source.');
     const id = suppliedId || 'src-' + await hashBlob(blob);
-    if (!sources.has(id)) sources.set(id, { id, name: blob.name || raw.fileName || 'image.tif',
-      type: blob.type || 'application/octet-stream', format: raw.sourceFormat || 'tiff', blob });
-    if (raw) decoded.set(id + '|' + (raw.decoder === 2 ? 2 : 1), raw);
+    if (!sources.has(id)) sources.set(id, { id, name: blob.name || (raw && raw.fileName) || 'image.tif',
+      type: blob.type || 'application/octet-stream', format: (raw && raw.sourceFormat) || 'tiff', blob });
+    // A decoded image is kept for its views; a vector panel's source (P3-T10) has no channels.
+    if (raw && raw.channels) decoded.set(id + '|' + (raw.decoder === 2 ? 2 : 1), raw);
     return id;
   }
   function propsFor(obj) { return [...Object.keys(obj).filter(k => k.startsWith('mfc') && k !== 'mfcIsPageBounds'), 'inverted', 'absolutePositioned']; }
   function serializeObject(obj, top = false) {
     let json;
-    if (obj.mfcType === 'mfcImage' || obj.type === 'group') {
+    if (obj.mfcType === 'mfcImage' || obj.mfcType === 'mfcVector' || obj.type === 'group') {
       // Calling Image/Group.toObject would embed preview PNGs, including nested ones.
       json = fabric.Object.prototype.toObject.call(obj, propsFor(obj));
       json.type = obj.type;
     } else json = obj.toObject(propsFor(obj));
+    if (obj.mfcType === 'mfcVector') {
+      // A vector panel (P3-T10): its SVG source, stored once; a type older versions keep without drawing.
+      if (!obj.mfcVectorSource || !sources.has(obj.mfcVectorSource)) throw new Error('Missing original source for ' + obj.mfcFileName);
+      Object.assign(json, { type: 'mfcVector', sourceId: obj.mfcVectorSource, cropX: obj.cropX || 0, cropY: obj.cropY || 0 });
+    }
     if (obj.type === 'group') json.objects = obj.getObjects().map(o => serializeObject(o));
     if (obj.mfcType === 'mfcImage') {
       const entry = MFC.getRegistry()[obj.mfcId];
@@ -116,7 +124,7 @@ const MFC_PROJECT = (() => {
     const options = copy(json); delete options.objects; delete options.clipPath;
     delete options.display; delete options.sourceId; delete options.workingScale;
     let obj;
-    if (json.mfcType !== 'mfcImage' && !(json.type && fabric.util.getKlass(json.type, 'fabric'))) {
+    if (json.mfcType !== 'mfcImage' && json.mfcType !== 'mfcVector' && !(json.type && fabric.util.getKlass(json.type, 'fabric'))) {
       const error = new Error(`This figure contains a "${json.mfcType || json.type || 'unknown'}" object from a newer FluoForge, which this version cannot draw.`);
       error.name = 'UnsupportedObject'; throw error;
     }
@@ -128,6 +136,9 @@ const MFC_PROJECT = (() => {
       const workingScale = json.workingScale || MFC_TIFF.workingScale(raw.width, raw.height);
       obj = new fabric.Image(forExport ? document.createElement('canvas') : await MFC_TIFF.composite(raw, workingScale, null, null, null, { cache: true }), options);
       registry[json.mfcId] = { rawImage: raw, workingScale, sourceId: json.sourceId, sourceBlob: sources.get(json.sourceId).blob };
+    } else if (json.mfcType === 'mfcVector') {
+      delete options.type;
+      obj = await (await import(VECTOR_URL)).restoreVector(json, options, forExport);
     } else if (json.type === 'group') {
       const children = [];
       for (const child of json.objects || []) children.push(await restoreObject(child, registry, forExport));
@@ -150,7 +161,7 @@ const MFC_PROJECT = (() => {
     }
     for (const key of Object.keys(json).filter(k => k.startsWith('mfc'))) obj[key] = json[key];
     // Fields from a newer version that toObject would drop are kept and written back unchanged.
-    const written = forExport ? null : obj.mfcType === 'mfcImage' || obj.type === 'group' ? fabric.Object.prototype.toObject.call(obj, propsFor(obj)) : obj.toObject(propsFor(obj));
+    const written = forExport ? null : obj.mfcType === 'mfcImage' || obj.mfcType === 'mfcVector' || obj.type === 'group' ? fabric.Object.prototype.toObject.call(obj, propsFor(obj)) : obj.toObject(propsFor(obj));
     const unknown = written ? Object.keys(json).filter(key => !(key in written) && !WRITTEN_KEYS.includes(key)) : [];
     if (unknown.length) obj.ffUnknownFields = Object.fromEntries(unknown.map(key => [key, copy(json[key])]));
     if (json.clipPath) obj.clipPath = await restoreObject(json.clipPath, registry, forExport);

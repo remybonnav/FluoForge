@@ -10,6 +10,7 @@
      { dpi, preset: { name, minFontPt, maxFontPt, minDpi },
        images: [{ id, name, page, box: {left, top, width, height}, inset, insetContour,
                   pixelSizeUm, brightness, contrast, compareGroup, effectivePpi, enlarged,
+                  rasterised (null, or { from: 'pdf', page, dpi }: a PDF page imported as an image, P3-T10),
                   channels: [{ index, name, enabled, color, lut, min, max, gamma, saturated, black }] }],
        scaleBars: [{ id, attachedTo, page, box }],
        texts: [{ id, text, page, box, minPt, maxPt }],
@@ -145,6 +146,13 @@ export function resolutionRule(ctx) {
     (image.effectivePpi < minDpi - 0.05 ? `, below ${minDpi} dpi` : '') + '. Print it smaller or use a higher-resolution source.'));
 }
 
+/** A PDF page imported as an image (P3-T10): it is not vector, and says so. */
+export function rasterisedRule(ctx) {
+  return ctx.images.filter(onPage).filter(image => image.rasterised).map(image => finding('rasterised', 'info', [image.id],
+    `${label(image)} is page ${image.rasterised.page} of a PDF, rasterised at ${image.rasterised.dpi} dpi: it is an image, not vector. ` +
+    'To keep a plot vector in SVG and PDF export, export it as SVG and import that instead.'));
+}
+
 /** Text smaller or larger than the preset's limits at print size. */
 export function textSizeRule(ctx) {
   const p = ctx.preset || DEFAULT_PRESET;
@@ -173,7 +181,7 @@ export function emptyFrameRule(ctx) {
 }
 
 export const RULES = [comparisonRule, scaleBarRule, redGreenRule, channelLabelRule, clippingRule, resolutionRule, textSizeRule,
-  insetOutlineRule, pixelSizeRule, adjustmentRule, pasteboardRule, emptyFrameRule];
+  insetOutlineRule, pixelSizeRule, adjustmentRule, pasteboardRule, emptyFrameRule, rasterisedRule];
 
 export const findingKey = f => f.rule + ':' + f.objects.join(',') + (f.detail != null ? ':' + f.detail : '');
 

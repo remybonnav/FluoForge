@@ -14,7 +14,7 @@ import { getPreference } from '../core/preferences.js';
 import { cropRect } from '../tools/crop.js';
 import { computeSpacingSnap, guideTarget } from './guides-model.js';
 import { snapGuideLines } from './guides.js';
-import { syncAttachments, syncInsetFromContour } from '../tools/inset.js';
+import { hasAttachments, syncAttachments, syncInsetFromContour } from '../tools/inset.js';
 import { refuseLocked } from '../ui/locks.js';
 import { refreshSelectionBar } from '../ui/selection-bar.js';
 
@@ -132,9 +132,9 @@ export function nudgeSelection(dx, dy, snap) {
   if (snap && (Math.abs(dx) > SNAP_THRESHOLD_SCREEN_PX || Math.abs(dy) > SNAP_THRESHOLD_SCREEN_PX)) { snapObjectPosition(active); guides = null; }
   active.setCoords();
 
-  if (active.mfcType === 'mfcImage') syncAttachments(active);
+  if (hasAttachments(active)) syncAttachments(active);
   if (active.type === 'activeSelection') {
-    active.getObjects().forEach(o => { if (o.mfcType === 'mfcImage') syncAttachments(o); });
+    active.getObjects().forEach(o => { if (hasAttachments(o)) syncAttachments(o); });
   }
   if (active.mfcType === 'insetContour') syncInsetFromContour(active);
   canvas.requestRenderAll();

@@ -4,6 +4,15 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.39 (2026-11-26)
+
+- **Vector panels from other tools (P3-T10).**
+  - **Import Image** takes SVG plots from R, Python, Prism and other tools. A plot becomes a vector panel at its size on paper and stays vector in SVG and PDF export: its own paths and text, not a picture. It moves, resizes, rotates, crops, takes a panel letter and is saved in the project once, like an image.
+  - Its text is set in the embedded Liberation fonts (Arial and other sans-serif fonts become Liberation Sans, Times Liberation Serif, Courier Liberation Mono), so the canvas and every export look the same; a message names the fonts replaced.
+  - SVG files with scripts, event handlers, HTML content, animation or links to files outside them are refused with a message.
+  - A PDF page can be imported as a fallback: it is rasterised at the document's dpi (a dialog asks which page) and labelled as rasterised in its name, a message and the figure check.
+  - pdf.js 6.5.438 (Apache-2.0) is bundled for reading PDF pages; it is loaded only when a PDF is imported.
+
 ## v0.1.38 (2026-11-26)
 
 - **Specific frames or slices in a series montage (P3-T9b).** The Series dialog's **Show** choice adds **Specific frames** (or **Specific slices**): type the planes as `1, 2, 5, 10` or `1, 5, 12-20`, and the panels follow your order. Mistakes are named ("Frame 130 is outside the series…") and turn **Create** off.

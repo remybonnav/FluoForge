@@ -6,7 +6,7 @@
 
 import { pushHistory } from '../core/history.js';
 import { canvas } from '../core/state.js';
-import { syncAttachments } from '../tools/inset.js';
+import { hasAttachments, syncAttachments } from '../tools/inset.js';
 import { isTransformLocked } from '../ui/locks.js';
 import { refreshSelectionBar } from '../ui/selection-bar.js';
 
@@ -52,7 +52,7 @@ export function align(mode) {
     sorted.forEach(({ o, b }) => { if (!isTransformLocked(o)) { o.top += (cursor - b.top); o.setCoords(); } cursor += b.height + gap; });
   }
 
-  objs.forEach(o => { if (o.mfcType === 'mfcImage') syncAttachments(o); });
+  objs.forEach(o => { if (hasAttachments(o)) syncAttachments(o); });
   canvas.requestRenderAll();
   refreshSelectionBar();
   pushHistory();
