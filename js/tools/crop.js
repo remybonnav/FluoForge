@@ -6,7 +6,7 @@
 
 import { pushHistory } from '../core/history.js';
 import { canvas, currentTool, takeId } from '../core/state.js';
-import { canvasCorners, syncAttachments } from './inset.js';
+import { canvasCorners, hasAttachments, syncAttachments } from './inset.js';
 import { cropMontageLike } from '../image/montage.js';
 import { relayoutGrids } from '../layout/grid.js';
 import { refreshLayersPanel } from '../ui/layers.js';
@@ -21,8 +21,8 @@ const regionWidth = r => r.width * r.scaleX, regionHeight = r => r.height * r.sc
 
 export function startCrop() {
   const active = canvas.getActiveObject();
-  if (!active || active.mfcType !== 'mfcImage') {
-    MFC_UI.toast('Select an image first to crop it.');
+  if (!active || (active.mfcType !== 'mfcImage' && active.mfcType !== 'mfcVector')) {
+    MFC_UI.toast('Select an image or vector panel first to crop it.');
     return;
   }
   if (refuseLocked(active, 'cropped')) return;
@@ -176,7 +176,7 @@ export async function cropToShape() {
   target.clipPath = clip;
   if (target.mfcType === 'mfcImage' && !target.mfcIsInset) cropImageFrameToClip(target);
   target.dirty = true;
-  if (target.mfcType === 'mfcImage') syncAttachments(target);
+  if (hasAttachments(target)) syncAttachments(target);
   canvas.setActiveObject(target);
   canvas.requestRenderAll();
   pushHistory();

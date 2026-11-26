@@ -17,6 +17,8 @@ const MFC_EXPORT = (() => {
   // Pen path helpers (arrow ends of capped lines), loaded before an SVG is built.
   const PATH_URL = new URL('tools/path.js', document.currentScript?.src || new URL('js/', document.baseURI)).href;
   let pathTools = null;
+  // Vector panels (P3-T10): the plot's own SVG elements, written into the export.
+  const VECTOR_URL = new URL('image/vector.js', document.currentScript?.src || new URL('js/', document.baseURI)).href;
   function download(blob, filename) {
     const url = URL.createObjectURL(blob), a = document.createElement('a');
     a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove();
@@ -51,6 +53,16 @@ const MFC_EXPORT = (() => {
       }));
     });
     return [...used.values()];
+  }
+  /** Font uses of text objects and of vector panels, one entry per face and style. */
+  function mergeFonts(...lists) {
+    const out = new Map();
+    for (const { family, style, text } of lists.flat()) {
+      const key = family + ':' + style;
+      if (!out.has(key)) out.set(key, { family, style, text: '' });
+      out.get(key).text += text;
+    }
+    return [...out.values()];
   }
   function preflight(objects, pdf) {
     const unsupported = new Set();
@@ -174,10 +186,19 @@ const MFC_EXPORT = (() => {
           '" y="', -this.height/2, '" width="', this.width, '" height="', this.height,
           '" preserveAspectRatio="none" xlink:href="', href, '" />\n']; };
       }
+      // Vector panels (P3-T10): the plot's own elements, never a raster; its text in the embedded faces.
+      const vectorFonts = [];
+      const vectors = [];
+      walk(canvas.getObjects(), obj => { if (obj.mfcType === 'mfcVector') vectors.push(obj); });
+      for (const obj of vectors) {
+        const { markup, fonts } = await (await import(VECTOR_URL)).exportMarkup(obj);
+        vectorFonts.push(...fonts);
+        obj._toSVG = function () { return ['<g ', 'COMMON_PARTS', '>', markup, '</g>\n']; };
+      }
       let svg = canvas.toSVG({ suppressPreamble: true, viewBox: { x:0,y:0,width:size.width,height:size.height } });
       // Embed the same licensed TTF used by the browser, making standalone SVG/TIFF
       // rendering independent of fonts installed on the recipient's machine.
-      const fonts = fontUse(canvas.getObjects());
+      const fonts = mergeFonts(fontUse(canvas.getObjects()), vectorFonts);
       const faces = [];
       for (const {family,style} of fonts.filter(f => FONTS[f.family])) {
         const data = await fontData(family,style);

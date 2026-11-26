@@ -10,7 +10,7 @@ import { setZoom, zoomAnchor, zoomLevel } from './zoom.js';
 import { clearSnapGuides, drawSnapGuides, snapObjectPosition } from '../layout/snap.js';
 import { getPreference } from './preferences.js';
 import { cropAspectMode, cropRect, keepCropSquare, syncCropFieldsFromRect } from '../tools/crop.js';
-import { endInsetDrag, moveInsetDrag, placeFixedInsetContour, refreshInsetPanel, startInsetDrag, syncAttachments, syncInsetFromContour, updateInsetReadout } from '../tools/inset.js';
+import { endInsetDrag, moveInsetDrag, placeFixedInsetContour, refreshInsetPanel, startInsetDrag, hasAttachments, syncAttachments, syncInsetFromContour, updateInsetReadout } from '../tools/inset.js';
 import { beginPathPointer, endPathPointer, enterPathEdit, finishPathDrawing, insertPathNode, movePathPointer, pathDraft, takePathFinishDoubleClick } from '../tools/path.js';
 import { refreshScaleBarPreview } from '../tools/scalebar.js';
 import { endShapeDrag, moveShapeDrag, startShapeDrag } from '../tools/shape.js';
@@ -44,8 +44,8 @@ export function init() {
     onLettersModified(obj); // panel letters: an edited letter, and renumbering after a reorder
     onAnnotationModified(obj); // a moved auto-label or ROI label keeps its new place
     onAnnotationMoving(obj); // an ROI label follows its outline
-    if (obj && obj.type === 'activeSelection') obj.getObjects().forEach(o => { if (o.mfcType === 'mfcImage') syncAttachments(o); });
-    else if (obj && obj.mfcType === 'mfcImage') syncAttachments(obj);
+    if (obj && obj.type === 'activeSelection') obj.getObjects().forEach(o => { if (hasAttachments(o)) syncAttachments(o); });
+    else if (obj && hasAttachments(obj)) syncAttachments(obj);
     refreshSelectionBar();
     if (obj && obj.mfcType === 'insetContour') refreshInsetPanel();
     if (currentTool === 'scalebar') refreshScaleBarPreview();
@@ -66,7 +66,7 @@ export function init() {
         obj.setCoords();
       }
     }
-    if (obj.mfcType === 'mfcImage') syncAttachments(obj);
+    if (hasAttachments(obj)) syncAttachments(obj);
     refreshSelectionBar();
   });
   canvas.on('selection:created', onSelectionChanged);
@@ -91,12 +91,12 @@ export function init() {
     if (!e.target || e.target === cropRect) return;
     if (!(e.e && e.e.altKey)) snapObjectPosition(e.target); // hold Alt to move freely without snapping
     else clearSnapGuides();
-    if (e.target.mfcType === 'mfcImage') { syncAttachments(e.target); }
+    if (hasAttachments(e.target)) { syncAttachments(e.target); }
     if (e.target.mfcType === 'insetContour') { syncInsetFromContour(e.target); updateInsetReadout(e.target); }
     onGridMoving(e.target); // a grid's panels and labels follow it
     onAnnotationMoving(e.target);
     if (e.target.type === 'activeSelection') {
-      e.target.getObjects().forEach(o => { if (o.mfcType === 'mfcImage') syncAttachments(o); });
+      e.target.getObjects().forEach(o => { if (hasAttachments(o)) syncAttachments(o); });
     }
     refreshSelectionBar();
   });
@@ -133,7 +133,7 @@ export function init() {
       obj.scaleX = s; obj.scaleY = s;
     }
 
-    if (obj.mfcType === 'mfcImage') { syncAttachments(obj); }
+    if (hasAttachments(obj)) { syncAttachments(obj); }
     if (obj.mfcType === 'insetContour') { syncInsetFromContour(obj); updateInsetReadout(obj); }
     onAnnotationMoving(obj);
     refreshSelectionBar();

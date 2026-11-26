@@ -22,6 +22,7 @@ export function baseLayerLabel(o) {
     const name = o.mfcFileName || 'Image';
     return name + (o.mfcIsInset && !/\(inset\)$/.test(name) ? ' (inset)' : '');
   }
+  if (o.mfcType === 'mfcVector') return (o.mfcFileName || 'Plot') + ' (vector)';
   if (o.type === 'textbox') {
     const t = (o.text || '').replace(/\n/g, ' ').trim();
     return 'Text: "' + (t.length > 18 ? t.slice(0, 18) + '…' : t || '(empty)') + '"';

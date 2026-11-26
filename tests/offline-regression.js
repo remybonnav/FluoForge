@@ -36,13 +36,14 @@ async function runOfflineRegressions() {
   // assets/vendor/VERSIONS.md pins every vendored file by SHA-256.
   const versions=await (await fetch('assets/vendor/VERSIONS.md',{cache:'no-store'})).text();
   const pins=[...versions.matchAll(/`(assets\/vendor\/[^`]+)`[^\n]*?`([0-9a-f]{64})`/g)].map(m=>({path:m[1],hash:m[2]}));
-  assert('VERSIONS.md pins all six vendored libraries',pins.length===6);
+  assert('VERSIONS.md pins all eight vendored files (six libraries, pdf.js and its worker)',pins.length===8);
+  assert('pdf.js is not loaded until a PDF is imported',!document.querySelector('script[src*="pdfjs"]'));
   for(const pin of pins){
     const bytes=await (await fetch(pin.path,{cache:'no-store'})).arrayBuffer();
     const digest=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(b=>b.toString(16).padStart(2,'0')).join('');
     assert('SHA-256 of '+pin.path+' matches VERSIONS.md',digest===pin.hash);
   }
-  for(const name of ['fabric','utif','jspdf','jszip','pako','svg2pdf','matplotlib','mpl-colormaps']){
+  for(const name of ['fabric','utif','jspdf','jszip','pako','svg2pdf','pdfjs','matplotlib','mpl-colormaps']){
     const response=await fetch('assets/vendor/LICENSE-'+name+'.txt',{cache:'no-store'});
     assert('Licence file for '+name+' is bundled',response.ok&&(await response.text()).length>200);
   }
