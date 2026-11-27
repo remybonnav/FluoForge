@@ -61,6 +61,8 @@ export const PREFERENCES = [
     help: 'Font size of new text boxes, in document pixels (at 300 dpi, 24 px is 5.8 pt).' },
   { key: 'text.color', section: 'text', label: 'Default colour', type: 'color', default: '#000000',
     help: 'Colour of new text boxes.' },
+  { key: 'text.snapResize', section: 'text', label: 'Snap when resizing', type: 'boolean', default: true,
+    help: 'Resizing a text box (its width, its height, or its text with a corner handle) snaps its moving edge to guides, page edges and other objects, as moving it does. Hold Alt to resize freely.' },
   { key: 'units.size', section: 'units', label: 'Size units', type: 'choice', default: 'mm-pt',
     options: [{ value: 'mm-pt', label: 'mm and pt (print size)' }, { value: 'px', label: 'Document px' }],
     help: 'Units of the size fields: positions and sizes in mm, line widths and font sizes in pt, at the document\'s dpi; or document pixels.' },
