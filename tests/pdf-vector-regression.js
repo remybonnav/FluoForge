@@ -158,6 +158,13 @@ async function runPdfVectorRegressions() {
     px = drawn(graded);
     assert('A gradient fill becomes an SVG gradient, red to blue', /<linearGradient [^>]*gradientUnits="userSpaceOnUse"/.test(rampSVG) && px(4, 36)[0] > 200 && px(140, 36)[2] > 200 && px(140, 36)[0] < 60, px(4, 36).join() + ' / ' + px(140, 36).join());
 
+    const cell = stream('/PatternType 1/PaintType 1/TilingType 1/BBox[0 0 10 10]/XStep 10/YStep 10/Resources<<>>', '0.8392 0.1529 0.1569 rg 0 0 5 10 re f');
+    const hatched = await PDFI.importPDF(makePDF('stripes.pdf', { content: '/Pattern cs /P1 scn 0 0 144 72 re f', resources: '/Pattern<</P1 5 0 R>>', extra: [cell] })); await idle();
+    const stripesSVG = await sourceText(hatched);
+    px = drawn(hatched);
+    assert('A tiling pattern (as matplotlib\'s hatching) becomes an SVG pattern of its cell: red stripes 5 pt wide every 10 pt', hatched.mfcType === 'mfcVector' && /<pattern id="p\d+" patternUnits="userSpaceOnUse"/.test(stripesSVG) &&
+      is(px(2.5, 36), RED) && is(px(7.5, 36), WHITE) && is(px(12.5, 36), RED) && is(px(102.5, 36), RED), [px(2.5, 36), px(7.5, 36), px(12.5, 36)].join(' / '));
+
     // ================= Several pages: which, and how =================
     const made = new jsPDF({ unit: 'pt', format: [144, 72], orientation: 'landscape' });
     made.setFillColor(31, 119, 180); made.rect(0, 0, 72, 72, 'F'); made.addPage([144, 72], 'landscape'); made.setFillColor(214, 39, 40); made.rect(72, 0, 72, 72, 'F');

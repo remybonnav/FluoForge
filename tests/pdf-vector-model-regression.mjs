@@ -51,6 +51,7 @@ export async function runPdfVectorModelRegressions() {
   assert('The style in the name with no separator: "ArialBold"', f('ArialBold') === 'Arial|true|false|true', f('ArialBold'));
   assert('pdf.js\'s flags count too', f('Helvetica', { italic: true }) === 'Helvetica|false|true|true' && f('Helvetica', { black: true }).split('|')[1] === 'true');
   assert('Other fonts are not stood in for (they are drawn by their outlines)', f('DejaVuSans').endsWith('|false') && f('Symbol').endsWith('|false') && f('Calibri').endsWith('|false') && f('ArialNarrow').endsWith('|false'));
+  assert('DejaVu keeps its name whole', f('DejaVuSans-Bold') === 'DejaVu Sans|true|false|false', f('DejaVuSans-Bold'));
   assert('No name at all is sans-serif, not compatible', f('') === 'sans-serif|false|false|false');
   assert('Writable text: letters, µ, ligatures; not empty, control or private-use characters', P.writableText('A') && P.writableText('µ') && P.writableText('ﬁ') &&
     !P.writableText('') && !P.writableText(null) && !P.writableText('\u0001') && !P.writableText('') && !P.writableText('�'));

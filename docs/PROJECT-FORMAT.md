@@ -107,7 +107,7 @@ An SVG plot imported as a panel (P3-T10). Its `type` is not a Fabric class, so v
 
 A PDF page imported as vector (since 0.1.40, P3-T10a) is a vector panel like this one: its source is the page converted to SVG (format `"svg"`, named like the panel), and it also has `mfcConverted`, `{ from: "pdf", file, page, pages }`. Nothing else differs, so 0.1.39 opens it too (and keeps `mfcConverted`, as it keeps every `mfc` field).
 
-An EMF or WMF (since 0.1.41, P3-T10b) is a vector panel the same way: its source is the file converted to SVG, named like the file, and `mfcConverted` is `{ from: "emf" | "wmf", file }`, with `missing` (a list of what could not be reproduced) when it was imported anyway.
+An EMF or WMF (since 0.1.41, P3-T10b), or an EPS (since 0.1.42, P3-T10c, `from: "eps"`), is a vector panel the same way: its source is the file converted to SVG, named like the file, and `mfcConverted` is `{ from: "emf" | "wmf", file }`, with `missing` (a list of what could not be reproduced) when it was imported anyway.
 
 A PDF page imported as an image (the fallback) is an ordinary image (above) of a PNG of the page; its `mfcRasterised` is `{ from: "pdf", file, page, pages, dpi }`.
 

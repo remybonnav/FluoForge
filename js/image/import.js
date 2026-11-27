@@ -11,7 +11,7 @@ import { refreshChannelPanel } from './channels.js';
 import { refreshScaleBarRefList } from '../tools/scalebar.js';
 import { updateCalibrationBarsForImage } from '../tools/calibration-bar.js';
 import { addVectorToCanvas } from './vector.js';
-import { isMetafileFile, isPDFFile, isSVGFile } from './vector-model.js';
+import { isEPSFile, isMetafileFile, isPDFFile, isSVGFile } from './vector-model.js';
 
 // Microscope formats a browser cannot read: Fiji (Bio-Formats) converts them to OME-TIFF.
 export const MICROSCOPE_FORMATS = /\.(czi|lif|lof|nd2|oib|oif|vsi|ims|dv|r3d|zvi|sld|lei|mvd2)$/i;
@@ -34,9 +34,10 @@ export async function importFiles(fileList) {
   for (const file of Array.from(fileList)) {
     try {
       if (MICROSCOPE_FORMATS.test(file.name)) throw microscopeFormatError(file.name);
-      // A plot from R, Python or Prism stays vector (P3-T10), from SVG, a PDF page (P3-T10a), EMF or WMF (P3-T10b).
+      // A plot from R, Python or Prism stays vector (P3-T10), from SVG, a PDF page (P3-T10a), EMF or WMF (P3-T10b), or EPS (P3-T10c).
       if (isSVGFile(file)) { await addVectorToCanvas(file); continue; }
       if (isPDFFile(file)) { await (await import('./pdf-import.js')).importPDF(file); continue; }
+      if (isEPSFile(file)) { await (await import('./eps-import.js')).importEPS(file); continue; } // EPS (P3-T10c)
       if (isMetafileFile(file)) { await (await import('./metafile-import.js')).importMetafile(file); continue; } // EMF, WMF (P3-T10b)
       const isTiff = /\.tiff?$/i.test(file.name);
       const rawImage = isTiff ? await MFC_TIFF.decodeFile(file) : await MFC_TIFF.decodeRasterImage(file);
