@@ -419,7 +419,7 @@ Choose **Text** (`T`) and click where the label should go, including on top of a
 
 ### Channel legend
 
-Select an image, then choose **Legend** (`L`): a text box lists the image's shown channels, each name in its channel's colour (for example **FLAG** in green and **WGA** in red). The colour is the channel's colour table at its maximum, so a green channel is written in pure green and a viridis channel in yellow. Hidden channels are left out. Select several images to add a legend to each.
+Choose **Legend** (`L`) to open the **Channel legend** panel, select an image and click **Add legend to selected image**: a text box lists the image's shown channels, each name in its channel's colour (for example **FLAG** in green and **WGA** in red). The colour is the channel's colour table at its maximum, so a green channel is written in pure green and a viridis channel in yellow. Hidden channels are left out. Select several images to add a legend to each. Choosing the tool adds nothing by itself; the button is greyed out until an image is selected.
 
 While the tool is active, the **Channel legend** panel sets up the next legend:
 
@@ -427,7 +427,7 @@ While the tool is active, the **Channel legend** panel sets up the next legend:
 - **Border**: on (default) or off, and its colour (black by default).
 - **Size from**: **Image width** puts the box right above the image, as wide as the image is displayed (after cropping and resizing, not its source pixels). **Image height** turns the box 90° against the image's left side, as long as the image is tall.
 
-With the tool active, click another image and **Add legend to selected image**. The text shrinks if the names would not fit on one line.
+With the tool active, click another image and **Add legend to selected image** again. The text shrinks if the names would not fit on one line.
 
 The tool only creates the legend: the result is an ordinary text box, not linked to the image. Rename the channels, change colours, background or border afterwards with the [Text panel](#13-text-and-captions), like any text; the legend options never change an existing text box, so your edits are kept.
 

@@ -140,9 +140,8 @@ export function installLegendPanel() {
   on('legend-add', 'click', () => addChannelLegend());
 }
 
-/** Choosing the tool with images selected adds their legends at once. */
+/** Choosing the tool only opens its panel (PI-T17): a legend is added by "Add legend to selected image". */
 export function activate() {
-  if (selectedObjects(isImage).length) addChannelLegend();
   refreshPanel();
 }
 export function deactivate() {}
