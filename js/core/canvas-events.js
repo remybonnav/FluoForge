@@ -25,6 +25,28 @@ import { onObjectModified as onLettersModified, onObjectRemoved as onLettersRemo
 import { installFrameObject } from '../layout/frames.js';
 import { installGridObject, onGridScaling, onObjectModified as onGridModified, onObjectMoving as onGridMoving, onObjectRemoved as onGridRemoved } from '../layout/grid.js';
 
+// ---- selecting only what is fully inside (PI-T4) ----
+// In Select mode, Ctrl (Cmd on a Mac) held while dragging a selection rectangle selects only the objects
+// entirely inside it (Fabric's selectionFullyContained); a plain drag selects every object it touches. The
+// key is read at mouse down, during the drag and just before Fabric collects the objects ("mouse:up:before"),
+// and the rectangle is dashed while it is held, so the mode shows.
+const CONTAINED_LOOK = { selectionDashArray: [6, 4], selectionColor: 'rgba(91, 140, 255, 0.06)', selectionBorderColor: '#5b8cff', selectionLineWidth: 1.5 };
+let plainLook = null;
+function setContainedSelection(on) {
+  if (!plainLook) plainLook = Object.fromEntries(Object.keys(CONTAINED_LOOK).map(k => [k, canvas[k]]));
+  if (!!canvas.selectionFullyContained === on) return;
+  canvas.selectionFullyContained = on;
+  Object.assign(canvas, on ? CONTAINED_LOOK : plainLook);
+  if (canvas._groupSelector) canvas.requestRenderAll(); // the rectangle being dragged changes look at once
+}
+function installContainedSelection() {
+  const held = opt => currentTool === 'select' && !!(opt && opt.e && (opt.e.ctrlKey || opt.e.metaKey));
+  canvas.on('mouse:down:before', opt => setContainedSelection(held(opt)));
+  canvas.on('mouse:move', opt => { if (canvas._groupSelector) setContainedSelection(held(opt)); });
+  canvas.on('mouse:up:before', opt => { if (canvas._groupSelector) setContainedSelection(held(opt)); });
+  canvas.on('mouse:up', () => setContainedSelection(false));
+}
+
 // ---- init ----
 export function init() {
   setCanvas(new fabric.Canvas('mfc-canvas', {
@@ -82,6 +104,7 @@ export function init() {
     onCanvasMouseDown(opt);
   });
   canvas.on('mouse:move', onCanvasMouseMove);
+  installContainedSelection();
   canvas.on('mouse:up', onCanvasMouseUp);
   canvas.on('mouse:up', clearSnapGuides);
   canvas.on('after:render', opt => drawSnapGuides(opt && opt.ctx ? opt.ctx : canvas.getContext()));

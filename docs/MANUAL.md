@@ -287,7 +287,7 @@ Letters are ordinary text boxes, exported like any text; their font comes from t
 
 ## 7. Selecting, moving, aligning and locking
 
-Use the **Select** tool (`V`). Click an object to select it; Shift+click or drag a rectangle to select several.
+Use the **Select** tool (`V`). Click an object to select it; Shift+click or drag a rectangle to select several. A rectangle selects every object it touches; hold **Ctrl** (**Cmd** on a Mac) while dragging to select only the objects entirely inside it (the rectangle turns dashed while the key is held).
 
 - **Move**: drag the object, or nudge it with the arrow keys (1 px; Shift+arrow moves 10 px).
 - **Snapping**: while you drag, an object snaps to the edges and centre lines of the pages and of the other objects, and to the [guides](#rulers-and-guides). A dashed pink line shows the edge it snapped to. It also snaps to **equal spacing**: the same gap to its neighbour as two other objects of its row or column have, or centred between its two neighbours, with pink markers across the equal gaps. These lines are on screen only and never exported. Hold Alt to move freely. The **Snap** button in the top bar turns snapping on and off. Which edges snap, the snap distance, snapping to guides and to equal spacing are set in [Preferences](#preferences).
