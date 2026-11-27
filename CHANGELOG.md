@@ -4,6 +4,10 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.48 (2026-11-27)
+
+- **Text boxes drawn to size, and text that snaps (PI-T6).** With the Text tool, drag a rectangle to make a text box of that size; its text wraps inside it and it keeps its size when you type. A click still inserts a text box as before. Resizing a text box (its width, its height, or its text with a corner handle) now snaps the moving edge to guides, page edges and other objects, as moving it does; the Text panel's new **Snap when resizing** option (on by default, also in Preferences ▸ Text) turns it off, and Alt resizes freely. A selected object's handle lying on a guide is now grabbed instead of the guide.
+
 ## v0.1.47 (2026-11-27)
 
 - **Selecting only what is fully inside (PI-T4).** With the Select tool, hold **Ctrl** (**Cmd** on a Mac) while dragging a selection rectangle to select only the objects entirely inside it; the rectangle turns dashed while the key is held. A plain drag still selects every object it touches.

@@ -296,9 +296,12 @@ export function installGuides() {
     if (!canvas) { requestAnimationFrame(attach); return; }
     canvas.on('after:render', opt => { drawGuides(opt && opt.ctx ? opt.ctx : canvas.getContext()); drawRulers(); });
     // A guide on the canvas is picked up before Fabric sees the click.
+    // A handle of the selected object wins over a guide under it: an edge that just snapped onto a
+    // guide can be grabbed again (PI-T6).
+    const handleUnder = e => { const a = canvas.getActiveObject(); return !!(a && a.hasControls && a._findTargetCorner && a._findTargetCorner(canvas.getPointer(e, true))); };
     canvas.wrapperEl.addEventListener('mousedown', e => {
       const i = e.button === 0 ? guideUnder(e) : -1;
-      if (i < 0) return;
+      if (i < 0 || handleUnder(e)) return;
       e.stopPropagation(); e.preventDefault();
       startDrag(manualGuides()[i].axis, i);
     }, true);

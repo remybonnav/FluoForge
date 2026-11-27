@@ -403,12 +403,12 @@ A linked label follows its image when it is moved or resized, and updates itself
 
 ## 13. Text and captions
 
-Choose **Text** (`T`) and click where the label should go, including on top of an image, then type. Click an existing text box to edit it.
+Choose **Text** (`T`) and click where the label should go, including on top of an image, then type. To make a box of a given size, drag a rectangle instead: the text box fills it, and the text wraps inside it (the box keeps the size you drew, and grows only if the text needs more room). Click an existing text box to edit it.
 
 ![The white EdU⁺ ERG⁺ label selected, with the Text panel](images/09-text.jpg)
 
 - **Font, Size, Text color, Bold / Italic / Underline.** Liberation Sans, Liberation Serif and Liberation Mono are built in and embedded in PDF exports; change other fonts to one of these before exporting a PDF. The list names them by the font they replace: they have the metrics of Arial, Times New Roman and Courier New, so text keeps its width and line breaks where a journal asks for those fonts. **Size** is in pt at print size (or px, see [Preferences](#preferences)).
-- **Box**: a text box has its own width and height, independent of the font size. Drag the side and top/bottom handles (or type W/H in the selection bar) to resize the box; corner handles scale the text itself. The **Size** field always shows the real font size.
+- **Box**: a text box has its own width and height, independent of the font size. Drag the side and top/bottom handles (or type W/H in the selection bar) to resize the box; corner handles scale the text itself. The **Size** field always shows the real font size. While you resize, the moving edge snaps to the guides, page edges and other objects, as it does when you move the box; untick **Snap when resizing** in the Text panel (or in [Preferences](#preferences)) to resize freely, or hold Alt.
 - **Alignment**: left / centre / right, and **Top / Middle / Bottom** inside the box. **Center both** centres it both ways.
 - **Box background** and **Box border** (with **Border width**) turn a text box into a caption or a label patch.
 - **Styling part of the text**: double-click into the text, highlight some words, and use the controls (colour, bold, italic…). Gene names in italics and coloured words are made this way.
@@ -612,7 +612,7 @@ It is a view only. The figure, the project, undo and the exports do not change, 
 | | Show snap guides | On |
 | | Snap to guides (the guides, and the margin and column guides) | On |
 | | Snap to equal spacing (the same gap as two other objects, or centred between neighbours) | On |
-| Text | Default font, size (document px) and colour of new text boxes | Liberation Sans, 24, black |
+| Text | Default font, size (document px) and colour of new text boxes; **Snap when resizing** (also in the Text panel) | Liberation Sans, 24, black; on |
 | Rulers and guides | Show rulers; show guides | On; on |
 | Units | Size units: **mm and pt** (positions and sizes in mm; stroke, outline and border widths, scale bar thickness and font sizes in pt, at the document's DPI) or **Document px** | mm and pt |
 
