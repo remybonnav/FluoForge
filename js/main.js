@@ -16,7 +16,9 @@ const MFC_UI = (function () {
     try { localStorage.setItem('fluoforge-theme', theme); } catch (_) { /* Preferences are optional. */ }
   }
   // Panels only collapse/expand through their own toggle (or Collapse all). The
-  // chosen state is remembered per panel; selection never changes it.
+  // chosen state is remembered per panel; selection never changes it, except for
+  // Document Properties, which folds to one line (its page size) as soon as another
+  // section is opened or becomes the active one (PI-T3).
   const COLLAPSED_KEY = 'fluoforge-collapsed-panels';
   function readCollapsed() {
     try { return new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) || '["panel-docprops"]')); }
@@ -46,8 +48,20 @@ const MFC_UI = (function () {
       toggle.title = 'Collapse or expand this section';
       heading.append(toggle); panel.append(body);
       setPanelExpanded(panel, !collapsed.has(panel.id), false);
-      toggle.addEventListener('click', () => setPanelExpanded(panel, body.hidden));
+      toggle.addEventListener('click', () => {
+        const open = body.hidden;
+        setPanelExpanded(panel, open);
+        if (open) foldDocProps(panel.id);
+      });
     });
+    // Document Properties shows its page size next to its title, read when folded.
+    const docToggle = document.querySelector('#panel-docprops .panel-toggle');
+    if (docToggle) {
+      const title = document.createElement('span'); title.className = 'panel-title';
+      while (docToggle.firstChild) title.append(docToggle.firstChild);
+      const summary = document.createElement('span'); summary.className = 'panel-summary'; summary.id = 'docprops-summary';
+      docToggle.append(title, summary);
+    }
     document.getElementById('inspector-collapse-all').addEventListener('click', () => {
       document.querySelectorAll('#side-panel > .panel').forEach(panel => setPanelExpanded(panel, false));
     });
@@ -58,20 +72,33 @@ const MFC_UI = (function () {
 
     updateDocumentState(false);
   }
-  /** Visual emphasis only: never reorders, resizes, scrolls, opens or closes a panel. */
+  /** Folds Document Properties when another section (`id`) is opened or becomes the active one. */
+  function foldDocProps(id) {
+    const docProps = document.getElementById('panel-docprops');
+    if (!docProps || id === 'panel-docprops' || docProps.querySelector('.panel-body').hidden) return;
+    setPanelExpanded(docProps, false);
+  }
+  /** A section's title for the Inspector header: its heading, without the folded summary. */
+  function panelTitle(panel) {
+    const toggle = panel.querySelector('.panel-toggle').cloneNode(true);
+    toggle.querySelectorAll('.panel-summary').forEach(s => s.remove());
+    return toggle.textContent.trim();
+  }
+  /** Visual emphasis only: never reorders, resizes, scrolls, opens or closes a panel (but folds Document Properties). */
   function highlightPanel(panel) {
     document.querySelectorAll('#side-panel > .panel').forEach(item => {
       item.classList.toggle('panel-focused', item === panel);
     });
     focusedPanel = panel.id;
-    document.getElementById('inspector-context').textContent = panel.querySelector('.panel-toggle').textContent.trim();
+    document.getElementById('inspector-context').textContent = panelTitle(panel);
+    foldDocProps(panel.id);
   }
   function focusPanel(id, force = false) {
     const panel = document.getElementById(id);
     if (!panel || panel.classList.contains('hidden')) return;
     if (focusedPanel === id && !force) {
       // The same section, for another object (image A, then image B): its title has changed with it.
-      document.getElementById('inspector-context').textContent = panel.querySelector('.panel-toggle').textContent.trim();
+      document.getElementById('inspector-context').textContent = panelTitle(panel);
       return;
     }
     highlightPanel(panel);
@@ -100,6 +127,15 @@ const MFC_UI = (function () {
     document.getElementById('workspace-empty').hidden = open;
     document.querySelectorAll('[data-requires-document]').forEach(element => { element.disabled = !open; });
     if (!open) document.getElementById('inspector-context').textContent = 'No document open';
+    else refreshDocPropsSummary(); // a new or changed document (applyDocProps): its page size in Document Properties' heading
+  }
+  /** The one-line page size shown in Document Properties' heading while it is folded (PI-T3). */
+  function refreshDocPropsSummary() {
+    const el = document.getElementById('docprops-summary'), props = MFC.getDocProps();
+    if (!el || !props) return;
+    const n = v => String(Number((+v).toFixed(2)));
+    el.textContent = `${n(props.width)}×${n(props.height)} ${props.unit || 'px'} · ${props.dpi} dpi`;
+    el.title = `Page size: ${n(props.width)} × ${n(props.height)} ${props.unit || 'px'} at ${props.dpi} dpi`;
   }
   let toastTimer;
   function toast(msg) {
