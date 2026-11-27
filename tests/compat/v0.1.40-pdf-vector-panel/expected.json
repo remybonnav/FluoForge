@@ -1,0 +1,45 @@
+{
+  "fixture": "v0.1.40-pdf-vector-panel",
+  "project": "project.fluoforge",
+  "recordedBy": {
+    "appVersion": "0.1.40",
+    "commit": "working tree",
+    "how": "opened pdf-vector-panel.fluoforge"
+  },
+  "summary": {
+    "docProps": {
+      "name": "PDF vector panel",
+      "width": 1200,
+      "height": 900,
+      "unit": "px",
+      "dpi": 300
+    },
+    "pages": 1,
+    "objectCount": 1,
+    "objects": [
+      {
+        "type": "mfcVector",
+        "mfcType": "mfcVector",
+        "mfcId": "vec1",
+        "left": 150,
+        "top": 120,
+        "width": 570,
+        "height": 300,
+        "scaleX": 1.25,
+        "scaleY": 1.25,
+        "angle": 0,
+        "flipX": false,
+        "flipY": false,
+        "originX": "left",
+        "originY": "top",
+        "opacity": 1,
+        "visible": true,
+        "fill": "rgb(0,0,0)",
+        "strokeWidth": 0,
+        "mfcFileName": "dose.pdf",
+        "cropX": 30,
+        "cropY": 0
+      }
+    ]
+  }
+}

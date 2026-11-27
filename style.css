@@ -103,6 +103,7 @@ button.active,.toggle-btn.active{background:var(--accent-dim);border-color:var(-
 .export-modal input:disabled,.export-modal select:disabled{opacity:.45;cursor:not-allowed;}
 .export-field > input[type=checkbox]{justify-self:start;margin:0;}
 .export-field[hidden]{display:none;}
+.pdf-issues{margin:4px 0 8px 20px;padding:0;color:var(--text);}
 .export-resolution{display:flex;gap:6px;min-width:0;}
 .qf-channels label{display:inline-flex;align-items:center;gap:4px;margin:2px 12px 2px 0;}
 .grid-buttons{flex-wrap:wrap;}
