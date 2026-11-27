@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.41 (2026-11-27)
+
+- **EMF and WMF plots as vector panels (P3-T10b).**
+  - **Import Image** takes Windows metafiles: `.emf` and `.wmf` (and gzipped `.emz`, `.wmz`), as GraphPad Prism, Office and R's devEMF write them. They are converted to SVG and become vector panels, like SVG and PDF plots: vector in SVG and PDF export.
+  - Lines, dashes, fills (solid and hatched), shapes, arcs, curves, clipping, transforms, bitmaps and text are kept; text stays text, each word where the file places it, and Symbol-font Greek becomes real Greek letters. EMF+ (GDI+) drawing is read too, so devEMF's default files work.
+  - A file that uses something FluoForge cannot reproduce (colour-combining drawing modes, bitmap pattern fills…) is not imported silently: a dialog lists it, to import anyway or cancel.
+  - No new library: the reader is FluoForge's own code.
+
 ## v0.1.40 (2026-11-27)
 
 - **PDF pages as vector panels (P3-T10a).**

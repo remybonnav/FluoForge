@@ -48,6 +48,7 @@
     { "name": "v0.1.39", "kind": "release", "what": "reference figure saved by FluoForge 0.1.39 (schema 9)" },
     { "name": "v0.1.39-vector-panel", "kind": "feature", "what": "a cropped, scaled vector panel (an svglite SVG, P3-T10) and a text, saved by FluoForge 0.1.39" },
     { "name": "v0.1.40", "kind": "release", "what": "reference figure saved by FluoForge 0.1.40 (schema 9)" },
-    { "name": "v0.1.40-pdf-vector-panel", "kind": "feature", "what": "a cropped, scaled vector panel converted from a PDF page (P3-T10a: clip, dash, transparency, Helvetica text, a Symbol glyph as outline), saved by FluoForge 0.1.40" }
+    { "name": "v0.1.40-pdf-vector-panel", "kind": "feature", "what": "a cropped, scaled vector panel converted from a PDF page (P3-T10a: clip, dash, transparency, Helvetica text, a Symbol glyph as outline), saved by FluoForge 0.1.40" },
+    { "name": "v0.1.41", "kind": "release", "what": "reference figure saved by FluoForge 0.1.41 (schema 9)" }
   ]
 }

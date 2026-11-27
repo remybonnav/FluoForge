@@ -65,7 +65,7 @@ async function runVectorRegressions() {
     await frame();
 
     // ================= Import =================
-    assert('The import button and file picker take SVG plots and PDF pages', /SVG plots or a PDF page \(both stay vector\)/.test($('btn-import').title) && /\.svg/.test($('file-input').accept) && /\.pdf/.test($('file-input').accept));
+    assert('The import button and file picker take SVG plots and PDF pages', /SVG, PDF, EMF or WMF plots \(they stay vector\)/.test($('btn-import').title) && /\.svg/.test($('file-input').accept) && /\.pdf/.test($('file-input').accept));
     const steps = MFC.getHistory().labels.length;
     await MFC.importFiles([svgFile('growth.svg', MPL)]); await idle();
     let plot = vectors()[0];
