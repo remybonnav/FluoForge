@@ -25,7 +25,7 @@ export const FRAME_STYLE = { fill: 'rgba(120,130,150,0.12)', stroke: '#8a94a6', 
 const copy = value => JSON.parse(JSON.stringify(value));
 /** Image fields that hold pixels or point at a file: a template keeps none of them. */
 const IMAGE_ONLY = ['sourceId', 'workingScale', 'cropX', 'cropY', 'filters', 'display', 'src', 'crossOrigin', 'mfcRawWidth', 'mfcRawHeight', 'mfcFileName', 'resizeFilter',
-  'mfcVectorSource', 'mfcVectorDpi', 'mfcRasterised', 'mfcConverted'];
+  'mfcVectorSource', 'mfcVectorDpi', 'mfcRasterised', 'mfcConverted', 'mfcImportMessage'];
 /** An inset view's links, kept on its frame under other names (the inset code would act on them). */
 const INSET_LINKS = ['mfcIsInset', 'mfcInsetContourId', 'mfcInsetSourceId'];
 

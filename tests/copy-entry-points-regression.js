@@ -48,8 +48,8 @@ async function runCopyEntryPointsRegressions() {
   const items = () => [...document.querySelectorAll('.context-menu .context-item')].map(b => b.textContent);
   const centre = o => { const b = o.getBoundingRect(true, true); return [b.left + b.width / 2, b.top + b.height / 2]; };
   let ev = rightClick(...centre(image));
-  assert('Right-clicking an image: display settings items, a separator, then Copy for other software…', ev.defaultPrevented &&
-    items().join() === 'Copy display settings,Paste display settings,Copy for other software…' && document.querySelector('.context-menu .context-separator') && canvas.getActiveObject() === image);
+  assert('Right-clicking an image: Image info… (PI-T8), display settings items, a separator, then Copy for other software…', ev.defaultPrevented &&
+    items().join() === 'Image info…,Copy display settings,Paste display settings,Copy for other software…' && document.querySelector('.context-menu .context-separator') && canvas.getActiveObject() === image);
   const copyItem = () => [...document.querySelectorAll('.context-menu .context-item')].find(b => b.textContent === 'Copy for other software…');
   assert('The item has a title that names the selection and the shortcut', /the selection/.test(copyItem().title) && /Ctrl\+Shift\+C/.test(copyItem().title));
   copyItem().click(); dialog = await waitDialog();

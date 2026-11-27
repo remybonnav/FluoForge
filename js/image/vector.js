@@ -244,13 +244,15 @@ export async function addVectorToCanvas(file, { name: label = null, props = null
     left: page.left + 40 + (canvas.getObjects().length * 20) % 200, top: page.top + 40 + (canvas.getObjects().length * 20) % 200,
     scaleX: fit, scaleY: fit, cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff'
   });
-  Object.assign(obj, { mfcId: 'vec' + takeId(), mfcType: 'mfcVector', mfcFileName: name, mfcVectorSource: sourceId, mfcVectorDpi: dpi }, props || {});
+  const fonts = entry.replaced.length ? ` Its text is set in the embedded Liberation fonts (instead of ${entry.replaced.slice(0, 3).join(', ')}${entry.replaced.length > 3 ? ', …' : ''}), so it looks the same in every export.` : '';
+  const message = `${what || name} is a vector panel: it stays vector in SVG and PDF export.${fonts}${fit < 1 ? ' It was scaled down to fit the page.' : ''}${note ? ' ' + note : ''}`;
+  // The import message is kept with the panel (PI-T8): its Plot info shows it again, also after save and reopen.
+  Object.assign(obj, { mfcId: 'vec' + takeId(), mfcType: 'mfcVector', mfcFileName: name, mfcVectorSource: sourceId, mfcVectorDpi: dpi }, props || {}, { mfcImportMessage: message });
   canvas.add(obj);
   canvas.setActiveObject(obj);
   canvas.requestRenderAll();
   pushHistory();
   refreshLayersPanel();
-  const fonts = entry.replaced.length ? ` Its text is set in the embedded Liberation fonts (instead of ${entry.replaced.slice(0, 3).join(', ')}${entry.replaced.length > 3 ? ', …' : ''}), so it looks the same in every export.` : '';
-  MFC_UI.toast(`${what || name} is a vector panel: it stays vector in SVG and PDF export.${fonts}${fit < 1 ? ' It was scaled down to fit the page.' : ''}${note ? ' ' + note : ''}`);
+  MFC_UI.toast(message);
   return obj;
 }
