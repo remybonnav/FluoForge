@@ -207,6 +207,11 @@ body:not(.document-open) #side-panel>.panel{display:none;}
 .panel-toggle{border:0;border-radius:0;width:100%;display:flex;gap:6px;align-items:center;background:transparent;padding:13px 12px;text-align:left;font-weight:650;color:var(--text);}
 .panel-toggle::after{content:'›';margin-left:auto;font-size:18px;color:var(--text-dim);transform:rotate(0);}
 .panel-toggle[aria-expanded=true]::after{transform:rotate(90deg);}
+/* Document Properties, folded: its page size on the heading line (PI-T3). */
+.panel-toggle .panel-title{flex-shrink:0;white-space:nowrap;}
+.panel-toggle .panel-summary{margin-left:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:400;font-size:11px;color:var(--text-dim);}
+.panel-toggle[aria-expanded=true] .panel-summary{display:none;}
+#panel-docprops .panel-toggle[aria-expanded=false]::after{margin-left:0;}
 .panel-focused{border-color:var(--accent);background:var(--focus);box-shadow:inset 3px 0 var(--accent);}
 .panel-focused .panel-toggle{color:var(--accent);}
 .panel label{
