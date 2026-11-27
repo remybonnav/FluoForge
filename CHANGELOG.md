@@ -4,6 +4,10 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.46 (2026-11-27)
+
+- **Document Properties takes less room (PI-T3).** It folds to one line, its title and the page size (for example *1200×800 px · 300 dpi*), as soon as another Inspector panel is opened, receives the keyboard focus, or becomes active by selecting an object or choosing a tool. Its header or the **Document** button opens it again; its state is remembered like the other panels'.
+
 ## v0.1.45 (2026-11-27)
 
 - **The Legend tool button only opens its panel (PI-T17).** Choosing **Legend** (`L`) no longer adds a legend to the selected image at once: it opens the Channel legend panel, and **Add legend to selected image** adds it (greyed out until an image is selected). No tool button adds anything by itself.
