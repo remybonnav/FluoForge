@@ -11,10 +11,13 @@ import { cropMontageLike } from '../image/montage.js';
 import { relayoutGrids } from '../layout/grid.js';
 import { refreshLayersPanel } from '../ui/layers.js';
 import { applyLockState, refuseLocked } from '../ui/locks.js';
-import { refreshSelectionBar } from '../ui/selection-bar.js';
+import { fullFrame, isCropped, refreshSelectionBar } from '../ui/selection-bar.js';
 
 // ---- crop tool ----
 export let cropRect = null, cropTargetImg = null, cropAspectMode = 'rect'; // 'rect' | 'square'
+// Adjusting a crop (PI-T7): the whole image is shown (a helper copy over the panel, never saved,
+// exported or recorded), dimmed outside the crop border; the panel itself is changed only by Apply.
+let adjust = null; // { full: helper image of the whole frame, dim: helper path, placed: the panel's place }
 /** The crop region's size on the page: its box, without the 1 px outline Fabric adds to getScaledWidth. */
 const regionWidth = r => r.width * r.scaleX, regionHeight = r => r.height * r.scaleY;
 
@@ -26,21 +29,64 @@ export function startCrop() {
     return;
   }
   if (refuseLocked(active, 'cropped')) return;
+  const adjusting = isCropped(active);
+  if (adjusting && (((active.angle || 0) % 360 + 360) % 360 > 0.01 || active.flipX || active.flipY || active.skewX || active.skewY)) {
+    MFC_UI.toast('Adjust crop works on a panel that is not rotated or flipped: set its angle to 0° first, or use Uncrop.');
+    return;
+  }
   cropTargetImg = active;
   document.getElementById('panel-crop').classList.remove('hidden');
+  document.getElementById('crop-adjust-hint').classList.toggle('hidden', !adjusting);
+  if (adjusting) showWholeImage(active);
 
   cropRect = new fabric.Rect({
     left: active.left, top: active.top,
     width: active.getScaledWidth(), height: active.getScaledHeight(),
     scaleX: 1, scaleY: 1,
-    fill: 'rgba(91,140,255,0.15)', stroke: '#5b8cff', strokeDashArray: [6, 4],
+    fill: adjusting ? 'rgba(0,0,0,0)' : 'rgba(91,140,255,0.15)', stroke: '#5b8cff', strokeDashArray: [6, 4], strokeUniform: true,
     cornerColor: '#5b8cff', transparentCorners: false, cornerStyle: 'circle'
   });
+  if (adjusting) ['moving', 'scaling', 'modified'].forEach(name => cropRect.on(name, updateDim));
   canvas.add(cropRect);
   canvas.setActiveObject(cropRect);
+  updateDim();
   canvas.requestRenderAll();
   syncCropFieldsFromRect();
 }
+
+/** Adjust crop: the panel's whole frame on top of it, lined up so the current crop sits on the panel. */
+function showWholeImage(img) {
+  const frame = fullFrame(img), sx = img.scaleX, sy = img.scaleY;
+  const full = new fabric.Image(img.getElement(), {
+    left: img.left - (img.cropX || 0) * sx, top: img.top - (img.cropY || 0) * sy, scaleX: sx, scaleY: sy,
+    cropX: 0, cropY: 0, width: frame.width, height: frame.height,
+    selectable: false, evented: false, excludeFromExport: true, objectCaching: false, opacity: img.opacity ?? 1
+  });
+  full.mfcIsPreview = true;
+  canvas.insertAt(full, canvas.getObjects().indexOf(img) + 1);
+  adjust = { full, dim: null, placed: { left: img.left, top: img.top } };
+}
+/** Dims the whole image outside the crop border. */
+function updateDim() {
+  if (!adjust || !cropRect) return;
+  const f = adjust.full, x0 = f.left, y0 = f.top, x1 = x0 + f.width * f.scaleX, y1 = y0 + f.height * f.scaleY;
+  const r = cropRect, a = r.left, b = r.top, c = a + r.width * r.scaleX, d = b + r.height * r.scaleY;
+  if (adjust.dim) canvas.remove(adjust.dim);
+  adjust.dim = new fabric.Path(`M ${x0} ${y0} H ${x1} V ${y1} H ${x0} Z M ${a} ${b} V ${d} H ${c} V ${b} Z`, {
+    fill: 'rgba(0,0,0,0.55)', fillRule: 'evenodd', stroke: null, selectable: false, evented: false, excludeFromExport: true, objectCaching: false
+  });
+  adjust.dim.mfcIsPreview = true;
+  canvas.insertAt(adjust.dim, canvas.getObjects().indexOf(cropRect));
+}
+function endAdjust() {
+  if (!adjust) return;
+  canvas.remove(adjust.full);
+  if (adjust.dim) canvas.remove(adjust.dim);
+  adjust = null;
+  document.getElementById('crop-adjust-hint').classList.add('hidden');
+}
+/** Whether the Crop tool is adjusting an existing crop (the whole image shown). */
+export const adjustingCrop = () => !!adjust;
 
 /** Pull the crop rectangle's current on-screen size into the numeric fields (called live while dragging handles). */
 export function syncCropFieldsFromRect() {
@@ -64,6 +110,7 @@ export function applyCropFieldsToRect() {
   }
   cropRect.set({ scaleX: w / cropRect.width, scaleY: h / cropRect.height });
   cropRect.setCoords();
+  updateDim();
   canvas.requestRenderAll();
 }
 
@@ -93,25 +140,33 @@ export function setCropAspectMode(mode) {
   if (mode === 'square' && cropRect) {
     // The smaller side, so the square fits inside a non-square image.
     setCropSquare(cropRect, Math.min(regionWidth(cropRect), regionHeight(cropRect)));
+    updateDim();
     canvas.requestRenderAll();
     syncCropFieldsFromRect();
   }
 }
 
-/** Crop always applies exactly what's currently shown by the crop rectangle's handles/fields. */
+/** Crop always applies exactly what's currently shown by the crop rectangle's handles/fields. While adjusting a
+    crop (PI-T7) the region is read on the whole image, and the panel keeps its place (its top-left corner) and its
+    scale on the page. A region overhanging the image keeps only the part on the image. One History step. */
 export function applyCrop() {
   if (!cropRect || !cropTargetImg) return;
   const w = regionWidth(cropRect);
   const h = regionHeight(cropRect);
   const img = cropTargetImg;
+  // The frame the region is read on: the whole image while adjusting, else the image as it is (uncropped).
+  const base = adjust ? { left: adjust.full.left, top: adjust.full.top, width: adjust.full.width, height: adjust.full.height }
+    : { left: img.left, top: img.top, width: img.width, height: img.height };
 
-  // translate crop rect position into the image's local (unscaled) coordinate space
-  const localLeft = (cropRect.left - img.left) / img.scaleX;
-  const localTop = (cropRect.top - img.top) / img.scaleY;
+  // translate crop rect position into the frame's local (unscaled) coordinate space
+  const localLeft = (cropRect.left - base.left) / img.scaleX;
+  const localTop = (cropRect.top - base.top) / img.scaleY;
+  const x0 = Math.max(0, localLeft), y0 = Math.max(0, localTop);
+  let width = Math.min(base.width, localLeft + w / img.scaleX) - x0;
+  let height = Math.min(base.height, localTop + h / img.scaleY) - y0;
+  if (!(width >= 1 && height >= 1)) { MFC_UI.toast('The crop border must overlap the image.'); return; }
   const before = { cropX: img.cropX || 0, cropY: img.cropY || 0, width: img.width, height: img.height };
   const placed = { left: img.left, top: img.top, width: img.getScaledWidth(), height: img.getScaledHeight() };
-  let width = Math.min(img.width - Math.max(0, localLeft), w / img.scaleX);
-  let height = Math.min(img.height - Math.max(0, localTop), h / img.scaleY);
   if (cropAspectMode === 'square') {
     // A region overhanging the image would be cut to a rectangle: keep a square of the smaller side.
     const side = Math.min(width * img.scaleX, height * img.scaleY);
@@ -119,13 +174,13 @@ export function applyCrop() {
   }
 
   img.set({
-    cropX: Math.max(0, localLeft),
-    cropY: Math.max(0, localTop),
-    width, height,
-    left: cropRect.left, top: cropRect.top
+    cropX: x0, cropY: y0, width, height,
+    left: adjust ? adjust.placed.left : base.left + x0 * img.scaleX,
+    top: adjust ? adjust.placed.top : base.top + y0 * img.scaleY
   });
   keepClipOnContent(img, before);
   img.setCoords();
+  endAdjust();
   cropMontageLike(img, placed); // a montage panel: the whole row takes the same crop
   relayoutGrids(); // panels in a layout grid go back into their cells
   canvas.remove(cropRect);
@@ -139,6 +194,7 @@ export function applyCrop() {
 export function refreshCropPanel() { document.getElementById('panel-crop').classList.toggle('hidden', currentTool !== 'crop'); }
 
 export function cancelCrop() {
+  endAdjust();
   if (cropRect) canvas.remove(cropRect);
   cropRect = null; cropTargetImg = null;
   document.getElementById('panel-crop').classList.add('hidden');

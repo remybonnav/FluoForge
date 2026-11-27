@@ -98,12 +98,15 @@ export function refreshSelectionBar() {
   const uncropBtn = document.getElementById('obj-uncrop');
   uncropBtn.classList.toggle('hidden', multi || !isCropped(active));
   uncropBtn.disabled = locked;
+  const adjustBtn = document.getElementById('obj-adjust-crop'); // PI-T7
+  adjustBtn.classList.toggle('hidden', multi || !isCropped(active));
+  adjustBtn.disabled = locked;
 }
 // Kept for callers/tests written against the former right-hand size panel.
 export const refreshObjectSizePanel = refreshSelectionBar;
 
 /** The uncropped size of an image (its full preview) or of a vector panel (its whole drawing, P3-T10); null when unknown. */
-function fullFrame(img) {
+export function fullFrame(img) {
   const entry = registry[img.mfcId];
   if (entry) return { width: Math.max(1, Math.round(entry.rawImage.width * entry.workingScale)), height: Math.max(1, Math.round(entry.rawImage.height * entry.workingScale)) };
   const element = img.mfcType === 'mfcVector' && img.getElement();
