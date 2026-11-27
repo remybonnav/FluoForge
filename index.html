@@ -15,7 +15,7 @@
 <link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#07090C">
-<link rel="stylesheet" href="style.css?v=0.1.50">
+<link rel="stylesheet" href="style.css?v=0.1.51">
 </head>
 <body>
 
@@ -253,6 +253,12 @@
       <h3>History</h3>
       <div id="history-list" class="history-list"><p class="hint">No steps yet.</p></div>
       <p class="hint">Click a step to go back to it; later steps stay available (redo) until you make a new change. Ctrl+Z / Ctrl+Y step one at a time.</p>
+    </section>
+
+    <section id="panel-plot" class="panel hidden">
+      <h3>Plot <span id="plot-name" class="hint"></span></h3>
+      <dl id="plot-info-list" class="image-info-list plot-info-list"></dl>
+      <button type="button" id="btn-plot-info" aria-haspopup="dialog" title="Plot info: the file, format and page, size on paper, the message shown at import and what was left out">Plot info</button>
     </section>
 
     <section id="panel-channels" class="panel">
@@ -697,14 +703,14 @@
 <script src="assets/vendor/jszip.min.js"></script>
 
 <!-- ======================= APP ======================= -->
-<script src="js/debug.js?v=0.1.50"></script>
-<script src="js/errors.js?v=0.1.50"></script>
-<script src="js/tiff.js?v=0.1.50"></script>
-<script type="module" src="js/app.js?v=0.1.50"></script>
+<script src="js/debug.js?v=0.1.51"></script>
+<script src="js/errors.js?v=0.1.51"></script>
+<script src="js/tiff.js?v=0.1.51"></script>
+<script type="module" src="js/app.js?v=0.1.51"></script>
 <script defer src="assets/vendor/svg2pdf.umd.min.js"></script>
-<script defer src="js/project.js?v=0.1.50"></script>
-<script defer src="js/autosave.js?v=0.1.50"></script>
-<script defer src="js/export.js?v=0.1.50"></script>
-<script defer src="js/main.js?v=0.1.50"></script>
+<script defer src="js/project.js?v=0.1.51"></script>
+<script defer src="js/autosave.js?v=0.1.51"></script>
+<script defer src="js/export.js?v=0.1.51"></script>
+<script defer src="js/main.js?v=0.1.51"></script>
 </body>
 </html>
