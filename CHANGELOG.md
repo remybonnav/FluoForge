@@ -4,6 +4,15 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.42 (2026-11-27)
+
+- **EPS plots as vector panels (P3-T10c).**
+  - **Import Image** takes EPS files (`.eps`, `.epsf`, `.epsi`), as R, GraphPad Prism, matplotlib, gnuplot and cairo write them. FluoForge runs them with its own PostScript reader and they become vector panels, like SVG, PDF, EMF and WMF plots: vector in SVG and PDF export.
+  - Lines, dashes, fills, clipping, curves, colours (grey, RGB, CMYK, indexed, spot), images and shadings are kept. Text in Helvetica, Times or Courier stays text in the Liberation face with the same widths, each word where the program places it; text in fonts the file embeds (Type 1, Type 3, TrueType) is drawn with their own outlines.
+  - A file that uses something FluoForge cannot reproduce (composite fonts, unknown PostScript…) is not imported silently: a dialog lists it, to import anyway or cancel.
+  - Repeating pattern fills, such as matplotlib's hatching, are now drawn as patterns in PDF and EPS plots (before, a PDF page with them was offered only as an image).
+  - No new library: the PostScript and TrueType readers are FluoForge's own code.
+
 ## v0.1.41 (2026-11-27)
 
 - **EMF and WMF plots as vector panels (P3-T10b).**

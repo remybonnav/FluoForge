@@ -56,7 +56,7 @@ async function runMetafileImportRegressions() {
   try {
     await MFC_PROJECT.createProject({ name: 'Metafiles', width: 1500, height: 1000, unit: 'px', dpi: 300 });
     await frame();
-    assert('Import Image takes EMF and WMF files', /\.emf/.test($('file-input').accept) && /\.wmf/.test($('file-input').accept) && /\.emz/.test($('file-input').accept) && /EMF or WMF/.test($('btn-import').title));
+    assert('Import Image takes EMF and WMF files', /\.emf/.test($('file-input').accept) && /\.wmf/.test($('file-input').accept) && /\.emz/.test($('file-input').accept) && /EPS, EMF or WMF/.test($('btn-import').title));
 
     // ================= An EMF =================
     await MFC.importFiles([plotFile]); await idle();

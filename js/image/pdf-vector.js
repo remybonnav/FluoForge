@@ -72,7 +72,8 @@ export async function pageToSVG(lib, doc, page) {
   const list = await page.getOperatorList({ annotationMode: lib.AnnotationMode.DISABLE });
   const config = await doc.getOptionalContentConfig();
   const NAMES = {}; for (const [k, v] of Object.entries(lib.OPS)) NAMES[v] = k;
-  const out = [], defs = [], issues = new Set();
+  let out = [];
+  const defs = [], issues = new Set();
   let ids = 0;
   const id = kind => kind + (++ids);
   let gs = freshState([...viewport.transform]);
@@ -362,12 +363,34 @@ export async function pageToSVG(lib, doc, page) {
     gs.fontDirection = size < 0 ? -1 : 1;
     gs.fontSize = Math.abs(size);
   }
+  const tiles = new Map(); // operator list -> colour -> url
   async function pattern(args) {
-    if (args[0] === 'TilingPattern') { issues.add(P.ISSUES.tiling); return 'none'; }
+    if (args[0] === 'TilingPattern') return tiling(args);
     const ir = typeof args[1] === 'string' ? await object(page, args[1]) : args[1];
     if (!ir || ir[0] === 'Dummy') return 'none';
     if (ir[0] === 'Mesh') { issues.add(P.ISSUES.mesh); return 'none'; }
     return { ir, matrix: args[2] || null, space: gs.base };
+  }
+
+  /** A tiling pattern (pdf.js: [, colour, operatorList, matrix, bbox, xstep, ystep, paintType]): its cell drawn once, as an SVG <pattern>. */
+  async function tiling([, colour, list2, matrix, bbox, xstep, ystep, paintType]) {
+    const hexColour = paintType === 2 && colour ? '#' + Array.from(colour, v => v.toString(16).padStart(2, '0')).join('').slice(0, 6) : '';
+    if (!tiles.has(list2)) tiles.set(list2, new Map());
+    const known = tiles.get(list2);
+    const key = hexColour + '|' + gs.base.join();
+    if (known.has(key)) return known.get(key);
+    const keepOut = out, keepGs = gs, depth = stack.length;
+    out = [];
+    gs = freshState([...P.IDENTITY]);
+    if (hexColour) { gs.fill = hexColour; gs.stroke = hexColour; }
+    try { await walk(list2); }
+    finally { while (stack.length > depth) restore(); out.push('</g>'.repeat(gs.open)); }
+    const cell = out.join('');
+    out = keepOut; gs = keepGs;
+    const pid = id('p');
+    defs.push(`<pattern id="${pid}" patternUnits="userSpaceOnUse" x="${P.num(bbox[0])}" y="${P.num(bbox[1])}" width="${P.num(Math.abs(xstep) || bbox[2] - bbox[0])}" height="${P.num(Math.abs(ystep) || bbox[3] - bbox[1])}" patternTransform="${P.matrixAttr(P.multiply(gs.base, matrix || P.IDENTITY))}">${cell}</pattern>`);
+    known.set(key, `url(#${pid})`);
+    return known.get(key);
   }
 
   await walk(list);
