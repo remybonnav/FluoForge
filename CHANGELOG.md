@@ -4,6 +4,10 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.43 (2026-11-27)
+
+- **The Inspector follows the selection (PI-T1).** Clicking straight from one object to another (an image, then another image, a vector panel or a text box) now shows the new object's name in the Inspector title at once; before, it kept the first image's name until the canvas was clicked to deselect.
+
 ## v0.1.42 (2026-11-27)
 
 - **EPS plots as vector panels (P3-T10c).**
