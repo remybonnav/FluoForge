@@ -492,6 +492,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('obj-angle').addEventListener('change', (e) => MFC.setObjectAngle(parseFloat(e.target.value) || 0));
   document.getElementById('obj-rotate-ccw').addEventListener('click', () => MFC.rotateSelected(-90));
   document.getElementById('obj-rotate-cw').addEventListener('click', () => MFC.rotateSelected(90));
+  document.getElementById('obj-adjust-crop').addEventListener('click', () => { MFC.setTool('select'); MFC.setTool('crop'); }); // PI-T7: the Crop tool adjusts a cropped panel
   document.getElementById('obj-uncrop').addEventListener('click', () => {
     const active = MFC.getCanvas().getActiveObject();
     if (active) MFC.uncropImage(active);
