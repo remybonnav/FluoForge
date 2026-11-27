@@ -4,6 +4,10 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.44 (2026-11-27)
+
+- **The Channels panel fits its frame (PI-T2).** The min and max fields no longer run past the panel's right edge (they were 120 px wide, from a general panel rule), the sliders shrink to make room, the fields show values up to 8 characters (65535, -32768, -1234567) whole, Auto / Full range / Reset to file keep their labels on one line (the buttons go onto two rows in a narrow Inspector), and the histogram stays behind the sliders.
+
 ## v0.1.43 (2026-11-27)
 
 - **The Inspector follows the selection (PI-T1).** Clicking straight from one object to another (an image, then another image, a vector panel or a text box) now shows the new object's name in the Inspector title at once; before, it kept the first image's name until the canvas was clicked to deselect.
