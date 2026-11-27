@@ -69,7 +69,11 @@ const MFC_UI = (function () {
   function focusPanel(id, force = false) {
     const panel = document.getElementById(id);
     if (!panel || panel.classList.contains('hidden')) return;
-    if (focusedPanel === id && !force) return;
+    if (focusedPanel === id && !force) {
+      // The same section, for another object (image A, then image B): its title has changed with it.
+      document.getElementById('inspector-context').textContent = panel.querySelector('.panel-toggle').textContent.trim();
+      return;
+    }
     highlightPanel(panel);
     // Only an explicit request (Document / Grid buttons, new figure) opens and reveals a panel.
     if (force) { setPanelExpanded(panel, true); panel.scrollIntoView({ block: 'nearest' }); }
@@ -78,13 +82,17 @@ const MFC_UI = (function () {
     const tools = {crop:'panel-crop',text:'panel-text',scalebar:'panel-scalebar',shape:'panel-shape',path:'panel-path',inset:'panel-inset',legend:'panel-legend',annotate:'panel-annotate'};
     let panel = tool !== 'select' ? tools[tool] : null;
     if (!panel && object) {
-      panel = object.mfcShapeKind === 'path' ? 'panel-path' :
+      panel = object.mfcShapeKind === 'path' ? 'panel-path' : object.type === 'textbox' ? 'panel-text' :
         ({mfcImage:'panel-channels',text:'panel-text',scalebar:'panel-scalebar',shape:'panel-shape',insetContour:'panel-inset',layoutGrid:'panel-grid'})[object.mfcType] || null;
     }
-    if (panel) focusPanel(panel, force);
+    const shown = panel && document.getElementById(panel) && !document.getElementById(panel).classList.contains('hidden');
+    if (shown) focusPanel(panel, force);
     else {
+      // No section shows this object (or it is hidden in this tool): the title names the object itself, never the previous one.
       document.querySelectorAll('.panel-focused').forEach(item => item.classList.remove('panel-focused'));
-      focusedPanel = null; document.getElementById('inspector-context').textContent = MFC.hasDocument ? 'Select an object or tool' : 'No document open';
+      focusedPanel = null;
+      const label = document.getElementById('sel-label');
+      document.getElementById('inspector-context').textContent = object ? (label && label.textContent) || 'Selection' : MFC.hasDocument ? 'Select an object or tool' : 'No document open';
     }
   }
   function updateDocumentState(open) {
