@@ -13,7 +13,8 @@
      and takes a panel letter like an image.
    - Export writes the plot's own elements into the figure (exportMarkup): its ids renamed and its CSS
      limited to the panel, the crop as a clip. svg2pdf turns them into PDF drawing and text operators.
-   PDF pages are imported by js/image/pdf-import.js (rasterised, clearly labelled). */
+   PDF pages are imported by js/image/pdf-import.js: converted to SVG (js/image/pdf-vector.js) and added
+   here, or, as a clearly labelled fallback, rasterised. */
 
 import { pushHistory } from '../core/history.js';
 import { pageBounds } from '../core/pages.js';
@@ -226,10 +227,11 @@ export async function exportMarkup(obj) {
 }
 
 /** Adds the SVG file `file` to the canvas as a vector panel, at its size on paper (smaller when it
-    would not fit on the page). One History step. */
-export async function addVectorToCanvas(file) {
+    would not fit on the page). One History step. A PDF page converted to SVG (pdf-import.js) passes
+    the panel's `name`, extra `props` (mfcConverted) and the `what` its message starts with. */
+export async function addVectorToCanvas(file, { name: label = null, props = null, what = null } = {}) {
   const text = await svgText(file);
-  const name = file.name || 'plot.svg';
+  const name = label || file.name || 'plot.svg';
   const entry = prepareSVG(text, name);
   const sourceId = await MFC_PROJECT.registerSource(file, { fileName: name, sourceFormat: 'svg' });
   entries.set(sourceId, Promise.resolve(entry));
@@ -241,13 +243,13 @@ export async function addVectorToCanvas(file) {
     left: page.left + 40 + (canvas.getObjects().length * 20) % 200, top: page.top + 40 + (canvas.getObjects().length * 20) % 200,
     scaleX: fit, scaleY: fit, cornerStyle: 'circle', transparentCorners: false, cornerColor: '#5b8cff', borderColor: '#5b8cff'
   });
-  Object.assign(obj, { mfcId: 'vec' + takeId(), mfcType: 'mfcVector', mfcFileName: name, mfcVectorSource: sourceId, mfcVectorDpi: dpi });
+  Object.assign(obj, { mfcId: 'vec' + takeId(), mfcType: 'mfcVector', mfcFileName: name, mfcVectorSource: sourceId, mfcVectorDpi: dpi }, props || {});
   canvas.add(obj);
   canvas.setActiveObject(obj);
   canvas.requestRenderAll();
   pushHistory();
   refreshLayersPanel();
   const fonts = entry.replaced.length ? ` Its text is set in the embedded Liberation fonts (instead of ${entry.replaced.slice(0, 3).join(', ')}${entry.replaced.length > 3 ? ', …' : ''}), so it looks the same in every export.` : '';
-  MFC_UI.toast(`${name} is a vector panel: it stays vector in SVG and PDF export.${fonts}${fit < 1 ? ' It was scaled down to fit the page.' : ''}`);
+  MFC_UI.toast(`${what || name} is a vector panel: it stays vector in SVG and PDF export.${fonts}${fit < 1 ? ' It was scaled down to fit the page.' : ''}`);
   return obj;
 }

@@ -3,7 +3,7 @@
  * Copyright (C) 2026 Remy Bonnavion
  */
 /* Image import: decodes TIFF and raster files, adds them to the canvas as images, and recomposites an image from its raw channels.
-   SVG files become vector panels (js/image/vector.js); a PDF page is rasterised (js/image/pdf-import.js). */
+   SVG files become vector panels (js/image/vector.js); so does a PDF page, converted to SVG, or as a labelled fallback rasterised (js/image/pdf-import.js). */
 
 import { pushHistory } from '../core/history.js';
 import { canvas, registry, takeId } from '../core/state.js';
@@ -34,7 +34,7 @@ export async function importFiles(fileList) {
   for (const file of Array.from(fileList)) {
     try {
       if (MICROSCOPE_FORMATS.test(file.name)) throw microscopeFormatError(file.name);
-      // A plot from R, Python or Prism stays vector (P3-T10); a PDF page is rasterised, as a labelled fallback.
+      // A plot from R, Python or Prism stays vector (P3-T10), from SVG or a PDF page (P3-T10a).
       if (isSVGFile(file)) { await addVectorToCanvas(file); continue; }
       if (isPDFFile(file)) { await (await import('./pdf-import.js')).importPDF(file); continue; }
       const isTiff = /\.tiff?$/i.test(file.name);

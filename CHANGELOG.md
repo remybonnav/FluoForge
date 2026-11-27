@@ -4,6 +4,14 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.40 (2026-11-27)
+
+- **PDF pages as vector panels (P3-T10a).**
+  - A PDF imported with **Import Image** is converted to SVG and becomes a vector panel, like an SVG plot: it stays vector in SVG and PDF export. Plots saved as PDF by R, Python or Prism no longer need to be exported again as SVG.
+  - Lines, dashes, fills, transparency, clipping, curves, gradients, images inside the page (kept pixel for pixel) and rotated pages are kept. Text in Arial/Helvetica, Times or Courier stays text, in the Liberation font with the same widths; text in other fonts is drawn with the PDF's own glyph outlines, so it looks exactly the same.
+  - The page dialog (for a PDF of several pages) asks how to import the page: **Vector** (the default) or **Image**, rasterised at the document's dpi as before.
+  - A page that uses something a vector panel cannot reproduce faithfully (blend modes, soft masks, pattern fills, mesh gradients…) is not converted silently: a dialog lists what it uses and offers the labelled rasterised import instead.
+
 ## v0.1.39 (2026-11-26)
 
 - **Vector panels from other tools (P3-T10).**
