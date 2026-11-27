@@ -4,6 +4,10 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.47 (2026-11-27)
+
+- **Selecting only what is fully inside (PI-T4).** With the Select tool, hold **Ctrl** (**Cmd** on a Mac) while dragging a selection rectangle to select only the objects entirely inside it; the rectangle turns dashed while the key is held. A plain drag still selects every object it touches.
+
 ## v0.1.46 (2026-11-27)
 
 - **Document Properties takes less room (PI-T3).** It folds to one line, its title and the page size (for example *1200×800 px · 300 dpi*), as soon as another Inspector panel is opened, receives the keyboard focus, or becomes active by selecting an object or choosing a tool. Its header or the **Document** button opens it again; its state is remembered like the other panels'.
