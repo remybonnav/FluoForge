@@ -32,10 +32,17 @@ export function pushHistory() {
   window.dispatchEvent(new Event('mfc:changed'));
 }
 export function resetHistory() { history.stack = []; history.labels = []; history.times = []; history.index = -1; pushHistory(); }
-export async function moveHistory(delta) { await jumpToHistory(history.index + delta); }
+// Work that must be finished before undo, redo or a History panel jump (an unfinished point-editing
+// session records its step: js/tools/path.js). Each returns whether it recorded a step.
+const beforeJump = [];
+export function onBeforeHistoryJump(fn) { beforeJump.push(fn); }
+const settleBeforeJump = () => beforeJump.reduce((recorded, fn) => fn() || recorded, false);
+export async function moveHistory(delta) { if (history.restoring) return; settleBeforeJump(); await jumpToHistory(history.index + delta); }
 /** Restores any step of the history; later steps stay available for redo until something new is done. */
 export async function jumpToHistory(index) {
-  if (history.restoring || index < 0 || index >= history.stack.length || index === history.index) return;
+  if (history.restoring) return;
+  if (settleBeforeJump() && index >= history.index) return; // the steps that could be redone were replaced by the one just recorded
+  if (index < 0 || index >= history.stack.length || index === history.index) return;
   history.restoring = true;
   try { await MFC_PROJECT.restoreState(history.stack[index], { resetHistory: false }); history.index = index; }
   finally { history.restoring = false; refreshHistoryPanel(); }
@@ -79,6 +86,8 @@ export function historyChangeKind(a, b) {
   }
   if (differs(['cropX', 'cropY']) && a.mfcType === 'mfcImage' && !a.mfcIsInset) return 'Cropped';
   if (changed.has('text') || changed.has('styles')) return 'Edited';
+  // Moving a path's points also changes its width and height: that is reshaping it (PI-T5).
+  if (differs(['path', 'mfcPathNodes', 'mfcPathClosed']) || (a.mfcShapeKind !== b.mfcShapeKind && b.mfcShapeKind === 'path')) return 'Reshaped';
   if (differs(['scaleX', 'scaleY', 'width', 'height', 'rx', 'ry', 'mfcBoxHeight'])) return 'Resized';
   if (changed.has('angle')) return 'Rotated';
   if ([...changed].every(k => ['left', 'top'].includes(k))) return 'Moved';

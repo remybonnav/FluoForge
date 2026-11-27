@@ -4,6 +4,10 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.49 (2026-11-27)
+
+- **Editing the points of paths and lines (PI-T5).** Right-click a path, polyline or line and choose **Modify points** to drag its points and handles; while editing, the menu adds **Add point here**, **Delete point** and **Done modifying points**. Escape, Done or a click outside ends it, and the whole edit is one History step (one Undo takes it back; undo during an edit keeps nothing half done). A line whose points you change becomes a two-point path with the same look. While drawing with the Pen tool, the first point is highlighted and the line snaps onto it when the pointer comes near; a click there closes the path. Fixed: undoing a point edit restores the path's points (History steps used to share them with the live path).
+
 ## v0.1.48 (2026-11-27)
 
 - **Text boxes drawn to size, and text that snaps (PI-T6).** With the Text tool, drag a rectangle to make a text box of that size; its text wraps inside it and it keeps its size when you type. A click still inserts a text box as before. Resizing a text box (its width, its height, or its text with a corner handle) now snaps the moving edge to guides, page edges and other objects, as moving it does; the Text panel's new **Snap when resizing** option (on by default, also in Preferences ▸ Text) turns it off, and Alt resizes freely. A selected object's handle lying on a guide is now grabbed instead of the guide.

@@ -70,7 +70,7 @@ export function init() {
     refreshSelectionBar();
     if (obj && obj.mfcType === 'insetContour') refreshInsetPanel();
     if (currentTool === 'scalebar') refreshScaleBarPreview();
-    pushHistory();
+    if (!(obj && obj.__mfcNodeEdit)) pushHistory(); // points being modified: one step when editing ends (PI-T5)
   });
   canvas.on('object:resizing', (e) => {
     const t = e.target || (e.transform && e.transform.target);

@@ -60,6 +60,9 @@ const MFC_PROJECT = (() => {
       json = fabric.Object.prototype.toObject.call(obj, propsFor(obj));
       json.type = obj.type;
     } else json = obj.toObject(propsFor(obj));
+    // Fabric copies custom properties by reference: a path's points are edited in place (PI-T5), so a
+    // History step or a save keeps its own copy of them.
+    if (Array.isArray(json.mfcPathNodes)) json.mfcPathNodes = copy(json.mfcPathNodes);
     if (obj.mfcType === 'mfcVector') {
       // A vector panel (P3-T10): its SVG source, stored once; a type older versions keep without drawing.
       if (!obj.mfcVectorSource || !sources.has(obj.mfcVectorSource)) throw new Error('Missing original source for ' + obj.mfcFileName);
