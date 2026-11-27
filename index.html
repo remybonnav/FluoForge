@@ -15,7 +15,7 @@
 <link rel="icon" href="assets/FluoForge-app-icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/FluoForge-app-icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#07090C">
-<link rel="stylesheet" href="style.css?v=0.1.44">
+<link rel="stylesheet" href="style.css?v=0.1.45">
 </head>
 <body>
 
@@ -28,7 +28,7 @@
     <button id="tool-crop" data-requires-document class="tool-btn" data-tool="crop" title="Crop tool (C)">&#9984; Crop</button>
     <button id="tool-text" data-requires-document class="tool-btn" data-tool="text" title="Text tool (T)">A Text</button>
     <button id="tool-scalebar" data-requires-document class="tool-btn" data-tool="scalebar" title="Scale bar tool (S)">&#8213; Scale bar</button>
-    <button id="tool-legend" data-requires-document class="tool-btn" data-tool="legend" title="Channel legend tool (L): select an image, then this tool, to add a text box with its channel names in their colours">&#9636; Legend</button>
+    <button id="tool-legend" data-requires-document class="tool-btn" data-tool="legend" title="Channel legend tool (L): opens the Channel legend panel; select an image and click Add legend to selected image for a text box with its channel names in their colours">&#9636; Legend</button>
     <button id="tool-annotate" data-requires-document class="tool-btn" data-tool="annotate" title="Annotate tool (A): select an image first, then click to place arrows, arrowheads, asterisks and markers, or drag for a dashed ROI, linked to the image; also its channel, Z, time or magnification label">&#8601; Annotate</button>
     <button id="tool-shape" data-requires-document class="tool-btn" data-tool="shape" title="Rectangle/square tool (R)">&#9633; Shape</button>
     <button id="tool-path" data-requires-document class="tool-btn" data-tool="path" title="Pen / Path tool (P)">&#9998; Pen / Path</button>
@@ -442,7 +442,7 @@
 
     <section id="panel-legend" class="panel hidden">
       <h3>Channel legend</h3>
-      <p class="hint">Select an image, then choose Legend (L): a text box lists its shown channels, each name in its channel's colour. These options set up the next legend; the text box it makes is an ordinary one, edited with the Text panel.</p>
+      <p class="hint">Select an image and click <strong>Add legend to selected image</strong>: a text box lists its shown channels, each name in its channel's colour. These options set up the next legend; the text box it makes is an ordinary one, edited with the Text panel.</p>
       <label title="Box background: black, white or none">Background
         <select id="legend-background">
           <option value="black">Black</option>
@@ -694,14 +694,14 @@
 <script src="assets/vendor/jszip.min.js"></script>
 
 <!-- ======================= APP ======================= -->
-<script src="js/debug.js?v=0.1.44"></script>
-<script src="js/errors.js?v=0.1.44"></script>
-<script src="js/tiff.js?v=0.1.44"></script>
-<script type="module" src="js/app.js?v=0.1.44"></script>
+<script src="js/debug.js?v=0.1.45"></script>
+<script src="js/errors.js?v=0.1.45"></script>
+<script src="js/tiff.js?v=0.1.45"></script>
+<script type="module" src="js/app.js?v=0.1.45"></script>
 <script defer src="assets/vendor/svg2pdf.umd.min.js"></script>
-<script defer src="js/project.js?v=0.1.44"></script>
-<script defer src="js/autosave.js?v=0.1.44"></script>
-<script defer src="js/export.js?v=0.1.44"></script>
-<script defer src="js/main.js?v=0.1.44"></script>
+<script defer src="js/project.js?v=0.1.45"></script>
+<script defer src="js/autosave.js?v=0.1.45"></script>
+<script defer src="js/export.js?v=0.1.45"></script>
+<script defer src="js/main.js?v=0.1.45"></script>
 </body>
 </html>

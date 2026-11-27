@@ -3,7 +3,10 @@
  * Copyright (C) 2026 Remy Bonnavion
  */
 /* Channel legend tool (js/tools/legend.js).
-   - Selecting an image, then the tool, adds a text box with the shown channels' names, each in its
+   - Choosing the tool only opens its panel, even with an image selected; "Add legend to selected image"
+     adds the legend, in one History step, and is greyed out with a hint when no image is selected;
+     no tool button adds an object by itself (PI-T17);
+   - the legend is a text box with the shown channels' names, each in its
      channel's colour (LUT at max; grey on white and the like fall back to black or white);
    - the box is as wide as the image is displayed, above it, or as long as it is tall, turned 90° on
      its left side; background black, white or transparent; border on (black) or off;
@@ -39,11 +42,17 @@ async function runLegendRegressions() {
 
   // ---- The tool creates an ordinary text box ----
   const button = document.getElementById('tool-legend'), panel = document.getElementById('panel-legend');
-  assert('The Legend tool button is in the toolbar with a title that says what to do', button && button.dataset.tool === 'legend' && /select an image/i.test(button.title) && /\(L\)/.test(button.title));
-  const before = texts().length;
-  canvas.setActiveObject(img); MFC.setTool('legend');
+  assert('The Legend tool button is in the toolbar with a title that says what to do', button && button.dataset.tool === 'legend' && /select an image/i.test(button.title) && /Add legend to selected image/.test(button.title) && /\(L\)/.test(button.title));
+  const addButton = document.getElementById('legend-add');
+  const before = texts().length, objectsBefore = canvas.getObjects().length, stepsBefore = MFC.getHistory().labels.length;
+  canvas.setActiveObject(img); button.click();
+  assert('Choosing the tool with an image selected adds nothing: it opens the Channel legend panel', MFC.currentTool === 'legend' && canvas.getObjects().length === objectsBefore &&
+    texts().length === before && !panel.classList.contains('hidden') && MFC.getHistory().labels.length === stepsBefore && canvas.getActiveObject() === img);
+  assert('…with "Add legend to selected image" ready for the selected image', addButton.textContent === 'Add legend to selected image' && !addButton.disabled && addButton.title);
+  addButton.click();
   let box = canvas.getActiveObject();
-  assert('Selecting an image, then the tool, adds one text box, selected, with the tool still active', texts().length === before + 1 && box.type === 'textbox' && MFC.currentTool === 'legend');
+  assert('"Add legend to selected image" adds one text box, selected, in one History step, the tool still active', texts().length === before + 1 && box.type === 'textbox' &&
+    MFC.currentTool === 'legend' && MFC.getHistory().labels.length === stepsBefore + 1, MFC.getHistory().labels.length - stepsBefore);
   assert('It lists the shown channels by name', box.text === 'DAPI FLAG WGA', box.text);
   assert('Each name is in its channel\'s colour: blue, green, red', wordColours(box).join() === '#0000ff,#00ff00,#ff0000', wordColours(box).join());
   assert('It is an ordinary text box: mfcType "text", no legend fields, no link to the image',
@@ -158,6 +167,21 @@ async function runLegendRegressions() {
   }
   if (savedTheme) document.documentElement.dataset.theme = savedTheme; else delete document.documentElement.dataset.theme;
   assert('The panel and the button are readable in all four themes (contrast ≥ 4.5)', ratios.every(x => x >= 4.5), ratios.map(x => x.toFixed(1)).join());
+
+  // ---- No tool button adds an object by itself (PI-T17): each opens its options ----
+  // (The Crop tool shows its crop frame on the selected image to be adjusted: an editing frame, not a
+  // figure object, gone when the tool ends; it is not counted.)
+  const C = await import(new URL('js/tools/crop.js', document.baseURI).href);
   MFC.setTool('select');
+  const target = images()[0], acted = [];
+  for (const toolButton of document.querySelectorAll('.tool-btn[data-tool]')) {
+    MFC.setTool('select'); canvas.setActiveObject(target);
+    const objects = canvas.getObjects().slice(), steps = MFC.getHistory().labels.length;
+    toolButton.click();
+    const added = canvas.getObjects().filter(o => !objects.includes(o) && !MFC.isHelper(o) && o !== C.cropRect);
+    if (added.length || MFC.getHistory().labels.length !== steps) acted.push(toolButton.dataset.tool);
+  }
+  MFC.setTool('select');
+  assert('No tool button adds an object or a History step by itself, with an image selected', !acted.length && document.querySelectorAll('.tool-btn[data-tool]').length >= 9, acted.join());
   return checks;
 }

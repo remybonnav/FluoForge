@@ -4,6 +4,10 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.45 (2026-11-27)
+
+- **The Legend tool button only opens its panel (PI-T17).** Choosing **Legend** (`L`) no longer adds a legend to the selected image at once: it opens the Channel legend panel, and **Add legend to selected image** adds it (greyed out until an image is selected). No tool button adds anything by itself.
+
 ## v0.1.44 (2026-11-27)
 
 - **The Channels panel fits its frame (PI-T2).** The min and max fields no longer run past the panel's right edge (they were 120 px wide, from a general panel rule), the sliders shrink to make room, the fields show values up to 8 characters (65535, -32768, -1234567) whole, Auto / Full range / Reset to file keep their labels on one line (the buttons go onto two rows in a narrow Inspector), and the histogram stays behind the sliders.
