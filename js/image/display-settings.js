@@ -14,6 +14,7 @@ import { FILE_LUT } from './luts.js';
 import { groupOf, linkImages, unlinkImages } from './comparison.js';
 import { showCopyDialog } from '../ui/copy-external.js';
 import { pageIndexForBox } from '../core/pages.js';
+import { pathMenuItems } from '../tools/path.js';
 
 let copied = null;
 
@@ -88,7 +89,7 @@ export function refreshDisplayButtons() {
 
 // ---- context menu (right click on the canvas, or the Menu key / Shift+F10) ----
 // Images get their display-settings items; every object and the empty page get "Copy for other software".
-let menu = null, menuReturn = null;
+let menu = null, menuReturn = null, menuPoint = null; // menuPoint: the page point right-clicked (null from the keyboard)
 export function closeImageMenu(restoreFocus = true) {
   if (!menu) return;
   menu.remove(); menu = null;
@@ -109,7 +110,9 @@ export function openImageMenu(x, y, copy = null) {
   menu = document.createElement('div');
   menu.className = 'context-menu';
   menu.setAttribute('role', 'menu');
-  menu.setAttribute('aria-label', images.length ? 'Image' : 'Figure');
+  const pathItems = pathMenuItems(canvas.getActiveObject(), menuPoint); // Modify points… (PI-T5)
+  menuPoint = null;
+  menu.setAttribute('aria-label', images.length ? 'Image' : pathItems.length ? 'Path' : 'Figure');
   const item = (label, title, enabled, run) => {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'context-item'; b.setAttribute('role', 'menuitem');
@@ -120,6 +123,10 @@ export function openImageMenu(x, y, copy = null) {
   if (images.length) {
     item('Copy display settings', 'Copy the LUTs, ranges, gamma and invert of this image\'s channels, and its brightness and contrast', images.length === 1, () => copyDisplaySettings(images));
     item('Paste display settings', copied ? 'Paste the copied display settings, channel by number (one undo step)' : 'Copy display settings from an image first', !!copied, () => pasteDisplaySettings(images));
+    const line = document.createElement('div'); line.className = 'context-separator'; line.setAttribute('role', 'separator'); menu.append(line);
+  }
+  if (pathItems.length) {
+    pathItems.forEach(p => item(p.label, p.title, p.enabled, p.run));
     const line = document.createElement('div'); line.className = 'context-separator'; line.setAttribute('role', 'separator'); menu.append(line);
   }
   const target = copy || (canvas.getActiveObject() ? { scope: 'selection' } : { scope: 'page' });
@@ -159,6 +166,7 @@ export function installImageMenu() {
     event.preventDefault();
     if (hit) {
       if (hit !== canvas.getActiveObject()) { canvas.setActiveObject(hit); canvas.requestRenderAll(); }
+      menuPoint = { x: p.x, y: p.y };
       openImageMenu(event.clientX, event.clientY, { scope: 'selection' });
       return;
     }

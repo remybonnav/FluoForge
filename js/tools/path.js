@@ -4,7 +4,7 @@
  */
 /* Pen / Path tool: straight and Bezier nodes, node editing, arrowheads and the Path panel. */
 
-import { pushHistory } from '../core/history.js';
+import { history, onBeforeHistoryJump, pushHistory } from '../core/history.js';
 import { DASH_PRESETS, canvas, currentTool, isHelper, takeId } from '../core/state.js';
 import { zoomLevel } from '../core/zoom.js';
 import { toHexColor } from './text.js';
@@ -86,6 +86,14 @@ export function pathNodeWorld(path, node) {
   return fabric.util.transformPoint(new fabric.Point(node.x-path.pathOffset.x,node.y-path.pathOffset.y),path.calcTransformMatrix());
 }
 
+// Closing a path while drawing (PI-T5): with three nodes or more, the pointer near the first node
+// snaps onto it and highlights it; a click there closes the path.
+const CLOSE_DISTANCE_PX = 12;
+function nearFirstNode(...points) {
+  const first = pathDraft && pathDraft.nodes[0];
+  return !!first && pathDraft.nodes.length > 2 && points.some(q => q && distance(q, first) <= CLOSE_DISTANCE_PX / zoomLevel);
+}
+
 export function snapPathPoint(p, enabled, excludePath = null) {
   if (!enabled) return { point:point(p.x,p.y), snapped:false };
   const candidates=[];
@@ -126,6 +134,12 @@ export function renderPathDraft() {
     preview.mfcIsPathDraft=true; helperObject(preview);
   }
   const radius=5/zoomLevel,handleRadius=4/zoomLevel;
+  if (pathDraft.closing) { // the first node, highlighted: a click closes the path
+    const first=pathDraft.nodes[0];
+    const ring=helperObject(new fabric.Circle({left:first.x,top:first.y,originX:'center',originY:'center',radius:11/zoomLevel,
+      fill:'rgba(91, 140, 255, 0.18)',stroke:'#5b8cff',strokeWidth:2/zoomLevel}));
+    ring.mfcPathCloseHint=true;
+  }
   pathDraft.nodes.forEach((node,index)=>{
     for (const handle of [node.handleIn,node.handleOut]) if (handle) {
       helperObject(new fabric.Line([node.x,node.y,handle.x,handle.y],{stroke:'#8fb0ff',strokeWidth:1/zoomLevel}));
@@ -133,9 +147,9 @@ export function renderPathDraft() {
         fill:'#1b1e24',stroke:'#8fb0ff',strokeWidth:1/zoomLevel}));
     }
     helperObject(new fabric.Circle({left:node.x,top:node.y,originX:'center',originY:'center',radius,
-      fill:index===pathDraft.nodes.length-1?'#5b8cff':'#ffffff',stroke:'#172031',strokeWidth:1/zoomLevel}));
+      fill:(index===pathDraft.nodes.length-1||(index===0&&pathDraft.closing))?'#5b8cff':'#ffffff',stroke:'#172031',strokeWidth:1/zoomLevel}));
   });
-  if (pathDraft.snap && hover) helperObject(new fabric.Circle({left:hover.x,top:hover.y,originX:'center',originY:'center',
+  if (pathDraft.snap && hover && !pathDraft.closing) helperObject(new fabric.Circle({left:hover.x,top:hover.y,originX:'center',originY:'center',
     radius:8/zoomLevel,fill:'transparent',stroke:'#5b8cff',strokeWidth:2/zoomLevel}));
   canvas.requestRenderAll();
 }
@@ -155,8 +169,7 @@ export function beginPathPointer(raw, evt) {
   const previous=pathDraft.nodes.at(-1);
   let p=constrainedPoint(raw,previous,evt.shiftKey);
   const snapped=snapPathPoint(p,evt.ctrlKey);p=snapped.point;pathDraft.snap=snapped.snapped;
-  const first=pathDraft.nodes[0];
-  if (first && pathDraft.nodes.length>2 && distance(p,first)<=12/zoomLevel) { finishPathDrawing(true); return; }
+  if (nearFirstNode(raw,p)) { finishPathDrawing(true); return; }
   const node={x:p.x,y:p.y,type:'corner',handleIn:null,handleOut:null};
   pathDraft.nodes.push(node);
   pathPointer={index:pathDraft.nodes.length-1,start:point(p.x,p.y),moved:false};
@@ -180,7 +193,11 @@ export function movePathPointer(raw, evt) {
     const previous=pathDraft.nodes.at(-1);
     let p=constrainedPoint(raw,previous,evt.shiftKey);
     const snapped=snapPathPoint(p,evt.ctrlKey);pathDraft.hover=snapped.point;pathDraft.snap=snapped.snapped;
-    if (evt.shiftKey) setPathStatus('Shift constraint: 45° angle.',true);
+    const wasClosing=pathDraft.closing;
+    pathDraft.closing=nearFirstNode(raw,snapped.point);
+    if (pathDraft.closing) { const first=pathDraft.nodes[0];pathDraft.hover=point(first.x,first.y);setPathStatus('Click to close the path.',true); }
+    else if (wasClosing) setPathStatus('Continue clicking, or double-click / press Enter to finish.',true);
+    if (evt.shiftKey && !pathDraft.closing) setPathStatus('Shift constraint: 45° angle.',true);
   }
   renderPathDraft();
 }
@@ -370,9 +387,62 @@ export function installPathControls(path) {
   path.__mfcSelectedNode=0;path.hasBorders=true;installPathRendering(path);
 }
 
+// ---- modifying points: one editing session, one History step (PI-T5) ----
+// While a path's points are being modified, its changes (dragging points and handles, adding and deleting
+// points, node and segment types, closing) record no History step of their own; ending the session
+// (Escape, Done, a click outside, or undo/redo) records one.
+let editSession=null; // { path, line: what a line was, if Modify points turned it into a path }
+function recordPathChange(path){ if(!(path&&path.__mfcNodeEdit))pushHistory(); }
+/** Ends the editing session before History moves, so its changes are kept as one step; returns whether one was recorded. */
+function settlePathEdit(){
+  if(!editSession)return false;
+  const path=editSession.path;
+  if(!path.canvas||!path.__mfcNodeEdit){editSession=null;return false;}
+  const before=history.index;exitPathEdit(path);return history.index!==before;
+}
+onBeforeHistoryJump(settlePathEdit);
+/** True for an object whose points can be modified: a path or polyline from the Pen tool, or a line from the Shape tool. */
+export const canModifyPoints=o=>!!o&&o.type==='path'&&(o.mfcShapeKind==='path'||o.mfcShapeKind==='line');
+/** Modify points: shows the anchors and handles of a path, polyline or line. A line becomes a path of two points
+    (it looks the same); left unchanged, it is a line again when editing ends. */
+export function modifyPoints(obj=canvas.getActiveObject()) {
+  if(!canModifyPoints(obj))return false;
+  if(refuseLocked(obj,'reshaped'))return false;
+  let line=null;
+  if(obj.mfcShapeKind==='line'){
+    line={objectCaching:obj.objectCaching,strokeLineCap:obj.strokeLineCap,strokeLineJoin:obj.strokeLineJoin};
+    const parsed=nodesFromFabricPath(obj);
+    obj.mfcShapeKind='path';obj.mfcPathNodes=parsed.nodes;obj.mfcPathClosed=false;installPathControls(obj);
+    line.nodes=JSON.stringify(obj.mfcPathNodes);
+  }
+  const ok=enterPathEdit(obj);
+  if(ok&&line)editSession.line=line;else if(!ok&&line)revertToLine(obj,line);
+  return ok;
+}
+function revertToLine(path,line) {
+  path.mfcShapeKind='line';
+  for(const key of ['mfcPathNodes','mfcPathClosed','mfcArrowStart','mfcArrowEnd','__mfcStandardControls','__mfcSelectedNode','__mfcNodeEdit','_render','_toSVG','__mfcPathRendering','controls'])delete path[key];
+  path.set({objectCaching:line.objectCaching,strokeLineCap:line.strokeLineCap,strokeLineJoin:line.strokeLineJoin,hasBorders:true});
+  applyLockState(path);path.setCoords();path.dirty=true;
+}
+/** The right-click menu's items for the selected path, polyline or line; `at` is the page point clicked (or null). */
+export function pathMenuItems(obj, at=null) {
+  if(!canModifyPoints(obj))return [];
+  const what=obj.mfcShapeKind==='line'?'line':'path';
+  if(!obj.__mfcNodeEdit)return [{label:'Modify points',title:`Show the points and handles of this ${what} to drag them; add or delete points. Escape or a click outside ends it, in one History step.`,enabled:true,run:()=>modifyPoints(obj)}];
+  const nodes=obj.mfcPathNodes,minimum=obj.mfcPathClosed?3:2,selected=Math.min(obj.__mfcSelectedNode||0,nodes.length-1);
+  const middle=()=>{const i=Math.min(selected,obj.mfcPathClosed?nodes.length-1:nodes.length-2),a=nodes[i],b=nodes[(i+1)%nodes.length];return pathNodeWorld(obj,segmentPoint(a,b,.5));};
+  return [
+    {label:'Add point here',title:'Add a point on the segment nearest to where you right-clicked',enabled:true,run:()=>insertPathNode(obj,at||middle())},
+    {label:'Delete point',title:nodes.length>minimum?`Delete point ${selected+1}, the selected one (Delete)`:`A ${obj.mfcPathClosed?'closed ':''}path keeps at least ${minimum} points`,enabled:nodes.length>minimum,run:()=>{canvas.setActiveObject(obj);deleteSelectedPathNode();}},
+    {label:'Done modifying points',title:'End editing the points (Escape, or a click outside)',enabled:true,run:()=>exitPathEdit(obj)}];
+}
+
 export function enterPathEdit(path=canvas.getActiveObject()) {
   if(!path||path.mfcShapeKind!=='path')return false;
   if(refuseLocked(path,'reshaped'))return false;
+  if(editSession&&editSession.path!==path&&editSession.path.__mfcNodeEdit)exitPathEdit(editSession.path);
+  if(!editSession||editSession.path!==path)editSession={path,line:null};
   path.__mfcNodeEdit=true;path.__mfcSelectedNode=Math.min(path.__mfcSelectedNode||0,path.mfcPathNodes.length-1);
   path.controls=buildNodeControls(path);path.hasBorders=false;path.lockMovementX=true;path.lockMovementY=true;
   canvas.setActiveObject(path);canvas.requestRenderAll();refreshPathPanel();MFC_UI.focusPanel('panel-path');setPathStatus('Node editing active. Double-click a segment to insert a node.',true);return true;
@@ -381,7 +451,15 @@ export function enterPathEdit(path=canvas.getActiveObject()) {
 export function exitPathEdit(path=canvas.getActiveObject()) {
   if(!path||path.mfcShapeKind!=='path')return false;
   path.__mfcNodeEdit=false;path.controls=path.__mfcStandardControls||fabric.Object.prototype.controls;path.hasBorders=true;
-  applyLockState(path);path.setCoords();canvas.requestRenderAll();refreshPathPanel();return true;
+  applyLockState(path);path.setCoords();
+  const session=editSession&&editSession.path===path?editSession:null;
+  if(session){
+    editSession=null;
+    // A line whose points were shown but not changed stays a line (and no History step).
+    if(session.line&&!path.mfcPathClosed&&JSON.stringify(path.mfcPathNodes)===session.line.nodes)revertToLine(path,session.line);
+    pushHistory(); // the whole session, one step (none if nothing changed)
+  }
+  canvas.requestRenderAll();refreshPathPanel();return true;
 }
 
 export function updatePathControls(path) { if(path&&path.__mfcNodeEdit)path.controls=buildNodeControls(path); }
@@ -392,7 +470,7 @@ export function deleteSelectedPathNode() {
   if(path.mfcPathNodes.length<=minimum){MFC_UI.toast('This path needs at least '+minimum+' nodes.');return true;}
   const index=path.__mfcSelectedNode||0,reference=index===0?1:0;path.mfcPathNodes.splice(index,1);
   path.__mfcSelectedNode=Math.min(index,path.mfcPathNodes.length-1);rebuildEditablePath(path,reference>path.__mfcSelectedNode?0:reference);
-  updatePathControls(path);canvas.requestRenderAll();pushHistory();refreshPathPanel();return true;
+  updatePathControls(path);canvas.requestRenderAll();recordPathChange(path);refreshPathPanel();return true;
 }
 
 export function setSelectedNodeType(type) {
@@ -406,7 +484,7 @@ export function setSelectedNodeType(type) {
     node.handleIn=point(node.x-dx/length*inLength,node.y-dy/length*inLength);
     node.handleOut=point(node.x+dx/length*outLength,node.y+dy/length*outLength);
   }
-  rebuildEditablePath(path,index===0?Math.min(1,nodes.length-1):0);updatePathControls(path);canvas.requestRenderAll();pushHistory();refreshPathPanel();
+  rebuildEditablePath(path,index===0?Math.min(1,nodes.length-1):0);updatePathControls(path);canvas.requestRenderAll();recordPathChange(path);refreshPathPanel();
 }
 
 export function setSelectedIncomingSegment(curve) {
@@ -417,7 +495,7 @@ export function setSelectedIncomingSegment(curve) {
   if(curve){const dx=(node.x-previous.x)/3,dy=(node.y-previous.y)/3;
     previous.handleOut=point(previous.x+dx,previous.y+dy);node.handleIn=point(node.x-dx,node.y-dy);
   }else{previous.handleOut=null;node.handleIn=null;}
-  rebuildEditablePath(path,index===0?Math.min(1,nodes.length-1):0);updatePathControls(path);canvas.requestRenderAll();pushHistory();refreshPathPanel();
+  rebuildEditablePath(path,index===0?Math.min(1,nodes.length-1):0);updatePathControls(path);canvas.requestRenderAll();recordPathChange(path);refreshPathPanel();
 }
 
 export const PATH_FIELD_PROPS={'path-stroke-color':'stroke','path-stroke-width':'strokeWidth','path-opacity':'opacity','path-dash':'strokeDashArray',
@@ -433,7 +511,7 @@ export function applyPathStyle(field) {
 export function togglePathClosed() {
   const path=canvas.getActiveObject();if(!path||path.mfcShapeKind!=='path')return;
   if(!path.mfcPathClosed&&path.mfcPathNodes.length<3){MFC_UI.toast('A closed path needs at least three nodes.');return;}
-  path.mfcPathClosed=!path.mfcPathClosed;rebuildEditablePath(path,0);updatePathControls(path);canvas.requestRenderAll();pushHistory();refreshPathPanel();
+  path.mfcPathClosed=!path.mfcPathClosed;rebuildEditablePath(path,0);updatePathControls(path);canvas.requestRenderAll();recordPathChange(path);refreshPathPanel();
 }
 
 export function refreshPathPanel() {
@@ -479,7 +557,7 @@ export function insertPathNode(path,world) {
     a.handleOut=ab;b.handleIn=cd;Object.assign(newNode,{x:split.x,y:split.y,type:'smooth',handleIn:abc,handleOut:bcd});
   }else{const split=mixPoint(a,b,t);Object.assign(newNode,{x:split.x,y:split.y});}
   const insertIndex=best.index+1;nodes.splice(insertIndex,0,newNode);path.__mfcSelectedNode=insertIndex;
-  rebuildEditablePath(path,best.index);updatePathControls(path);canvas.requestRenderAll();pushHistory();refreshPathPanel();setPathStatus('Inserted node '+(insertIndex+1)+'.',true);
+  rebuildEditablePath(path,best.index);updatePathControls(path);canvas.requestRenderAll();recordPathChange(path);refreshPathPanel();setPathStatus('Inserted node '+(insertIndex+1)+'.',true);
 }
 
 export function handlePathKey(event) {

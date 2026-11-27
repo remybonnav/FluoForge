@@ -359,7 +359,7 @@ Moving or resizing the *outline* later changes the region the inset shows, witho
 
 ## 11. Shapes
 
-Choose **Shape** (`R`), pick **Box**, **Ellipse** or **Line**, and drag on the canvas, including on top of an image. Hold Shift (or choose **Square**) for a square or a circle. Set **Stroke color**, **Stroke width**, **Dash style** (solid, dashed, dotted, dash-dot, long dash) and an optional **Fill**. Selecting a shape shows the same panel, and its changes apply to every selected shape.
+Choose **Shape** (`R`), pick **Box**, **Ellipse** or **Line**, and drag on the canvas, including on top of an image. Hold Shift (or choose **Square**) for a square or a circle. Set **Stroke color**, **Stroke width**, **Dash style** (solid, dashed, dotted, dash-dot, long dash) and an optional **Fill**. Selecting a shape shows the same panel, and its changes apply to every selected shape. To move a line's ends or bend it, right-click it and choose **Modify points**: it is edited like a path (see [Pen and paths](#12-pen-and-paths-arrows-outlines)); once you change it, it becomes a path, which keeps its look and gains the Path panel's options.
 
 ![A dashed white circle drawn around a cell in inset C, with the Shape panel](images/07-shapes.jpg)
 
@@ -372,12 +372,12 @@ New shapes and paths start with a yellow stroke. The colour pickers offer bright
 Choose **Pen / Path** (`P`) to draw lines, arrows and free outlines.
 
 - Click to add a straight node; click and drag to pull out Bézier handles for a curve. Straight and curved segments can be mixed.
-- Double-click or press Enter to finish, and Escape to cancel. Clicking the first node closes the path.
+- Double-click or press Enter to finish, and Escape to cancel. To close the path, come back to its first node: once the path has three nodes, the first one is highlighted when the pointer comes near it and the line snaps onto it; click there to close the path.
 - Shift constrains to 45° angles. Ctrl snaps to nearby nodes and object edges or centres.
 - Style: colour, width, opacity, dash style, line cap and join, and an arrowhead at the start and/or end: **Filled arrow** (a solid triangle) or **Open arrow** (two strokes in the line's width, cap and join, never dashed; the line runs to the tip).
 - An arrowhead is 4 times the line width long (at least 10 px), and 0.9 times its length wide. Like the line width, it keeps its size on the page when you resize the path, also when you stretch it unevenly or resize a group holding it. The line stops inside the arrowhead, near its base, so it does not show through the head and its cap never sticks out of the tip. On a curved arrow, the head follows the line under it, so the middle of its base sits on the curve.
 
-To change a path later, select it and click **Edit nodes**: drag nodes and handles, double-click a segment to insert a node, and use **Corner / Smooth**, **Delete node**, **Straight segment / Curve segment** and **Close path**. Hold Alt while dragging a smooth node's handle to break the symmetry. **Done editing** returns to normal selection.
+To change a path later, right-click it and choose **Modify points** (or select it and click **Edit nodes**): drag nodes and handles, double-click a segment to insert a node, and use **Corner / Smooth**, **Delete node**, **Straight segment / Curve segment** and **Close path**. While you edit, the right-click menu also has **Add point here** (on the segment nearest to where you clicked), **Delete point** (the selected one) and **Done modifying points**. Hold Alt while dragging a smooth node's handle to break the symmetry. Escape, **Done editing** or a click outside the path returns to normal selection; the whole edit is one step in History, so one Undo takes it back.
 
 ![The arrow in inset B in node-editing mode, with its two nodes and the Pen / Path panel](images/08-pen-path.jpg)
 

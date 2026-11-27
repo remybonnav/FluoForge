@@ -8,7 +8,7 @@ import { canvas, currentTool, registry } from '../core/state.js';
 import { refreshChannelPanel } from '../image/channels.js';
 import { cropRect, cropToShapePair, keepClipOnContent } from '../tools/crop.js';
 import { followSourceImage, refreshInsetPanel, hasAttachments, syncAttachments, syncInsetFromContour } from '../tools/inset.js';
-import { refreshPathPanel } from '../tools/path.js';
+import { exitPathEdit, refreshPathPanel } from '../tools/path.js';
 import { refreshScaleBarPanel, refreshScaleBarPreview, refreshScaleBarRefList, updateScaleBarsForImage } from '../tools/scalebar.js';
 import { refreshShapePanel } from '../tools/shape.js';
 import { cropMontageLike } from '../image/montage.js';
@@ -18,16 +18,14 @@ import { refreshLettersPanel } from '../layout/letters-panel.js';
 import { refreshPanel as refreshLegendPanel } from '../tools/legend.js';
 import { applyTextBoxSize, refreshTextPanel } from '../tools/text.js';
 import { LAYER_ICONS, layerLabel, refreshLayersPanel } from './layers.js';
-import { applyLockState, applySelectionLock, isTransformLocked, refuseLocked } from './locks.js';
+import { applySelectionLock, isTransformLocked, refuseLocked } from './locks.js';
 import { refreshDisplayButtons } from '../image/display-settings.js';
 import { refreshReplaceButton } from '../image/replace.js';
 
 export function onSelectionChanged() {
   const activeObject=canvas.getActiveObject();
-  canvas.getObjects().filter(object=>object.__mfcNodeEdit&&object!==activeObject).forEach(path=>{
-    path.__mfcNodeEdit=false;path.controls=path.__mfcStandardControls||fabric.Object.prototype.controls;
-    path.hasBorders=true;applyLockState(path);path.setCoords();
-  });
+  // A click outside a path whose points are being modified ends the editing, in one History step (PI-T5).
+  canvas.getObjects().filter(object=>object.__mfcNodeEdit&&object!==activeObject).forEach(path=>exitPathEdit(path));
   applySelectionLock();
   refreshChannelPanel();
   refreshSelectionBar();
