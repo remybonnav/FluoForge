@@ -86,7 +86,7 @@ const COMPATIBLE = /^(arial|arimo|helvetica|liberation sans|times|times new roma
 export function pdfFont(name, flags = {}) {
   const plain = String(name || '').replace(/^[A-Z]{6}\+/, '');
   const familyPart = plain.split(/[,-]/)[0];
-  const family = familyPart.replace(/(PSMT|PS|MT)$/, '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[^\w .]/g, '').trim() || 'sans-serif';
+  const family = familyPart.replace(/(PSMT|PS|MT)$/, '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^Deja Vu\b/, 'DejaVu').replace(/[^\w .]/g, '').trim() || 'sans-serif';
   const bold = !!(flags.bold || flags.black) || /bold|black|heavy|semibold|demi/i.test(plain);
   const italic = !!flags.italic || /italic|oblique/i.test(plain);
   const base = family.replace(/(\s+(Bold|Black|Heavy|Italic|Oblique|Regular))+$/i, '').replace(/(?<!New)\s+Roman$/i, ''); // "Times Roman", not "Times New Roman"
@@ -98,7 +98,6 @@ export const writableText = s => !!s && !/[\u0000-\u001f\u007f-\u009f-�]
 
 /** What the vector import of a page could not reproduce, said to the user: one line per kind. */
 export const ISSUES = Object.freeze({
-  tiling: 'repeating pattern fills',
   mesh: 'mesh (free-form) colour gradients',
   smask: 'soft masks (transparency defined by an image)',
   blend: 'blend modes other than normal',
