@@ -4,7 +4,10 @@
  */
 /* Text tool: text boxes with a box size independent of the font size, borders, the Text panel and styling (also of a highlighted range). */
 
-import { canvas, currentTool } from '../core/state.js';
+import { canvas, currentTool, takeId } from '../core/state.js';
+import { pushHistory } from '../core/history.js';
+import { getPreference, setGlobalPreference } from '../core/preferences.js';
+import { zoomLevel } from '../core/zoom.js';
 import { align } from '../layout/align.js';
 import { refuseLocked } from '../ui/locks.js';
 import { refreshSelectionBar } from '../ui/selection-bar.js';
@@ -14,6 +17,12 @@ export function refreshTextPanel() {
   const panel = document.getElementById('panel-text');
   const boxes = getSelectedTextboxes();
   panel.classList.toggle('hidden', !(boxes.length || currentTool === 'text'));
+  // Snap when resizing (PI-T6): the Text tool's option, a preference (also in Preferences → Text).
+  const snapBox = document.getElementById('text-snap-resize');
+  if (snapBox) {
+    snapBox.checked = !!getPreference('text.snapResize');
+    if (!snapBox.__mfcWired) { snapBox.__mfcWired = true; snapBox.addEventListener('change', e => setGlobalPreference('text.snapResize', e.target.checked)); }
+  }
   if (!boxes.length) return;
   const active = boxes[0]; // representative values shown when multiple are selected — edits still apply to every selected box, see applyTextStyle/applyTextBorder/applyTextAlign
 
@@ -346,3 +355,66 @@ export function applyTextAlign(align) {
 function activateTextTool() {}
 function deactivateTextTool() {}
 export { activateTextTool as activate, deactivateTextTool as deactivate, refreshTextPanel as refreshPanel };
+
+// ---- drawing a text box (PI-T6) ----
+// With the Text tool, a click inserts a text box as before (200 px wide); a drag draws one of the dragged
+// size: its width, and its height as the box's own height (mfcBoxHeight), so it keeps that size when typed
+// into (it still grows if its text needs more room). A dashed rectangle shows the box while dragging.
+const DRAG_MIN_SCREEN_PX = 4;
+let textDrag = null;
+export const textDragActive = () => !!textDrag;
+export function startTextDrag(pointer) {
+  textDrag = { start: { x: pointer.x, y: pointer.y }, preview: null };
+}
+/** Follows the pointer while drawing a text box; returns whether a text drag is in progress. */
+export function moveTextDrag(opt) {
+  if (!textDrag) return false;
+  const p = canvas.getPointer(opt.e), s = textDrag.start;
+  if (!textDrag.preview) {
+    if (Math.hypot(p.x - s.x, p.y - s.y) * zoomLevel < DRAG_MIN_SCREEN_PX) return true;
+    textDrag.preview = new fabric.Rect({ fill: 'rgba(91, 140, 255, 0.08)', stroke: '#5b8cff', strokeWidth: 1, strokeUniform: true, strokeDashArray: [6, 4],
+      selectable: false, evented: false, objectCaching: false });
+    textDrag.preview.mfcIsPreview = true;
+    canvas.add(textDrag.preview);
+  }
+  textDrag.preview.set({ left: Math.min(s.x, p.x), top: Math.min(s.y, p.y), width: Math.abs(p.x - s.x), height: Math.abs(p.y - s.y) });
+  textDrag.preview.setCoords();
+  canvas.requestRenderAll();
+  return true;
+}
+/** Ends a click or a drag of the Text tool with a new text box; returns whether there was one. */
+export function endTextDrag() {
+  if (!textDrag) return false;
+  const { start, preview } = textDrag;
+  textDrag = null;
+  let box = null;
+  if (preview) {
+    box = { left: preview.left, top: preview.top, width: preview.width, height: preview.height };
+    canvas.remove(preview);
+  }
+  addTextBox(start, box);
+  return true;
+}
+/** A new text box at `point` (a click), or filling `box` (a drag); one History step, then the Select tool. */
+export function addTextBox(point, box = null) {
+  const t = new fabric.Textbox('Text', {
+    left: box ? box.left : point.x, top: box ? box.top : point.y, width: box ? Math.max(10, box.width) : 200,
+    // Preferences → Text (a project can override them).
+    fontFamily: getPreference('text.fontFamily'),
+    fontSize: getPreference('text.fontSize'),
+    fill: getPreference('text.color'),
+    textAlign: 'left'
+  });
+  t.mfcId = 'txt' + takeId();
+  t.mfcType = 'text';
+  if (box && box.height > 1) t.mfcBoxHeight = box.height;
+  attachTextListeners(t);
+  canvas.add(t);
+  t.initDimensions(); t.setCoords();
+  canvas.setActiveObject(t);
+  t.enterEditing();
+  canvas.requestRenderAll();
+  pushHistory();
+  MFC.setTool('select');
+  return t;
+}

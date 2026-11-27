@@ -91,6 +91,51 @@ export function snapObjectPosition(obj, options = snapOptions()) {
   guides = options.guides && any ? { x: guideX, y: guideY, marks } : null;
 }
 
+/**
+ * Resizing a text box snaps its moving edge (PI-T6): a side handle's edge changes its width, a top or
+ * bottom handle's its box height, a corner's moves on the axis that snaps closer and scales the text,
+ * the opposite side or corner staying where it is. Only with snapping on and Preferences → Text "Snap
+ * when resizing"; Alt resizes freely, as it moves freely.
+ */
+export function snapTextResize(obj, transform, evt, options = snapOptions()) {
+  guides = null;
+  if (!obj || obj.type !== 'textbox' || !transform || !transform.corner || !options.enabled || !getPreference('text.snapResize') || (evt && evt.altKey)) return;
+  const corner = transform.corner;
+  // Fabric's handles: ml, mr, mt, mb (sides) and tl, tr, bl, br (corners).
+  const xEdge = corner[1] === 'l' ? 'left' : corner[1] === 'r' ? 'right' : null;
+  const v = corner[0] === 'm' ? corner[1] : corner[0];
+  const yEdge = v === 't' ? 'top' : v === 'b' ? 'bottom' : null;
+  if (!xEdge && !yEdge) return;
+  const targets = getSnapTargets(obj, options);
+  if (options.toGuides) targets.push(...snapGuideLines().map(guideTarget));
+  const box = obj.getBoundingRect(true, true);
+  const sx = xEdge ? computeSnap(box, targets, { edges: [xEdge], threshold: options.threshold }) : { dx: null };
+  const sy = yEdge ? computeSnap(box, targets, { edges: [yEdge], threshold: options.threshold }) : { dy: null };
+  if (sx.dx === null && sy.dy === null) return;
+  // The side or corner that stays put while resizing (Fabric's transform origin).
+  const anchor = obj.translateToOriginPoint(obj.getCenterPoint(), transform.originX, transform.originY);
+  const grow = (edge, d) => (edge === 'right' || edge === 'bottom' ? d : -d); // how much the box grows on screen
+  let gx = null, gy = null;
+  if (xEdge && yEdge) { // a corner: scale the text, on the axis whose edge is closer to a line
+    const useX = sx.dx !== null && (sy.dy === null || Math.abs(sx.dx) <= Math.abs(sy.dy));
+    const factor = useX ? (box.width + grow(xEdge, sx.dx)) / box.width : (box.height + grow(yEdge, sy.dy)) / box.height;
+    if (!(factor > 0)) return;
+    obj.set({ scaleX: obj.scaleX * factor, scaleY: obj.scaleY * factor });
+    if (useX) gx = sx.guideX; else gy = sy.guideY;
+  } else if (xEdge) { // a side: the width
+    obj.set('width', Math.max(10, obj.width + grow(xEdge, sx.dx) / (obj.scaleX || 1)));
+    obj.initDimensions();
+    gx = sx.guideX;
+  } else { // top or bottom: the box's own height
+    obj.set('mfcBoxHeight', Math.max(1, obj.height + grow(yEdge, sy.dy) / (obj.scaleY || 1)));
+    obj.initDimensions();
+    gy = sy.guideY;
+  }
+  obj.setPositionByOrigin(anchor, transform.originX, transform.originY);
+  obj.setCoords();
+  if (options.guides) guides = { x: gx, y: gy, marks: { x: [], y: [] } };
+}
+
 /** Draws the current snap guides over the canvas (canvas 'after:render'). */
 export function drawSnapGuides(ctx) {
   if (!guides) return;

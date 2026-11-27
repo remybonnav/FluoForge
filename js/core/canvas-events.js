@@ -5,16 +5,15 @@
 /* Canvas set-up and events: creates the Fabric canvas, wires its object and mouse events, and passes pointer events to the active tool. */
 
 import { pushHistory } from './history.js';
-import { canvas, currentTool, documentOpen, isHelper, setCanvas, takeId } from './state.js';
+import { canvas, currentTool, documentOpen, isHelper, setCanvas } from './state.js';
 import { setZoom, zoomAnchor, zoomLevel } from './zoom.js';
-import { clearSnapGuides, drawSnapGuides, snapObjectPosition } from '../layout/snap.js';
-import { getPreference } from './preferences.js';
+import { clearSnapGuides, drawSnapGuides, snapObjectPosition, snapTextResize } from '../layout/snap.js';
 import { cropAspectMode, cropRect, keepCropSquare, syncCropFieldsFromRect } from '../tools/crop.js';
 import { endInsetDrag, moveInsetDrag, placeFixedInsetContour, refreshInsetPanel, startInsetDrag, hasAttachments, syncAttachments, syncInsetFromContour, updateInsetReadout } from '../tools/inset.js';
 import { beginPathPointer, endPathPointer, enterPathEdit, finishPathDrawing, insertPathNode, movePathPointer, pathDraft, takePathFinishDoubleClick } from '../tools/path.js';
 import { refreshScaleBarPreview } from '../tools/scalebar.js';
 import { endShapeDrag, moveShapeDrag, startShapeDrag } from '../tools/shape.js';
-import { attachTextListeners, forgetTextSelection, normalizeTextScale, refreshTextPanel } from '../tools/text.js';
+import { endTextDrag, forgetTextSelection, moveTextDrag, normalizeTextScale, refreshTextPanel, startTextDrag } from '../tools/text.js';
 import { setTool } from '../tools/tool-switch.js';
 import { onMouseDown as annotateDown, onMouseMove as annotateMove, onMouseUp as annotateUp, onObjectModified as onAnnotationModified, onObjectMoving as onAnnotationMoving, onObjectRemoved as onAnnotationRemoved } from '../tools/annotate.js';
 import { refreshLayersPanel } from '../ui/layers.js';
@@ -73,7 +72,11 @@ export function init() {
     if (currentTool === 'scalebar') refreshScaleBarPreview();
     pushHistory();
   });
-  canvas.on('object:resizing', (e) => { refreshSelectionBar(); if (e.target && e.target.type === 'textbox') refreshTextPanel(); });
+  canvas.on('object:resizing', (e) => {
+    const t = e.target || (e.transform && e.transform.target);
+    if (t && t.type === 'textbox') { snapTextResize(t, e.transform, e.e); refreshTextPanel(); } // PI-T6
+    refreshSelectionBar();
+  });
 
   // Shift while rotating snaps to 45° steps, pivoting on the object's center like Fabric's own rotation.
   canvas.on('object:rotating', (e) => {
@@ -159,6 +162,7 @@ export function init() {
     if (hasAttachments(obj)) { syncAttachments(obj); }
     if (obj.mfcType === 'insetContour') { syncInsetFromContour(obj); updateInsetReadout(obj); }
     onAnnotationMoving(obj);
+    if (obj.type === 'textbox') snapTextResize(obj, e.transform, evt); // a corner scales the text: it snaps too (PI-T6)
     refreshSelectionBar();
     if (obj.type === 'textbox') refreshTextPanel();
   });
@@ -175,24 +179,7 @@ export function onCanvasMouseDown(opt) {
   // Shapes and labels are usually drawn over images: only an existing text box
   // (clicked to edit it) stops the Text tool, and nothing stops the Shape tool.
   if (currentTool === 'text' && !(opt.target && opt.target.type === 'textbox')) {
-    const p = canvas.getPointer(opt.e);
-    const t = new fabric.Textbox('Text', {
-      left: p.x, top: p.y, width: 200,
-      // Preferences → Text (a project can override them).
-      fontFamily: getPreference('text.fontFamily'),
-      fontSize: getPreference('text.fontSize'),
-      fill: getPreference('text.color'),
-      textAlign: 'left'
-    });
-    t.mfcId = 'txt' + takeId();
-    t.mfcType = 'text';
-    attachTextListeners(t);
-    canvas.add(t);
-    canvas.setActiveObject(t);
-    t.enterEditing();
-    canvas.requestRenderAll();
-    pushHistory();
-    setTool('select');
+    startTextDrag(canvas.getPointer(opt.e)); // a click inserts a text box, a drag draws one of that size (PI-T6)
   } else if (currentTool === 'annotate') {
     annotateDown(canvas.getPointer(opt.e));
   } else if (currentTool === 'shape') {
@@ -208,6 +195,7 @@ export function onCanvasMouseMove(opt) {
     movePathPointer(canvas.getPointer(opt.e), opt.e);
     return;
   }
+  if (moveTextDrag(opt)) return;
   if (moveInsetDrag(opt)) return;
   if (annotateMove(opt)) return;
   moveShapeDrag(opt);
@@ -218,6 +206,7 @@ export function onCanvasMouseUp(opt) {
     endPathPointer(canvas.getPointer(opt.e), opt.e);
     return;
   }
+  if (endTextDrag()) return;
   if (endInsetDrag()) return;
   if (annotateUp()) return;
   endShapeDrag();
