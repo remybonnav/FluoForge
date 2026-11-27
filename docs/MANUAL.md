@@ -330,6 +330,8 @@ Select an image and choose **Crop** (`C`). Drag the blue handles, or type an exa
 
 Cropping is never destructive: the full image stays in the project. **Uncrop** in the selection bar restores the full frame.
 
+**Adjusting a crop.** To change a crop without uncropping, select the cropped panel and click **Adjust crop** in the selection bar (or choose **Crop** with it selected). The whole image is shown, dimmed outside the crop border, with the border on the current crop: drag it elsewhere, or drag its handles to make it wider, narrower, taller or shorter, then **Apply Crop**. The panel keeps its place on the page (its top-left corner) and its scale, so its scale bar stays true; the change is one step in History. Insets drawn on it stay on their part of the image, and the panels of a quick figure or series are re-cropped together, as with any crop. **Cancel** leaves the crop as it was. A border dragged past the edge of the image keeps only the part on the image. A rotated or flipped panel cannot be adjusted: set its angle back to 0° first, or use **Uncrop**.
+
 ## 9. Scale bars
 
 Scale bars use the image's pixel size, so they stay correct when the panel is resized.

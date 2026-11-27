@@ -4,6 +4,10 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.50 (2026-11-27)
+
+- **Adjusting a crop without uncropping (PI-T7).** Select a cropped panel and click **Adjust crop** in the selection bar (or choose the Crop tool with it selected): the whole image is shown, dimmed outside the crop border, and the border can be moved or resized. **Apply Crop** re-crops it in one History step; the panel keeps its place and scale on the page, insets stay on their pixels, and quick-figure rows are re-cropped together. Fixed: a crop border overhanging the image's edge now keeps exactly the part on the image (it used to take the border's full width).
+
 ## v0.1.49 (2026-11-27)
 
 - **Editing the points of paths and lines (PI-T5).** Right-click a path, polyline or line and choose **Modify points** to drag its points and handles; while editing, the menu adds **Add point here**, **Delete point** and **Done modifying points**. Escape, Done or a click outside ends it, and the whole edit is one History step (one Undo takes it back; undo during an edit keeps nothing half done). A line whose points you change becomes a two-point path with the same look. While drawing with the Pen tool, the first point is highlighted and the line snaps onto it when the pointer comes near; a click there closes the path. Fixed: undoing a point edit restores the path's points (History steps used to share them with the live path).
