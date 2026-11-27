@@ -10,8 +10,9 @@
      draws it where the canvas does; TIFF/PNG export draws it;
    - crop, uncrop, copy and paste, undo, save and reopen, panel letters, templates (a frame);
    - refusals: scripts, event handlers, HTML, links to other files, no size, not an SVG;
-   - a PDF page: rasterised at the document dpi as a labelled image panel (name, mfcRasterised,
-     figure check), the page dialog, a PDF that cannot be read. */
+   - a PDF page as an image (the fallback): rasterised at the document dpi as a labelled image panel
+     (name, mfcRasterised, figure check), the page dialog, a PDF that cannot be read. A PDF page as a
+     vector panel (P3-T10a): tests/pdf-vector-regression.js. */
 async function runVectorRegressions() {
   const checks = [];
   const assert = (name, ok, detail) => { if (!ok) throw new Error(name + (detail != null ? ': ' + detail : '')); checks.push(name); };
@@ -64,7 +65,7 @@ async function runVectorRegressions() {
     await frame();
 
     // ================= Import =================
-    assert('The import button and file picker take SVG plots and PDF pages', /SVG plots \(stay vector\)/.test($('btn-import').title) && /\.svg/.test($('file-input').accept) && /\.pdf/.test($('file-input').accept));
+    assert('The import button and file picker take SVG plots and PDF pages', /SVG plots or a PDF page \(both stay vector\)/.test($('btn-import').title) && /\.svg/.test($('file-input').accept) && /\.pdf/.test($('file-input').accept));
     const steps = MFC.getHistory().labels.length;
     await MFC.importFiles([svgFile('growth.svg', MPL)]); await idle();
     let plot = vectors()[0];
@@ -181,7 +182,7 @@ async function runVectorRegressions() {
     }
     assert('…and nothing was added', vectors().length === before);
 
-    // ================= A PDF page (fallback) =================
+    // ================= A PDF page as an image (the fallback) =================
     const { jsPDF } = window.jspdf;
     const made = new jsPDF({ unit: 'pt', format: [144, 72], orientation: 'landscape' });
     made.setFillColor(31, 119, 180); made.rect(0, 0, 72, 72, 'F'); made.setFont('helvetica', 'normal'); made.setFontSize(28); made.setTextColor(0, 0, 0); made.text('Ab', 84, 48); /* Helvetica: not embedded */ made.addPage([144, 72], 'landscape'); made.setFillColor(214, 39, 40); made.rect(72, 0, 72, 72, 'F');
@@ -192,26 +193,26 @@ async function runVectorRegressions() {
     const asked = MFC.importFiles([pdfFile]).then(() => { settled = true; });
     for (let i = 0; i < 400 && !document.querySelector('.pdf-page-modal') && !errors.length && !settled; i++) await new Promise(r => setTimeout(r, 30));
     const dialog = document.querySelector('.pdf-page-modal');
-    assert('A PDF of two pages: a dialog asks which, saying it will be rasterised', dialog && $('pdf-page').max === '2' && /rasterised at the document's 300 dpi/.test(dialog.textContent) &&
-      [...dialog.querySelectorAll('input, button')].every(e => e.title || e.closest('label')?.title) && document.activeElement === $('pdf-page'), JSON.stringify({ settled, errors, toast: toasts.at(-1) }));
+    assert('A PDF of two pages: a dialog asks which, and as vector or as an image rasterised at 300 dpi', dialog && $('pdf-page').max === '2' && /rasterised at the document's 300 dpi/.test(dialog.textContent) &&
+      [...dialog.querySelectorAll('input, select, button')].every(e => e.title || e.closest('label')?.title) && document.activeElement === $('pdf-page'), JSON.stringify({ settled, errors, toast: toasts.at(-1) }));
     $('pdf-page').value = '3'; $('pdf-page').dispatchEvent(new Event('input'));
     assert('…a page that does not exist is refused', $('pdf-page-ok').disabled && /between 1 and 2/.test(dialog.querySelector('.export-error').textContent));
     dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await asked; await idle();
     assert('…Escape imports nothing', !document.querySelector('.pdf-page-modal') && !canvas.getObjects().some(o => o.mfcRasterised));
     toasts.length = 0;
-    const raster = await PDFI.importPDF(pdfFile, { page: 2 }); await idle();
+    const raster = await PDFI.importPDF(pdfFile, { page: 2, as: 'image' }); await idle();
     assert('Page 2 becomes an image panel, labelled as rasterised', raster && raster.mfcType === 'mfcImage' && raster.mfcFileName === 'plots.pdf, page 2 (rasterised at 300 dpi)' &&
       JSON.stringify(raster.mfcRasterised) === '{"from":"pdf","file":"plots.pdf","page":2,"pages":2,"dpi":300}', raster && raster.mfcFileName);
     assert('…at the page\'s size on paper (2 × 1 in at 300 dpi)', near(raster.getScaledWidth(), 600, 1) && near(raster.getScaledHeight(), 300, 1) && MFC.getRegistry()[raster.mfcId].rawImage.width === 600);
     const rr = MFC.getRegistry()[raster.mfcId].rawImage, at = (x, y) => rr.channels.map(c => c.data[y * rr.width + x]);
     assert('…showing that page (red on its right half, white on its left)', at(450, 150).every((v, i) => Math.abs(v - [214, 39, 40][i]) <= 3) && at(100, 150).join() === '255,255,255', at(450, 150).join() + ' / ' + at(100, 150).join());
-    assert('…and a message says it is not vector, and how to keep a plot vector', toasts.some(m => /rasterised at 300 dpi: it is an image, not vector/.test(m) && /export it as SVG/.test(m)));
+    assert('…and a message says it is not vector, and that vector is the default', toasts.some(m => /rasterised at 300 dpi: it is an image, not vector/.test(m) && /Import it as vector \(the default\)/.test(m)));
     raster.set({ left: 50, top: 500 }); raster.setCoords();
     const findings = RULES.runChecks(CHECK.buildCheckContext()).filter(f => f.rule === 'rasterised');
     assert('The figure check lists it as rasterised', findings.length === 1 && findings[0].severity === 'info' && /page 2 of a PDF, rasterised at 300 dpi/.test(findings[0].message));
     assert('The Layers panel names it as rasterised', /plots\.pdf, page 2 \(rasterised at 300 dpi\)/.test(document.body.textContent));
-    const one = await PDFI.importPDF(pdfFile, { page: 1 }); await idle();
+    const one = await PDFI.importPDF(pdfFile, { page: 1, as: 'image' }); await idle();
     const r1 = MFC.getRegistry()[one.mfcId].rawImage;
     let dark = 0;
     for (let y = 60; y < 240; y++) for (let x = 330; x < 590; x++) if (r1.channels[0].data[y * r1.width + x] < 100) dark++;

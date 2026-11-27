@@ -12,7 +12,7 @@ Each licence was checked on 2026-11-17 against the component's licence file and 
 | JSZip | 3.10.1 | MIT or GPL-3.0-or-later (dual licence; FluoForge uses it under MIT) | Bundled: `assets/vendor/jszip.min.js` (licence: `assets/vendor/LICENSE-jszip.txt`) | https://github.com/Stuk/jszip |
 | pako | 2.1.0 | MIT AND Zlib | Bundled: `assets/vendor/pako.min.js` | https://github.com/nodeca/pako |
 | svg2pdf.js | 2.5.0, with one local fix | MIT | Bundled: `assets/vendor/svg2pdf.umd.min.js` | https://github.com/yWorks/svg2pdf.js |
-| pdf.js (pdfjs-dist), with its worker | 6.5.438 | Apache-2.0 | Bundled: `assets/vendor/pdfjs/pdf.min.mjs` and `pdf.worker.min.mjs` (licence: `assets/vendor/LICENSE-pdfjs.txt`); loaded only to import a PDF page | https://github.com/mozilla/pdf.js |
+| pdf.js (pdfjs-dist), with its worker | 6.5.438 | Apache-2.0 | Bundled: `assets/vendor/pdfjs/pdf.min.mjs` and `pdf.worker.min.mjs` (licence: `assets/vendor/LICENSE-pdfjs.txt`); loaded only to import a PDF page (converted to SVG, or rasterised) | https://github.com/mozilla/pdf.js |
 | pdf.js standard fonts (Foxit) | from pdfjs-dist 6.5.438 | BSD-3-Clause (PDFium) | Bundled: `assets/vendor/pdfjs/standard_fonts/Foxit*.pfb` (licence: `LICENSE_FOXIT` in that folder); the Liberation Sans files there are copies of the app's own (below) | https://github.com/mozilla/pdf.js |
 | Liberation Fonts (Sans, Serif, Mono) | 2.1.5 | SIL Open Font License 1.1 | Bundled: `assets/fonts/*.ttf` | https://github.com/liberationfonts/liberation-fonts |
 | viridis, magma, inferno colour maps | matplotlib 3.9.2 tables | CC0 1.0 (public domain) | Data in `js/image/luts.js` (licence: `assets/vendor/LICENSE-mpl-colormaps.txt`) | https://github.com/BIDS/colormap |
