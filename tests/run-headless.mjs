@@ -33,6 +33,7 @@ import { runSeriesModelRegressions } from './series-model-regression.mjs';
 import { runCalibrationModelRegressions } from './calibration-model-regression.mjs';
 import { runVectorModelRegressions } from './vector-model-regression.mjs';
 import { runPdfVectorModelRegressions } from './pdf-vector-model-regression.mjs';
+import { runMetafileRegressions } from './metafile-regression.mjs';
 import { check as checkVersion, describeMismatch } from '../scripts/release.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -158,7 +159,8 @@ async function nodeStep(results) {
     'series-model-regression': runSeriesModelRegressions,
     'calibration-model-regression': runCalibrationModelRegressions,
     'vector-model-regression': runVectorModelRegressions,
-    'pdf-vector-model-regression': runPdfVectorModelRegressions
+    'pdf-vector-model-regression': runPdfVectorModelRegressions,
+    'metafile-regression': runMetafileRegressions
   };
   for (const [suite, run] of Object.entries(suites)) {
     const started = Date.now();

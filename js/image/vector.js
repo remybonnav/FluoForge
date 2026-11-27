@@ -228,8 +228,9 @@ export async function exportMarkup(obj) {
 
 /** Adds the SVG file `file` to the canvas as a vector panel, at its size on paper (smaller when it
     would not fit on the page). One History step. A PDF page converted to SVG (pdf-import.js) passes
-    the panel's `name`, extra `props` (mfcConverted) and the `what` its message starts with. */
-export async function addVectorToCanvas(file, { name: label = null, props = null, what = null } = {}) {
+    the panel's `name`, extra `props` (mfcConverted), the `what` its message starts with and a `note` it ends with;
+    so does an EMF or WMF (metafile-import.js). */
+export async function addVectorToCanvas(file, { name: label = null, props = null, what = null, note = '' } = {}) {
   const text = await svgText(file);
   const name = label || file.name || 'plot.svg';
   const entry = prepareSVG(text, name);
@@ -250,6 +251,6 @@ export async function addVectorToCanvas(file, { name: label = null, props = null
   pushHistory();
   refreshLayersPanel();
   const fonts = entry.replaced.length ? ` Its text is set in the embedded Liberation fonts (instead of ${entry.replaced.slice(0, 3).join(', ')}${entry.replaced.length > 3 ? ', …' : ''}), so it looks the same in every export.` : '';
-  MFC_UI.toast(`${what || name} is a vector panel: it stays vector in SVG and PDF export.${fonts}${fit < 1 ? ' It was scaled down to fit the page.' : ''}`);
+  MFC_UI.toast(`${what || name} is a vector panel: it stays vector in SVG and PDF export.${fonts}${fit < 1 ? ' It was scaled down to fit the page.' : ''}${note ? ' ' + note : ''}`);
   return obj;
 }

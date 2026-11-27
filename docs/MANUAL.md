@@ -108,16 +108,17 @@ Click **Import Image** (you can choose several files at once). Supported formats
 | ImageJ hyperstacks (channels × Z slices × time frames) | See [Z stacks and time series](#5-z-stacks-and-time-series). |
 | CZI, LIF, ND2 and other microscope formats | Not read directly: a browser cannot decode them. Convert them to OME-TIFF in Fiji (see below). |
 | JPEG, PNG, BMP | Three channels (red, green, blue) shown at their full 0–255 range. PNG transparency is kept. These files carry no pixel size; enter it by hand to use scale bars. |
-| SVG (`.svg`, `.svgz`: graphs from R, Python, Prism and other tools) | A vector panel that stays vector in SVG and PDF export. See [Vector panels and PDF pages](#vector-panels-and-pdf-pages). |
-| PDF | One page, as a vector panel (it stays vector in SVG and PDF export), or rasterised at the document's dpi as an image panel. See [Vector panels and PDF pages](#vector-panels-and-pdf-pages). |
+| SVG (`.svg`, `.svgz`: graphs from R, Python, Prism and other tools) | A vector panel that stays vector in SVG and PDF export. See [Vector panels](#vector-panels-svg-pdf-emf-and-wmf). |
+| PDF | One page, as a vector panel (it stays vector in SVG and PDF export), or rasterised at the document's dpi as an image panel. See [Vector panels](#vector-panels-svg-pdf-emf-and-wmf). |
+| EMF, WMF (`.emf`, `.emz`, `.wmf`, `.wmz`: Prism, Office, R's devEMF) | A vector panel. See [Vector panels](#vector-panels-svg-pdf-emf-and-wmf). |
 
 **Converting microscope files.** FluoForge comes with a Fiji macro, `tools/Export_for_FluoForge.ijm` (the error shown when you import a CZI, LIF or ND2 file links to it). In Fiji, choose *Plugins ▸ Macros ▸ Run...*, pick the macro, then a folder of microscope files and a folder for the results. It converts every file Bio-Formats can read to OME-TIFF, one file per image (series), keeping the channels, Z slices, time frames, pixel size and channel names; files that already exist are skipped. Bio-Formats keeps the original metadata in the OME-TIFF, including the path of the source file. The macro can also run without a window: `fiji --headless --run Export_for_FluoForge.ijm "input='/data/raw',output='/data/ome'"`. BigTIFF files (the TIFF variant for files over 4 GB) cannot be imported yet.
 
-### Vector panels and PDF pages
+### Vector panels: SVG, PDF, EMF and WMF
 
-Real figures often mix micrographs with plots. Import a plot as **SVG** or **PDF** and it becomes a **vector panel**: it stays vector in SVG and PDF export, so its lines and text stay sharp at any size and can still be edited in Inkscape or Illustrator.
+Real figures often mix micrographs with plots. Import a plot as **SVG**, **PDF**, **EMF** or **WMF** and it becomes a **vector panel**: it stays vector in SVG and PDF export, so its lines and text stay sharp at any size and can still be edited in Inkscape or Illustrator.
 
-- **Exporting the plot.** In R: `ggsave("plot.svg")` (svglite), `svg("plot.svg")` or `pdf("plot.pdf")`. In Python: `plt.savefig("plot.svg")` or `"plot.pdf"`. In GraphPad Prism: *File ▸ Export* and choose SVG or PDF.
+- **Exporting the plot.** In R: `ggsave("plot.svg")` (svglite), `svg("plot.svg")` or `pdf("plot.pdf")`. In Python: `plt.savefig("plot.svg")` or `"plot.pdf"`. In GraphPad Prism: *File ▸ Export* and choose SVG, PDF, EMF or WMF. R's `devEMF` package (`emf("plot.emf")`) writes EMF too.
 - **Size.** The panel comes in at the size the plot has on paper (its SVG width and height), scaled down if it does not fit the page. Resize it like any panel; it is redrawn, never blurred.
 - **What you can do with it.** Move, resize, rotate, crop (**Crop**, **Uncrop**), crop to a shape, give it a panel letter, copy and paste, and lock it. Channel, scale bar, inset and annotation tools are for images and do not apply to it. Save as template turns it into an empty frame.
 - **Text.** The plot's text is set in the fonts FluoForge embeds: Arial, Helvetica, DejaVu Sans and other sans-serif fonts become Liberation Sans (the same widths as Arial), Times and other serif fonts become Liberation Serif, and Courier and other monospaced fonts become Liberation Mono. That way the canvas, SVG, PDF and TIFF all look the same, and the PDF export checks every character can be drawn. A message names the fonts that were replaced. To keep a plot's own font exactly, have the plotting tool write its text as outlines (in matplotlib: `plt.rcParams["svg.fonttype"] = "path"`, the default).
@@ -132,6 +133,13 @@ Real figures often mix micrographs with plots. Import a plot as **SVG** or **PDF
 - **Saved with the project.** The converted SVG is stored in the project, not the PDF; any FluoForge version from 0.1.39 opens it. The panel is named by the file (and page), and remembers where it came from.
 
 **PDF pages as images (a fallback).** Choose **Image** in the dialog, or accept the offer above, and the page is **rasterised** at the document's dpi, at its size on paper. The result is an ordinary image panel, clearly labelled: its name says "rasterised at 300 dpi" (in the Layers panel and the selection bar), a message says so when it is imported, and **Check figure** lists it. It is not vector. Pages larger than 10 000 × 10 000 pixels at the document dpi are refused. Password-protected PDFs must be saved without a password first.
+
+**EMF and WMF.** Windows metafiles (`.emf`, `.wmf`, and their compressed `.emz`, `.wmz`), as GraphPad Prism, Office and R's `devEMF` write them, are converted to SVG when imported and become vector panels too.
+
+- **What is kept.** Lines (width, dashes, caps, joins), fills (solid and hatched), polygons, rectangles, ellipses, arcs and pies, curves, clipping, transforms, bitmaps inside the file (kept pixel for pixel), and EMF+ drawing (the GDI+ part of modern EMF files, which `devEMF` uses by default).
+- **Text.** Text stays text, each word where the file puts it. Arial, Times New Roman and Courier New are set in the Liberation face with the same widths; other fonts are named in the import message. Greek letters in the Symbol font become real Greek characters.
+- **When a file cannot be kept exactly.** A file that uses colour-combining drawing modes, bitmap pattern fills, compressed or palette bitmaps, or other rare features is not imported silently: a dialog lists what it uses, and you can **Import anyway** (those parts are missing or drawn differently, the message says which) or cancel and export the plot as SVG or PDF instead.
+- **Size.** An EMF comes in at its size on paper; a WMF at the size its header gives. A WMF without that header has no size on paper: it is sized at 96 units per inch, and the message says so.
 
 ### Replacing an image
 

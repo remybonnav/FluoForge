@@ -170,6 +170,8 @@ export const naturalSize = (geometry, dpi) => ({ width: Math.max(1, Math.round(g
 /** A file that is an SVG, by name or type. */
 export const isSVGFile = file => /\.svgz?$/i.test(file?.name || '') || file?.type === 'image/svg+xml';
 /** A file that is a PDF, by name or type. */
+/** An EMF or WMF (P3-T10b), or their gzipped .emz and .wmz, by name or type. */
+export const isMetafileFile = file => /\.(emf|emz|wmf|wmz)$/i.test(file?.name || '') || /^(image\/(x-)?(emf|wmf)|application\/x-msmetafile)$/i.test(file?.type || '');
 export const isPDFFile = file => /\.pdf$/i.test(file?.name || '') || file?.type === 'application/pdf';
 
 /** The page size of a PDF page (in points) in document pixels at `dpi`, and the scale pdf.js renders at. */
