@@ -226,7 +226,7 @@ async function runHistogramDisplayRegressions() {
   let menu = document.querySelector('.context-menu');
   const items = () => [...menu.querySelectorAll('.context-item')];
   assert('Right-clicking an image selects it and opens a menu with Copy and Paste display settings (and Copy for other software), instead of the browser\'s menu',
-    ev.defaultPrevented && menu && canvas.getActiveObject() === t2 && items().map(b => b.textContent).join() === 'Copy display settings,Paste display settings,Copy for other software…' &&
+    ev.defaultPrevented && menu && canvas.getActiveObject() === t2 && items().map(b => b.textContent).join() === 'Image info…,Copy display settings,Paste display settings,Copy for other software…' &&
     items().every(b => b.getAttribute('role') === 'menuitem' && b.title) && menu.getAttribute('role') === 'menu',
     [ev.defaultPrevented, !!menu, canvas.getActiveObject() && canvas.getActiveObject().mfcFileName].join());
   assert('The first item has the focus; the menu is inside the window', document.activeElement === items()[0] &&
@@ -242,7 +242,7 @@ async function runHistogramDisplayRegressions() {
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F10', shiftKey: true, bubbles: true, cancelable: true }));
   menu = document.querySelector('.context-menu');
   assert('Shift+F10 opens the same menu for the selected image', menu && document.activeElement === items()[0]);
-  key('ArrowDown');
+  key('ArrowDown'); key('ArrowDown'); // past Image info… (PI-T8) and Copy, to Paste
   n = steps();
   document.activeElement.click(); await idle(); // Enter or Space on a focused button is a click
   assert('Paste from the menu applies the copied settings in one History step and closes the menu',

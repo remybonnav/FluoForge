@@ -110,7 +110,7 @@ const MFC_UI = (function () {
     let panel = tool !== 'select' ? tools[tool] : null;
     if (!panel && object) {
       panel = object.mfcShapeKind === 'path' ? 'panel-path' : object.type === 'textbox' ? 'panel-text' :
-        ({mfcImage:'panel-channels',text:'panel-text',scalebar:'panel-scalebar',shape:'panel-shape',insetContour:'panel-inset',layoutGrid:'panel-grid'})[object.mfcType] || null;
+        ({mfcImage:'panel-channels',mfcVector:'panel-plot',text:'panel-text',scalebar:'panel-scalebar',shape:'panel-shape',insetContour:'panel-inset',layoutGrid:'panel-grid'})[object.mfcType] || null;
     }
     const shown = panel && document.getElementById(panel) && !document.getElementById(panel).classList.contains('hidden');
     if (shown) focusPanel(panel, force);

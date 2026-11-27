@@ -179,9 +179,11 @@ export async function importPDF(file, { page = null, as = null } = {}) {
     const raw = await MFC_TIFF.decodeRasterImage(png);
     const label = `${name}, page ${number} (rasterised at ${dpi} dpi)`;
     raw.fileName = label;
-    await addImageToCanvas(raw, png, { props: { mfcRasterised: { from: 'pdf', file: name, page: number, pages, dpi } }, physical: true });
-    MFC_UI.toast(`Page ${number} of ${name} was rasterised at ${dpi} dpi: it is an image, not vector.` +
-      (issues ? ` The vector import could not reproduce its ${issues.join(', ')}.` : ' Import it as vector (the default) to keep it sharp in SVG and PDF export.'));
+    const message = `Page ${number} of ${name} was rasterised at ${dpi} dpi: it is an image, not vector.` +
+      (issues ? ` The vector import could not reproduce its ${issues.join(', ')}.` : ' Import it as vector (the default) to keep it sharp in SVG and PDF export.');
+    // The message is kept with the image (PI-T8): Image info shows it again.
+    await addImageToCanvas(raw, png, { props: { mfcRasterised: { from: 'pdf', file: name, page: number, pages, dpi }, mfcImportMessage: message }, physical: true });
+    MFC_UI.toast(message);
     return MFC.getCanvas().getActiveObject();
   } finally {
     task.destroy(); // the document and its worker

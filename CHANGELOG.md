@@ -4,6 +4,10 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.51 (2026-11-27)
+
+- **Image info and Plot info for every panel (PI-T8).** Right-click an image ▸ **Image info…** opens its Image info. A vector panel (SVG, PDF, EPS, EMF, WMF) now shows in the Inspector when clicked, in a new **Plot** section: its file, format and page, size on paper, whether it was converted, the message shown when it was imported and what was left out; **Plot info** (button or right-click) shows the same in a dialog. The import message is now saved with the panel (and with a PDF page imported as an image, whose Image info says where it came from), so it can be read again after reopening the project.
+
 ## v0.1.50 (2026-11-27)
 
 - **Adjusting a crop without uncropping (PI-T7).** Select a cropped panel and click **Adjust crop** in the selection bar (or choose the Crop tool with it selected): the whole image is shown, dimmed outside the crop border, and the border can be moved or resized. **Apply Crop** re-crops it in one History step; the panel keeps its place and scale on the page, insets stay on their pixels, and quick-figure rows are re-cropped together. Fixed: a crop border overhanging the image's edge now keeps exactly the part on the image (it used to take the border's full width).

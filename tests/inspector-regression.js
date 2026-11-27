@@ -46,7 +46,8 @@ async function runInspectorRegressions() {
     s.active === beta && s.title === 'Channels — beta.png' && s.channels === '— beta.png' && s.bar === 'beta.png', JSON.stringify({ ...s, active: undefined }));
   await clickOn(plot);
   s = state();
-  assert('Clicking a vector panel straight after B names the panel', s.active === plot && s.title === 'plot.svg (vector)' && s.bar === 'plot.svg (vector)', JSON.stringify({ ...s, active: undefined }));
+  // Since PI-T8 a vector panel has its own Inspector section, Plot, titled with the panel's name.
+  assert('Clicking a vector panel straight after B names the panel (its Plot section)', s.active === plot && s.title === 'Plot — plot.svg' && s.bar === 'plot.svg (vector)', JSON.stringify({ ...s, active: undefined }));
   await clickOn(text);
   s = state();
   assert('Clicking a text box straight after the panel names the text box', s.active === text && /Text/.test(s.title) && !/plot\.svg|beta\.png/.test(s.title), JSON.stringify({ ...s, active: undefined }));

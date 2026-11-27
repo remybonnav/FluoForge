@@ -373,6 +373,10 @@ body:not(.document-open) #side-panel>.panel{display:none;}
 .image-info-list{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;margin:0;}
 .image-info-list dt{color:var(--text-dim);}
 .image-info-list dd{margin:0;overflow-wrap:anywhere;}
+/* In the Inspector's Plot section (PI-T8) the column is narrow: each label above its value. */
+.plot-info-list{grid-template-columns:1fr;gap:0;margin:0 0 8px;}
+.plot-info-list dt{font-size:11px;margin-top:6px;}
+.plot-info-list dd{line-height:1.35;}
 .image-info-channels{border-collapse:collapse;width:100%;}
 .image-info-channels th,.image-info-channels td{text-align:left;padding:3px 8px 3px 0;border-bottom:1px solid var(--border);overflow-wrap:anywhere;}
 .image-info-channels th{color:var(--text-dim);font-weight:600;}

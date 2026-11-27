@@ -21,6 +21,7 @@ import { LAYER_ICONS, layerLabel, refreshLayersPanel } from './layers.js';
 import { applySelectionLock, isTransformLocked, refuseLocked } from './locks.js';
 import { refreshDisplayButtons } from '../image/display-settings.js';
 import { refreshReplaceButton } from '../image/replace.js';
+import { refreshPlotPanel } from './image-info.js';
 
 export function onSelectionChanged() {
   const activeObject=canvas.getActiveObject();
@@ -61,6 +62,7 @@ export function refreshSelectionBar() {
   if (!label) return;
   refreshDisplayButtons();
   refreshReplaceButton();
+  refreshPlotPanel(); // a vector panel's info, its size on paper included (PI-T8)
   const active = canvas.getActiveObject();
   const transform = document.getElementById('sel-transform'), alignGroup = document.getElementById('sel-align');
   const note = document.getElementById('sel-lock-note');

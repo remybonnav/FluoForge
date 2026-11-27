@@ -15,6 +15,7 @@ import { groupOf, linkImages, unlinkImages } from './comparison.js';
 import { showCopyDialog } from '../ui/copy-external.js';
 import { pageIndexForBox } from '../core/pages.js';
 import { pathMenuItems } from '../tools/path.js';
+import { showPanelInfo } from '../ui/image-info.js';
 
 let copied = null;
 
@@ -112,7 +113,10 @@ export function openImageMenu(x, y, copy = null) {
   menu.setAttribute('role', 'menu');
   const pathItems = pathMenuItems(canvas.getActiveObject(), menuPoint); // Modify points… (PI-T5)
   menuPoint = null;
-  menu.setAttribute('aria-label', images.length ? 'Image' : pathItems.length ? 'Path' : 'Figure');
+  // Image info… / Plot info… for one panel (PI-T8).
+  const active = canvas.getActiveObject();
+  const infoOf = active && (active.mfcType === 'mfcImage' && registry[active.mfcId] ? 'Image' : active.mfcType === 'mfcVector' ? 'Plot' : null);
+  menu.setAttribute('aria-label', images.length ? 'Image' : infoOf === 'Plot' ? 'Plot' : pathItems.length ? 'Path' : 'Figure');
   const item = (label, title, enabled, run) => {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'context-item'; b.setAttribute('role', 'menuitem');
@@ -120,6 +124,11 @@ export function openImageMenu(x, y, copy = null) {
     b.addEventListener('click', () => { closeImageMenu(); run(); });
     menu.append(b);
   };
+  if (infoOf) {
+    item(infoOf + ' info…', infoOf === 'Image' ? 'Image info: dimensions, bit depth, channels, Z and T, pixel size, and the file\'s header'
+      : 'Plot info: the file, format and page, size on paper, the message shown at import and what was left out', true, () => showPanelInfo(active));
+    if (!images.length) { const line = document.createElement('div'); line.className = 'context-separator'; line.setAttribute('role', 'separator'); menu.append(line); }
+  }
   if (images.length) {
     item('Copy display settings', 'Copy the LUTs, ranges, gamma and invert of this image\'s channels, and its brightness and contrast', images.length === 1, () => copyDisplaySettings(images));
     item('Paste display settings', copied ? 'Paste the copied display settings, channel by number (one undo step)' : 'Copy display settings from an image first', !!copied, () => pasteDisplaySettings(images));
