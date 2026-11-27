@@ -275,6 +275,11 @@ body:not(.document-open) #side-panel>.panel{display:none;}
 .layer-row .layer-icon.on{color:var(--accent);background:var(--accent-dim);border-radius:4px;}
 .layer-row .layer-icon.off{color:var(--text-dim);opacity:.7;}
 .layer-row .layer-chain{width:18px;flex-shrink:0;}
+/* Linked panels (PI-T10): a chain badge over each image of the selected panel's groups; it only shows a tooltip. */
+.link-badges{position:absolute;left:0;top:0;width:0;height:0;pointer-events:none;z-index:3;}
+.link-badge{position:absolute;display:flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;
+  background:var(--panel);color:var(--text);border:2px solid #f0a020;box-shadow:0 1px 4px rgba(0,0,0,.35);pointer-events:auto;cursor:default;}
+.link-badge svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;}
 .layer-row .layer-diverged{color:var(--danger);font-weight:700;padding:0 3px;}
 .layer-row .layer-diverged:hover{color:var(--danger);background:var(--accent-dim);border-radius:4px;}
 .channel-compare{margin-bottom:8px;}

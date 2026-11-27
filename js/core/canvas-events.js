@@ -18,6 +18,7 @@ import { setTool } from '../tools/tool-switch.js';
 import { onMouseDown as annotateDown, onMouseMove as annotateMove, onMouseUp as annotateUp, onObjectModified as onAnnotationModified, onObjectMoving as onAnnotationMoving, onObjectRemoved as onAnnotationRemoved } from '../tools/annotate.js';
 import { refreshLayersPanel } from '../ui/layers.js';
 import { isTransformLocked } from '../ui/locks.js';
+import { drawLinkHighlight } from '../ui/linked-panels.js';
 import { onSelectionChanged, refreshSelectionBar } from '../ui/selection-bar.js';
 import { installImageMenu } from '../image/display-settings.js';
 import { onObjectModified as onLettersModified, onObjectRemoved as onLettersRemoved } from '../layout/letters.js';
@@ -111,6 +112,7 @@ export function init() {
   canvas.on('mouse:up', onCanvasMouseUp);
   canvas.on('mouse:up', clearSnapGuides);
   canvas.on('after:render', opt => drawSnapGuides(opt && opt.ctx ? opt.ctx : canvas.getContext()));
+  canvas.on('after:render', opt => drawLinkHighlight(opt && opt.ctx ? opt.ctx : canvas.getContext())); // linked panels (PI-T10)
   canvas.on('mouse:dblclick', onCanvasDoubleClick);
 
   canvas.on('object:moving', (e) => {

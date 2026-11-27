@@ -11,7 +11,7 @@
 import { canvas, isHelper, registry } from '../core/state.js';
 import { commitImages, refreshChannelPanel, selectedImages } from './channels.js';
 import { FILE_LUT } from './luts.js';
-import { groupOf, linkImages, unlinkImages } from './comparison.js';
+import { describeLink, describeUnlink, groupOf, linkImages, unlinkImages } from './comparison.js';
 import { showCopyDialog } from '../ui/copy-external.js';
 import { pageIndexForBox } from '../core/pages.js';
 import { pathMenuItems } from '../tools/path.js';
@@ -83,6 +83,9 @@ export function refreshDisplayButtons() {
   const linkBtn = document.getElementById('obj-link-compare'), unlinkBtn = document.getElementById('obj-unlink-compare');
   linkBtn.disabled = images.length < 2;
   unlinkBtn.disabled = !images.some(img => groupOf(img) != null);
+  // Link and Unlink say what they will affect before they act (PI-T10).
+  linkBtn.title = describeLink(images);
+  unlinkBtn.title = describeUnlink(images);
   pasteBtn.title = copied
     ? 'Paste the display settings copied from ' + (copied.fileName || 'an image') + ' onto the selected images, channel by number (one undo step)'
     : 'Paste display settings: copy them from an image first';
