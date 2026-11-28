@@ -185,6 +185,17 @@ export async function replaceImage(img, file, { carry = 'ask' } = {}) {
       panel.mfcMontageChannel = k;
       showChannel(view, k, !!panel.mfcMontageGrey);
       name = `${name} (${channelName(view.channels[k], k)})`;
+    } else if (montageOf(panel) && !panel.mfcSeries) {
+      // A merge of some channels keeps them (PI-T12): the channels of the same name in the new file, else the same numbers.
+      const shown = own.channels.map((c, i) => (c.enabled ? i : -1)).filter(i => i >= 0);
+      if (shown.length && shown.length < own.channels.length) {
+        const set = new Set(shown.map(i => {
+          const oldName = channelName(own.channels[i], i).toLowerCase();
+          const k = view.channels.findIndex((c, j) => channelName(c, j).toLowerCase() === oldName);
+          return k >= 0 ? k : i;
+        }).filter(k => k < view.channels.length));
+        if (set.size) view.channels.forEach((c, k) => { c.enabled = set.has(k); });
+      }
     }
     if (panel.mfcSeries && view.stack) {
       // A series montage panel keeps its plane (the last one when the new file has fewer).
