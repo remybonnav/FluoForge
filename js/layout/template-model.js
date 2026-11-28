@@ -178,6 +178,50 @@ export function builtInTemplate(id, dpi = 300, fontSizePt = 8) {
     docProps: { name: info.name, ...page, dpi, pages: 1 }, nextId: next, objects };
 }
 
+// ---- the preview (PI-T13) ----
+const PREVIEW_COLOUR = /^(#[0-9a-f]{3,8}|rgba?\(\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*(,\s*[\d.]+%?\s*)?\)|[a-z]{3,20})$/i;
+/** A colour a preview may draw with (a template file's text is not trusted): the colour, or `fallback`. */
+export const previewColour = (value, fallback) => (typeof value === 'string' && PREVIEW_COLOUR.test(value.trim()) && !/^(none|transparent)$/i.test(value.trim()) ? value.trim() : fallback);
+/** The page size of a template in px (as js/core/pages.js docPropsToPixels). */
+function pagePixels(d) {
+  const k = d.unit === 'cm' ? d.dpi / 2.54 : d.unit === 'in' ? d.dpi : 1;
+  return { width: Math.round(d.width * k), height: Math.round(d.height * k) };
+}
+/** An object's box on the page: { x, y, w, h } before rotation, and its angle about (left, top). */
+function boxOfJson(o) {
+  const w = Math.abs((o.width || 0) * (o.scaleX ?? 1)), h = Math.abs((o.mfcBoxHeight || o.height || 0) * (o.mfcBoxHeight ? 1 : o.scaleY ?? 1));
+  const ox = o.originX === 'center' ? w / 2 : o.originX === 'right' ? w : 0, oy = o.originY === 'center' ? h / 2 : o.originY === 'bottom' ? h : 0;
+  return { x: (o.left || 0) - ox, y: (o.top || 0) - oy, w, h, angle: o.angle || 0, cx: o.left || 0, cy: o.top || 0 };
+}
+
+/**
+ * What a preview of a template draws: its first page, { width, height } in page px, and items in
+ * drawing order: { kind: 'frame' | 'text' | 'outline' | 'shape', x, y, w, h, angle, cx, cy, ... }.
+ * A frame is an empty frame (inset frames too); text has text, fill, fontSize and align; an outline
+ * is an inset outline; a shape is anything else visible (box, ellipse or line), drawn with its colour.
+ * Pure: no DOM, so a template file's text stays data.
+ */
+export function templatePreview(t) {
+  const page = pagePixels(t.docProps);
+  const items = [];
+  for (const o of t.objects || []) {
+    if (!o || o.visible === false || o.mfcType === 'layoutGrid') continue;
+    const box = boxOfJson(o);
+    if (!(box.w > 0 || box.h > 0) || box.y >= page.height || box.y + box.h <= 0 || box.x >= page.width || box.x + box.w <= 0) continue; // page 1 only
+    if (o.mfcType === FRAME_TYPE) items.push({ kind: 'frame', ...box });
+    else if (o.type === 'textbox' || o.type === 'i-text' || o.type === 'text') {
+      items.push({ kind: 'text', ...box, text: String(o.text ?? ''), fill: previewColour(o.fill, '#000000'), fontSize: Math.max(1, Number(o.fontSize) || 12) * Math.abs(o.scaleY ?? 1),
+        align: ['left', 'right', 'center'].includes(o.textAlign) ? o.textAlign : 'left' });
+    } else if (o.mfcType === 'insetContour') items.push({ kind: 'outline', ...box, stroke: previewColour(o.stroke, '#ffff00') });
+    else {
+      const shape = o.type === 'ellipse' || o.type === 'circle' ? 'ellipse' : o.type === 'line' ? 'line' : 'box';
+      items.push({ kind: 'shape', shape, ...box, stroke: previewColour(o.stroke, null), fill: previewColour(o.fill, null),
+        ...(shape === 'line' ? { flip: (o.x1 ?? 0) > (o.x2 ?? 0) !== (o.y1 ?? 0) > (o.y2 ?? 0) } : {}) });
+    }
+  }
+  return { width: page.width, height: page.height, items };
+}
+
 // ---- filling frames from one file ----
 /** The channel settings to give an image dropped in a frame: the frame's saved settings for the channels with the same name. */
 export function matchChannels(newChannels, saved) {

@@ -70,7 +70,7 @@ Everything except the name can be changed later in [Document properties](#15-pag
 
 ### Templates
 
-**From template** (top bar) starts a figure from a layout, with empty frames to drop your images into. An empty frame is a dashed box that says what it waits for. Drop an image file on it, or select it and click **Fill frame…** in the selection bar. Empty frames are not exported, and the [figure check](#checking-the-figure-before-export) lists them.
+A template is a figure without its images: the layout, styles and labels, with an empty frame where each image was. **From template** (top bar) starts a figure from one. Its dialog shows a small preview of each template and explains, in three steps, how to make your own. An empty frame is a dashed box that says what it waits for. Drop an image file on it, or select it and click **Fill frame…** in the selection bar. Empty frames are not exported, and the [figure check](#checking-the-figure-before-export) lists them.
 
 Five templates are built in:
 
@@ -82,7 +82,17 @@ Five templates are built in:
 | Time series strip | Five panels of one time series, spread from the first time point to the last. The labels name the frame each panel shows. |
 | Z series strip | Five panels of one Z stack, spread from the first slice to the last, labelled with their slice. |
 
-**Save as template** (top bar) saves the open figure as a `.fftemplate.json` file. It keeps the layout, styles and labels: text, shapes, grids, letters and their style, inset outlines, scale bars, comparison groups and quick-figure rows. Every image becomes an empty frame, and no image data, file names or pixel sizes are kept. A frame does remember its image's channel settings (names, LUTs, ranges, gamma). When you drop a file whose channels have the same names, FluoForge offers to use them again. Open the file with **From template ▸ Open a template file…**.
+**Save as template** (top bar) saves the open figure as a `.fftemplate.json` file. It keeps the layout, styles and labels: text, shapes, grids, letters and their style, inset outlines, scale bars, comparison groups and quick-figure rows. Every image becomes an empty frame, and no image data, file names or pixel sizes are kept. A frame does remember its image's channel settings (names, LUTs, ranges, gamma). When you drop a file whose channels have the same names, FluoForge offers to use them again. **Save as template** opens a dialog with a preview of the template, its **Name** (the figure's name by default; it also names the file) and **Save**.
+
+**Open a template file…** in the From template dialog adds the file to the list as a choice of its own, with its preview, so you can check it before **Create** opens it. A file that is not a template, or that holds image data, is refused with a message.
+
+#### Making and reusing a template
+
+1. **Make**: build a figure with your images, laid out and labelled as you want it.
+2. **Save**: click **Save as template** in the top bar, name the template and click **Save**. You get a `.fftemplate.json` file.
+3. **Reuse**: click **From template**, then **Open a template file…**, choose the file and click **Create**. Drop an image file on each empty frame (or select a frame and click **Fill frame…**).
+
+*Example.* You make the same figure for every experiment: a 4-channel image as a [quick figure](#quick-figure-split-channel-montage) (four channels and a merge), with a 20 µm scale bar and the letters A to E. Build it once with the first experiment's image, then **Save as template** and name it "Four channels". For the next experiment, **From template ▸ Open a template file…** ▸ *Four channels.fftemplate.json* ▸ **Create**, and drop the new image on one panel: the whole row fills, each panel with its channel, and the scale bar and letters are already in place. If the new file's channels have the same names, FluoForge offers to keep the LUTs and ranges you used.
 
 ## 2. The workspace
 

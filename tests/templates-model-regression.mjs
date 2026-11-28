@@ -95,6 +95,31 @@ export async function runTemplatesModelRegressions() {
   assert('Channel settings match by name (case and spaces aside), not by number; unnamed channels do not match', m[0] && m[0].color === 'green' && m[1] === null && m[2] === null);
   assert('Five series frames over 9 time points show 0, 2, 4, 6, 8; over 3 they show 0, 1, 2, 2, 2; a single plane is 0',
     [0, 1, 2, 3, 4].map(i => T.seriesIndex(i, 5, 9)).join() === '0,2,4,6,8' && [0, 1, 2, 3, 4].map(i => T.seriesIndex(i, 5, 3)).join() === '0,1,2,2,2' && T.seriesIndex(3, 5, 1) === 0);
+
+  // ---- the preview (PI-T13) ----
+  const sp = T.templatePreview(built['split-channels']);
+  assert('A preview is the first page in px (18.4 × 12 cm at 300 dpi), with every frame and label of a built-in',
+    sp.width === 2173 && sp.height === 1417 && sp.items.filter(i => i.kind === 'frame').length === 4 && sp.items.filter(i => i.kind === 'text').map(i => i.text).join() === 'Channel 1,Channel 2,Channel 3,Merge');
+  const f0 = framesOf(built['split-channels'])[0], i0 = sp.items.find(i => i.kind === 'frame');
+  assert('A frame is drawn at its place and size', i0.x === f0.left && i0.y === f0.top && i0.w === f0.width && i0.h === f0.height);
+  assert('The inset outline is drawn as an outline, in its colour', T.templatePreview(built['single-inset']).items.some(i => i.kind === 'outline' && i.stroke === '#ffff00'));
+  const page = { docProps: { width: 1000, height: 500, unit: 'px', dpi: 300, pages: 2 }, objects: [
+    { type: 'rect', mfcType: 'imageFrame', left: 500, top: 250, width: 100, height: 50, scaleX: 2, scaleY: 2, originX: 'center', originY: 'center', angle: 30 },
+    { type: 'textbox', text: 'On page 2', left: 10, top: 700, width: 100, height: 20, fontSize: 20 },
+    { type: 'textbox', text: 'Hidden', left: 10, top: 10, width: 100, height: 20, visible: false },
+    { type: 'rect', mfcType: 'layoutGrid', left: 0, top: 0, width: 900, height: 400 },
+    { type: 'ellipse', left: 0, top: 0, width: 40, height: 40, stroke: 'url(#x)', fill: 'red' },
+    { type: 'line', left: 50, top: 50, width: 30, height: 20, x1: 15, y1: -10, x2: -15, y2: 10, stroke: '#00f' }] };
+  const pp = T.templatePreview(page);
+  const rotated = pp.items[0];
+  assert('A centred, scaled, rotated frame: its box from its centre, its angle about its origin', rotated.kind === 'frame' && rotated.x === 400 && rotated.y === 200 && rotated.w === 200 && rotated.h === 100 &&
+    rotated.angle === 30 && rotated.cx === 500 && rotated.cy === 250, JSON.stringify(rotated));
+  assert('Only the first page is drawn; hidden objects and grids are left out', pp.items.length === 3 && !pp.items.some(i => i.text === 'On page 2' || i.text === 'Hidden'));
+  assert('Shapes keep their kind and colour; a colour that is not one is dropped', pp.items[1].shape === 'ellipse' && pp.items[1].fill === 'red' && pp.items[1].stroke === null &&
+    pp.items[2].shape === 'line' && pp.items[2].flip === true && pp.items[2].stroke === '#00f');
+  assert('Colours: hex, rgb(a) and names are kept; links, expressions and other text are not',
+    ['#fff', '#12345678', 'rgb(1, 2, 3)', 'rgba(0,0,0,0.5)', 'magenta'].every(c => T.previewColour(c, null) === c) &&
+    ['url(https://example.com/a)', 'expression(alert(1))', 'red;stroke:blue', '', null, 42, 'none'].every(c => T.previewColour(c, 'x') === 'x'));
   return checks;
 }
 
