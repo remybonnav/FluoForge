@@ -73,9 +73,11 @@ async function runMontageRegressions() {
   const controls = [...dialog.querySelectorAll('input, select, button')];
   assert('Every control has a title (its own or its field\'s)', controls.every(c => (c.title || c.closest('[title]')?.title || '').length > 5));
   [...dialog.querySelectorAll('input[name="qf-channel"]')].forEach(c => { c.checked = false; });
+  $('.qf-merge-remove').click();
   $('#qf-ok').click(); await frame();
   assert('No channel chosen: an error, the dialog stays open', document.querySelector('.quick-figure-modal') && /at least one channel/.test($('.export-error').textContent));
   [...dialog.querySelectorAll('input[name="qf-channel"]')].forEach(c => { c.checked = true; });
+  $('#qf-merge-add').click();
   $('#qf-gap').value = '-2'; $('#qf-ok').click(); await frame();
   assert('A negative gap is refused', /between 0 and 50 mm/.test($('.export-error').textContent));
   $('#qf-gap').value = '1';
@@ -109,9 +111,9 @@ async function runMontageRegressions() {
     panels.every((p, c) => near(p.getScaledWidth(), w) && near(p.getScaledHeight(), h) && near(p.top, panels[0].top) && near(p.left, panels[0].left + c * (w + gap))),
     panels.map(p => `${p.left.toFixed(1)},${p.top.toFixed(1)} ${p.getScaledWidth().toFixed(1)}`).join(' | '));
   const heads = headers(id);
-  assert('Column headers: the channel names and "Merge", each over its panel', heads.map(t => t.text).join() === 'DAPI,FLAG,WGA,Actin,Merge' &&
+  assert('Column headers: the channel names and the merge named by them (PI-T12), each over its panel', heads.map(t => t.text).join() === 'DAPI,FLAG,WGA,Actin,DAPI + FLAG + WGA + Actin' &&
     heads.every((t, c) => near(t.left, panels[c].left) && near(t.width, w) && t.top + t.height <= panels[0].top + 0.5 && t.mfcType === 'text'));
-  assert('…coloured like their channel (black for Merge)', heads.map(t => t.fill).join() === '#0000ff,#00ff00,#ff0000,#ff00ff,#000000', heads.map(t => t.fill).join());
+  assert('…coloured like their channel (the merge\'s " + " in black)', heads.map(t => t.fill).join() === '#0000ff,#00ff00,#ff0000,#ff00ff,#000000', heads.map(t => t.fill).join());
   const page = MFC.pageBounds(0);
   assert('The row fits the page\'s width', panels[4].left + w <= page.left + page.width + 0.5);
 
@@ -188,7 +190,7 @@ async function runMontageRegressions() {
   assert('Grey: each channel panel shows its channel in grey; the merge keeps the colours', ra.slice(1).every(p => rawOf(p).channels[p.mfcMontageChannel].color === 'grey') && rawOf(a).channels[0].color === 'blue' && rawOf(a).channels[2].color === 'red');
   const g3 = mm(3), aw = a.getScaledWidth();
   assert('A 3 mm gap between panels; the next row 3 mm below', ra.every((p, c) => near(p.left, ra[0].left + c * (aw + g3))) && near(rb[0].top, ra[0].top + a.getScaledHeight() + g3));
-  assert('Headers over the first row only, coloured like the merge (blue, red) to name the grey panels', headers(a.mfcMontageGroup).map(t => t.text + ':' + t.fill).join() === 'Merge:#000000,A0:#0000ff,A2:#ff0000' && headers(b.mfcMontageGroup).length === 0,
+  assert('Headers over the first row only, coloured like the merge (blue, red) to name the grey panels', headers(a.mfcMontageGroup).map(t => t.text + ':' + t.fill).join() === 'A0 + A2:#000000,A0:#0000ff,A2:#ff0000' && headers(b.mfcMontageGroup).length === 0,
     headers(a.mfcMontageGroup).map(t => t.text + ':' + t.fill).join());
   row = panelRow(a, 0);
   row.querySelector('.ch-lut').click(); document.querySelector('.lut-popover .lut-option[data-lut="magma"]').click();

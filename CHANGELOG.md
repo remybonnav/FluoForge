@@ -4,6 +4,10 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.54 (2026-11-28)
+
+- **Quick figure: more merges (PI-T12).** The merge is now a panel whose channels you choose (all of them by default), and **Add merge** makes more, each with its own channels: for example, from a 4-channel image, the four channels plus C1 + C2 and C1 + C3 + C4, in one step. Merges can also be removed, to keep only the channel panels. Headers follow a new rule: a channel is named by its name when it is 10 characters or fewer, otherwise Ch1, Ch2, Ch3…; a merge is named by its channels joined with " + " (for example "Ch1 + Ch2 + Ch3"), each part in its channel's colour, instead of "Merge". The merges are linked views of the one source, like the other panels: edits, crop and uncrop reach them, and **Replace image…** keeps each merge's channels (matched by name, else by number). The saved format is unchanged: a merge's channels are its panel's own channel settings.
+
 ## v0.1.53 (2026-11-28)
 
 - **A right-click menu for every object, customisable (PI-T9).** Right-clicking any object (or pressing the Menu key or Shift+F10) opens a menu with what applies to it: **Image info…** or **Plot info…**, **Modify points**, **Adjust crop**, **Copy** and **Paste display settings**, **Replace image…**, **Lock position**, **Bring forward**, **Send backward**, **Bring to front**, **Send to back**, **Group** or **Ungroup**, **Crop to shape**, and **Copy for other software…**. **Customise this menu…** opens the new **Preferences ▸ Context menu** section, where items can be removed and others added (Crop, Uncrop, Draw an inset, Link, Unlink, Lock, Duplicate, Delete, Zoom to selection, Remove shape crop). The choice is kept in this browser, for every project, with **Reset to default**. The menu is built on one list of actions, which the command palette and shortcut sheet will reuse. Fixed: the menu of a shape or text no longer closes when the selection bar refreshes.
