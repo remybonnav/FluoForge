@@ -60,6 +60,7 @@
     { "name": "v0.1.49", "kind": "release", "what": "reference figure saved by FluoForge 0.1.49 (schema 9)" },
     { "name": "v0.1.50", "kind": "release", "what": "reference figure saved by FluoForge 0.1.50 (schema 9)" },
     { "name": "v0.1.51", "kind": "release", "what": "reference figure saved by FluoForge 0.1.51 (schema 9)" },
-    { "name": "v0.1.52", "kind": "release", "what": "reference figure saved by FluoForge 0.1.52 (schema 9)" }
+    { "name": "v0.1.52", "kind": "release", "what": "reference figure saved by FluoForge 0.1.52 (schema 9)" },
+    { "name": "v0.1.53", "kind": "release", "what": "reference figure saved by FluoForge 0.1.53 (schema 9)" }
   ]
 }

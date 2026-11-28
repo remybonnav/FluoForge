@@ -186,6 +186,16 @@ export function moveLayer(o, direction) {
   refreshLayersPanel();
 }
 
+/** edge: 'front' or 'back': moves the object (or every object of a multi-selection) above or below all the others, in one History step. */
+export function moveLayerToEdge(o, edge) {
+  if (edge === 'front') canvas.bringToFront(o);
+  else canvas.sendToBack(o);
+  sendPagesToBack(); // the page backgrounds must always stay behind everything
+  canvas.requestRenderAll();
+  pushHistory();
+  refreshLayersPanel();
+}
+
 /**
  * Bundles the current multi-selection into a real, persistent fabric.Group (Ctrl+G).
  * Note: while grouped, the individual images/text/shapes inside are no longer top-level

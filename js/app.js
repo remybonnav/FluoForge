@@ -60,6 +60,7 @@ import './ui/figure-report.js'; // the figure report (Export menu); js/export.js
 import './ui/figure-check.js'; // wires the Check figure panel and the summary in the Export menu
 import './ui/vision-preview.js'; // the Vision selector in the top bar (view-only colour-vision preview)
 import './ui/preferences-dialog.js'; // the Preferences dialog (top bar, Ctrl+,)
+import './ui/context-actions.js'; // the actions of the right-click menu (PI-T9)
 import './ui/export-dialog.js'; // Export ▸ Export… (js/main.js imports it on demand)
 import './ui/export-panels.js'; // Export ▸ Export panels (zip)
 import './ui/copy-external.js'; // Export ▸ Copy for other software (Ctrl+Shift+C)

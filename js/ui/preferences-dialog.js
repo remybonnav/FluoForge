@@ -6,10 +6,11 @@
    Its rows are built from PREFERENCES (js/core/preferences.js), so a new preference appears here
    without changes to this file. Each row has a "This project only" tick: ticked, the control edits
    the open project's own value, which overrides the global one in this project; unticked, it edits
-   the global value used by every project. Changes apply at once. */
+   the global value used by every project. Changes apply at once. A preference kept in this browser
+   only (globalOnly, such as the right-click menu's items) has a "Reset to default" button instead. */
 
 import { PREFERENCES, SECTIONS, FONTS, fontLabel, getPreference, globalPreference, isProjectOverride,
-  onPreferenceChange, resetGlobalPreferences, setGlobalPreference, setProjectPreference } from '../core/preferences.js';
+  onPreferenceChange, resetGlobalPreference, resetGlobalPreferences, setGlobalPreference, setProjectPreference } from '../core/preferences.js';
 
 function el(tag, className, text) {
   const e = document.createElement(tag);
@@ -75,6 +76,14 @@ function row(def) {
   const input = control(def, value, v => (own ? setProjectPreference(def.key, v) : setGlobalPreference(def.key, v)), id);
   if (def.type === 'set') input.setAttribute('aria-labelledby', id + '-label');
   input.title = def.help || '';
+  if (def.globalOnly) {
+    const reset = el('button', 'pref-reset', 'Reset to default'); reset.type = 'button'; reset.id = id + '-reset';
+    reset.title = 'Set "' + def.label + '" back to its default: ' + describe(def, def.default);
+    reset.addEventListener('click', () => resetGlobalPreference(def.key));
+    wrap.classList.add('pref-row-global');
+    wrap.append(name, input, reset);
+    return wrap;
+  }
   const scope = el('label', 'pref-scope'), tick = el('input');
   tick.type = 'checkbox'; tick.checked = own; tick.disabled = !project;
   tick.className = 'pref-project-only';
@@ -100,13 +109,15 @@ function render(body) {
   }));
   if (focusedKey) {
     const r = body.querySelector(`.pref-row[data-key="${CSS.escape(focusedKey)}"]`);
-    const target = r && (focusedScope ? r.querySelector('.pref-project-only') : r.querySelector('input, select'));
+    const focusedReset = document.activeElement.classList.contains('pref-reset');
+    const target = r && (focusedScope ? r.querySelector('.pref-project-only') : focusedReset ? r.querySelector('.pref-reset') : r.querySelector('input, select'));
     if (target) target.focus();
   }
 }
 
-/** Opens the Preferences dialog (nothing happens if it is already open). */
-export function showPreferences() {
+/** Opens the Preferences dialog (nothing happens if it is already open). focusKey: a preference to
+    scroll to and focus (the context menu's "Customise this menu…" opens it at the menu's items). */
+export function showPreferences(focusKey = null) {
   if (document.querySelector('.preferences-backdrop')) return;
   const opener = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.getElementById('btn-preferences');
   const backdrop = el('div', 'modal-backdrop preferences-backdrop');
@@ -136,13 +147,15 @@ export function showPreferences() {
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   });
   document.body.append(backdrop);
-  const target = dialog.querySelector('input, select');
+  const row = focusKey && body.querySelector(`.pref-row[data-key="${CSS.escape(focusKey)}"]`);
+  if (row) row.scrollIntoView({ block: 'nearest' });
+  const target = (row && row.querySelector('input, select')) || dialog.querySelector('input, select');
   target.focus();
   // Firefox can ignore the first focus() on a dialog built in the same task; try again next frame.
   if (document.activeElement !== target) requestAnimationFrame(() => { if (backdrop.isConnected && !dialog.contains(document.activeElement)) target.focus(); });
 }
 
-document.getElementById('btn-preferences').addEventListener('click', showPreferences);
+document.getElementById('btn-preferences').addEventListener('click', () => showPreferences());
 document.addEventListener('keydown', event => {
   if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key === ',') { event.preventDefault(); showPreferences(); }
 });
