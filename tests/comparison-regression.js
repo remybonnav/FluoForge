@@ -63,7 +63,7 @@ async function runComparisonRegressions() {
   select(['control.tif', 'treated.tif', 'rescue.tif']);
   const linkBtn = document.getElementById('obj-link-compare'), unlinkBtn = document.getElementById('obj-unlink-compare');
   assert('The selection bar offers Link for several images, with an explanation; Unlink is off while none is linked',
-    !linkBtn.disabled && unlinkBtn.disabled && linkBtn.title.includes('comparison group'));
+    !linkBtn.disabled && unlinkBtn.disabled && /comparison group/i.test(linkBtn.title)); // PI-T10: it names the group, "Comparison group 1"
   let before = step();
   linkBtn.click(); await idle();
   const linked = (a, b, i) => ['min', 'max', 'color', 'gamma'].every(f => (chans(a)[i][f] ?? 1) === (chans(b)[i][f] ?? 1));

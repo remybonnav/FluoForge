@@ -11,6 +11,7 @@ import { scaleBarProps } from '../tools/scalebar.js';
 import { applyLockState, applySelectionLock, refuseLocked, setPositionLock } from './locks.js';
 import { refreshSelectionBar } from './selection-bar.js';
 import { divergedChannels, groupLabel, groupMembers, groupOf, matchGroup, onComparisonChange } from '../image/comparison.js';
+import { linkedGroupsOf } from './linked-panels.js';
 
 // ---- layers panel ----
 export function layerLabel(o) {
@@ -79,6 +80,8 @@ export function refreshLayersPanel() {
     name.textContent = layerLabel(o); name.title = layerLabel(o);
     const group = groupOf(o);
     if (group != null) name.after(...comparisonMarks(o, group));
+    // Quick figure, series and inset links are named too (PI-T10).
+    linkedGroupsOf(o).filter(g => g.kind !== 'comparison').reverse().forEach(g => name.after(linkMark(g)));
     name.addEventListener('click', () => selectLayer(o));
     row.querySelector('.layer-eye').addEventListener('click', (e) => { e.stopPropagation(); toggleLayerVisibility(o); });
     row.querySelector('.layer-lock').addEventListener('click', (e) => { e.stopPropagation(); toggleLayerLock(o); });
@@ -90,6 +93,17 @@ export function refreshLayersPanel() {
   listEl.scrollTop = scrollTop;
 }
 
+/** The chain icon of a quick figure, series or inset link, naming the group. */
+function linkMark(g) {
+  const chain = document.createElement('span');
+  chain.className = 'layer-chain layer-icon on';
+  chain.setAttribute('role', 'img');
+  chain.innerHTML = LAYER_ICONS.chain;
+  chain.title = g.name + ' (' + g.members.length + ' images)' + (g.kind === 'insets' ? ': each inset shows part of the source image' : ': views of one image, linked in range, LUT, gamma, invert and crop');
+  chain.setAttribute('aria-label', chain.title);
+  chain.dataset.link = g.kind;
+  return chain;
+}
 /** The chain icon of a comparison group member, and a warning badge when the group's settings differ. */
 function comparisonMarks(o, id) {
   const members = groupMembers(id), diverged = divergedChannels(id);

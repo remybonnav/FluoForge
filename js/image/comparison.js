@@ -145,6 +145,30 @@ function nextGroupId() {
   return id;
 }
 
+const names = list => { const n = list.map(img => img.mfcFileName || 'an image'); return n.length > 3 ? n.slice(0, 3).join(', ') + ' and ' + (n.length - 3) + ' more' : n.join(', '); };
+/** What Link would do with `images`, in words (PI-T10): which group, which images, whose settings they take. */
+export function describeLink(images) {
+  if (images.length < 2) return 'Link: select two or more images to link them as a comparison group (their range, LUT and gamma stay equal, channel by number)';
+  const id = images.map(groupOf).find(g => g != null) ?? nextGroupId();
+  const source = images.find(img => groupOf(img) === id) || images[0];
+  const added = images.filter(img => groupOf(img) !== id);
+  if (!added.length) return `Link: ${names(images)} are already in ${groupLabel(id)}`;
+  const existing = groupMembers(id);
+  return existing.length ? `Link: add ${names(added)} to ${groupLabel(id)} (then ${existing.length + added.length} images); they take the range, LUT and gamma of ${source.mfcFileName || 'its first image'}, channel by number`
+    : `Link ${names(images)} as ${groupLabel(id)}: they take the range, LUT and gamma of ${source.mfcFileName || 'the first image'}, channel by number`;
+}
+/** What Unlink would do with `images`, in words (PI-T10): which images leave which group, and what stays linked. */
+export function describeUnlink(images) {
+  const leaving = images.filter(img => groupOf(img) != null);
+  const views = images.some(img => montageOf(img)) ? ' Quick-figure and series panels stay linked as views of one image.' : '';
+  if (!leaving.length) return 'Unlink: none of the selected images is in a comparison group.' + views;
+  const parts = [...new Set(leaving.map(groupOf))].map(id => {
+    const rest = groupMembers(id).filter(img => !leaving.includes(img));
+    return `${names(leaving.filter(img => groupOf(img) === id))} out of ${groupLabel(id)}` + (rest.length > 1 ? ` (${names(rest)} stay linked)` : ' (the group ends)');
+  });
+  return 'Unlink: take ' + parts.join('; ') + '.' + views;
+}
+
 /**
  * Makes `images` one comparison group (or adds them to the group of the first one already in a
  * group). Every member is matched to the first image. One History step.
