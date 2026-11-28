@@ -12,10 +12,10 @@ import { canvas, isHelper, registry } from '../core/state.js';
 import { commitImages, refreshChannelPanel, selectedImages } from './channels.js';
 import { FILE_LUT } from './luts.js';
 import { describeLink, describeUnlink, groupOf, linkImages, unlinkImages } from './comparison.js';
-import { showCopyDialog } from '../ui/copy-external.js';
 import { pageIndexForBox } from '../core/pages.js';
-import { pathMenuItems } from '../tools/path.js';
-import { showPanelInfo } from '../ui/image-info.js';
+import { menuItems } from '../core/actions.js';
+import { getPreference } from '../core/preferences.js';
+import { showPreferences } from '../ui/preferences-dialog.js';
 
 let copied = null;
 
@@ -76,7 +76,7 @@ export function refreshDisplayButtons() {
   if (!group) return;
   const images = selectedImages();
   group.classList.toggle('hidden', !images.length);
-  if (!images.length) closeImageMenu(false);
+  if (menu && canvas.getActiveObject() !== menuTarget) closeImageMenu(false); // what it was opened on is no longer selected
   const copyBtn = document.getElementById('obj-copy-display'), pasteBtn = document.getElementById('obj-paste-display');
   copyBtn.disabled = images.length !== 1;
   pasteBtn.disabled = !copied || !images.length;
@@ -92,8 +92,9 @@ export function refreshDisplayButtons() {
 }
 
 // ---- context menu (right click on the canvas, or the Menu key / Shift+F10) ----
-// Images get their display-settings items; every object and the empty page get "Copy for other software".
-let menu = null, menuReturn = null, menuPoint = null; // menuPoint: the page point right-clicked (null from the keyboard)
+// Its items are the actions of js/core/actions.js (registered by js/ui/context-actions.js) that the user
+// keeps in it (Preferences ▸ Context menu, PI-T9), shown where they apply; then "Customise this menu…".
+let menu = null, menuReturn = null, menuPoint = null, menuTarget = null; // menuPoint: the page point right-clicked (null from the keyboard)
 export function closeImageMenu(restoreFocus = true) {
   if (!menu) return;
   menu.remove(); menu = null;
@@ -103,47 +104,47 @@ export function closeImageMenu(restoreFocus = true) {
 }
 const outside = event => { if (menu && !menu.contains(event.target)) closeImageMenu(false); };
 
-/** Opens the canvas context menu at client coordinates (x, y). With images selected it starts with
-    their display-settings items. copy: what "Copy for other software" copies, { scope, page }
-    (default: the selection if there is one, else the page in view). */
+/** What a menu opened now is about: { active, objects, images, point, copy }. */
+export function contextOf(copy = null, point = null) {
+  const active = canvas.getActiveObject() || null;
+  return { active, objects: canvas.getActiveObjects(), images: selectedImages(), point,
+    copy: copy || (active ? { scope: 'selection' } : { scope: 'page' }) };
+}
+
+/** Opens the canvas context menu at client coordinates (x, y). copy: what "Copy for other software"
+    copies, { scope, page } (default: the selection if there is one, else the page in view). */
 export function openImageMenu(x, y, copy = null) {
   closeImageMenu(false);
   const images = selectedImages();
   if (!images.length && !copy) return null;
+  const ctx = contextOf(copy, menuPoint);
+  menuPoint = null; menuTarget = ctx.active;
   menuReturn = document.activeElement;
   menu = document.createElement('div');
   menu.className = 'context-menu';
   menu.setAttribute('role', 'menu');
-  const pathItems = pathMenuItems(canvas.getActiveObject(), menuPoint); // Modify points… (PI-T5)
-  menuPoint = null;
-  // Image info… / Plot info… for one panel (PI-T8).
-  const active = canvas.getActiveObject();
-  const infoOf = active && (active.mfcType === 'mfcImage' && registry[active.mfcId] ? 'Image' : active.mfcType === 'mfcVector' ? 'Plot' : null);
-  menu.setAttribute('aria-label', images.length ? 'Image' : infoOf === 'Plot' ? 'Plot' : pathItems.length ? 'Path' : 'Figure');
-  const item = (label, title, enabled, run) => {
+  const entries = menuItems(ctx, getPreference('menu.items'));
+  const kind = images.length ? 'Image' : ctx.active && ctx.active.mfcType === 'mfcVector' && ctx.active.type !== 'activeSelection' ? 'Plot'
+    : entries.some(e => e.id === 'modify-points') ? 'Path' : 'Figure';
+  menu.setAttribute('aria-label', kind);
+  const separator = () => { const line = document.createElement('div'); line.className = 'context-separator'; line.setAttribute('role', 'separator'); menu.append(line); };
+  const item = (label, title, enabled, run, id) => {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'context-item'; b.setAttribute('role', 'menuitem');
-    b.textContent = label; b.title = title; b.disabled = !enabled;
+    b.textContent = label; b.title = title || ''; b.disabled = !enabled;
+    if (id) b.dataset.action = id;
     b.addEventListener('click', () => { closeImageMenu(); run(); });
     menu.append(b);
   };
-  if (infoOf) {
-    item(infoOf + ' info…', infoOf === 'Image' ? 'Image info: dimensions, bit depth, channels, Z and T, pixel size, and the file\'s header'
-      : 'Plot info: the file, format and page, size on paper, the message shown at import and what was left out', true, () => showPanelInfo(active));
-    if (!images.length) { const line = document.createElement('div'); line.className = 'context-separator'; line.setAttribute('role', 'separator'); menu.append(line); }
+  let group = null;
+  for (const e of entries) {
+    if (group != null && e.group !== group) separator();
+    group = e.group;
+    item(e.label, e.title, e.enabled, e.run, e.id);
   }
-  if (images.length) {
-    item('Copy display settings', 'Copy the LUTs, ranges, gamma and invert of this image\'s channels, and its brightness and contrast', images.length === 1, () => copyDisplaySettings(images));
-    item('Paste display settings', copied ? 'Paste the copied display settings, channel by number (one undo step)' : 'Copy display settings from an image first', !!copied, () => pasteDisplaySettings(images));
-    const line = document.createElement('div'); line.className = 'context-separator'; line.setAttribute('role', 'separator'); menu.append(line);
-  }
-  if (pathItems.length) {
-    pathItems.forEach(p => item(p.label, p.title, p.enabled, p.run));
-    const line = document.createElement('div'); line.className = 'context-separator'; line.setAttribute('role', 'separator'); menu.append(line);
-  }
-  const target = copy || (canvas.getActiveObject() ? { scope: 'selection' } : { scope: 'page' });
-  item('Copy for other software…', 'Copy ' + (target.scope === 'selection' ? 'the selection' : 'page ' + ((target.page ?? 0) + 1)) +
-    ' to the clipboard as an SVG picture, a PNG or SVG code, to paste into PowerPoint, Word, Inkscape, Illustrator or Figma (Ctrl+Shift+C)', true, () => showCopyDialog(target));
+  if (entries.length) separator();
+  item('Customise this menu…', 'Choose the items of this menu (Preferences, Context menu); kept in this browser', true,
+    () => showPreferences('menu.items'), 'customise');
   menu.addEventListener('keydown', event => {
     const items = [...menu.querySelectorAll('.context-item:not(:disabled)')];
     const at = items.indexOf(document.activeElement);

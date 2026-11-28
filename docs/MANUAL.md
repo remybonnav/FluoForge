@@ -302,6 +302,20 @@ With two or more objects selected, the bar adds **Align** (left, centre, right, 
 
 ![Two insets selected: the selection bar shows their combined position and the Align, Distribute and Group buttons](images/10-selection-bar.jpg)
 
+### The right-click menu
+
+Right-click an object to select it and open its menu; right-click an empty part of a page for the page's menu. With the keyboard, select an object and press the **Menu** key or **Shift+F10**; the arrow keys, Home and End move in the menu, Enter runs an item, Escape closes it. An item appears only where it applies, and greyed-out items are skipped. By default the menu offers:
+
+- **Image info…** or **Plot info…** for one image or plot; **Modify points** for a path or line; **Adjust crop** for a cropped image;
+- **Copy display settings** and **Paste display settings** for images;
+- **Replace image…** (or **Fill frame…**) for one image or frame; **Lock position** (or **Unlock position**);
+- **Bring forward**, **Send backward**, **Bring to front**, **Send to back** (an item is greyed out when nothing is in front of or behind the selection; the page always stays behind);
+- **Group** (or **Ungroup** for a group) and **Crop to shape** for an image and a closed shape;
+- **Copy for other software…**, always last;
+- **Customise this menu…**, which opens [Preferences](#preferences) at the menu's items.
+
+You can add **Crop**, **Uncrop**, **Draw an inset**, **Link**, **Unlink**, **Lock** (the object can no longer be selected; unlock it in the Layers panel), **Duplicate**, **Delete**, **Zoom to selection** and **Remove shape crop**, and remove any of the default items, in **Preferences ▸ Context menu**. The menu's items are kept in this browser, for every project, not in the project; **Reset to default** gives the default menu back. Each item does what its button or shortcut does, and an item that changes the figure is one undo step.
+
 ### Rulers and guides
 
 Rulers run along the top and left of the canvas, in the document's unit: centimetres with millimetre ticks, inches with eighths, or pixels. They count from the top-left corner of the page, and the left ruler starts again at each page. The selection is shaded on both. The **Rulers** button in the top bar shows or hides them.
@@ -620,8 +634,9 @@ It is a view only. The figure, the project, undo and the exports do not change, 
 | Text | Default font, size (document px) and colour of new text boxes; **Snap when resizing** (also in the Text panel) | Liberation Sans, 24, black; on |
 | Rulers and guides | Show rulers; show guides | On; on |
 | Units | Size units: **mm and pt** (positions and sizes in mm; stroke, outline and border widths, scale bar thickness and font sizes in pt, at the document's DPI) or **Document px** | mm and pt |
+| Context menu | The items of the [right-click menu](#the-right-click-menu), one tick each. Kept in this browser only (no *This project only*); **Reset to default** on the row | Image info, Modify points, Adjust crop, display settings, Replace image, Lock position, order, Group, Crop to shape, Copy for other software |
 
-A preference is **global**: it is saved in this browser and used by every project. Tick **This project only** on a row to give the open project its own value: it overrides the global preference in this project only, is saved with the project and follows undo and redo, and the row shows the global value beside it. Untick it to go back to the global value. **Reset global preferences** sets every global value back to its default; values of the open project are kept.
+A preference is **global**: it is saved in this browser and used by every project. Tick **This project only** on a row to give the open project its own value: it overrides the global preference in this project only, is saved with the project and follows undo and redo, and the row shows the global value beside it. Untick it to go back to the global value. The context menu's items are global only. **Reset global preferences** sets every global value back to its default; values of the open project are kept.
 
 ## 21. Keyboard shortcuts
 
@@ -649,7 +664,7 @@ A preference is **global**: it is saved in this browser and used by every projec
 | Ctrl+D | Duplicate |
 | Ctrl+C / Ctrl+V | Copy / paste |
 | Ctrl+G / Ctrl+Shift+G | Group / ungroup |
-| Menu key or Shift+F10 | Image menu (copy and paste display settings) |
+| Menu key or Shift+F10 | The [right-click menu](#the-right-click-menu) of the selection (or of the page) |
 | Ctrl+S | Save project |
 | Delete or Backspace | Delete the selection (locked objects are kept) |
 | Shift (while drawing) | Square / circle; 45° for paths and rotation |

@@ -11,11 +11,13 @@
      2. the global value: localStorage 'fluoforge-preferences' ({ version, values }), for every project;
      3. the entry's default.
    Values are checked against their entry; an invalid one is ignored. Keys this version does not know
-   (from a newer FluoForge) are kept unchanged in both places. */
+   (from a newer FluoForge) are kept unchanged in both places.
+   An entry with globalOnly: true has no project value (it is about this browser, not the figure). */
 
 import { pushHistory } from './history.js';
 import { applyDocProps } from './pages.js';
 import { docProps } from './state.js';
+import { defaultMenuIds, menuOptions } from './actions.js';
 
 export const STORAGE_KEY = 'fluoforge-preferences';
 export const STORAGE_VERSION = 1;
@@ -31,7 +33,8 @@ export const SECTIONS = [
   { id: 'snapping', label: 'Snapping' },
   { id: 'text', label: 'Text' },
   { id: 'units', label: 'Units' },
-  { id: 'view', label: 'Rulers and guides' }
+  { id: 'view', label: 'Rulers and guides' },
+  { id: 'menu', label: 'Context menu' }
 ];
 
 /** type: 'boolean' | 'number' (min, max, step) | 'choice' (options) | 'set' (options: any subset) | 'color' | 'font'.
@@ -69,7 +72,12 @@ export const PREFERENCES = [
   { key: 'view.rulers', section: 'view', label: 'Show rulers', type: 'boolean', default: true,
     help: 'Rulers along the top and left of the canvas, in the document unit. Drag from a ruler to make a guide.' },
   { key: 'view.guides', section: 'view', label: 'Show guides', type: 'boolean', default: true,
-    help: 'Show the guides, and the margin and column guides. Guides are never exported.' }
+    help: 'Show the guides, and the margin and column guides. Guides are never exported.' },
+  // The right-click menu's items (PI-T9): the actions of js/core/actions.js, registered by js/ui/context-actions.js.
+  { key: 'menu.items', section: 'menu', label: 'Items of the right-click menu', type: 'set', globalOnly: true,
+    get default() { return defaultMenuIds(); },
+    get options() { return menuOptions().map(a => ({ value: a.id, label: a.option || String(a.label) })); },
+    help: 'What the right-click menu on objects offers (the Menu key and Shift+F10 open it too). An item appears only where it applies, for example Adjust crop on a cropped image. Kept in this browser, for every project.' }
 ];
 const byKey = new Map(PREFERENCES.map(def => [def.key, def]));
 export const preferenceDef = key => byKey.get(key);
@@ -126,10 +134,12 @@ export function globalPreference(key) {
   const def = byKey.get(key), stored = validPreference(def, store.values[key]);
   return copy(stored !== undefined ? stored : def ? def.default : undefined);
 }
-export const isProjectOverride = key => validPreference(byKey.get(key), projectValues()[key]) !== undefined;
+export const isProjectOverride = key => { const def = byKey.get(key); return !!def && !def.globalOnly && validPreference(def, projectValues()[key]) !== undefined; };
 /** The value in effect: the project's override, else the global value, else the default. */
 export function getPreference(key) {
-  const own = validPreference(byKey.get(key), projectValues()[key]);
+  const def = byKey.get(key);
+  if (def && def.globalOnly) return globalPreference(key);
+  const own = validPreference(def, projectValues()[key]);
   return own !== undefined ? copy(own) : globalPreference(key);
 }
 
@@ -141,6 +151,14 @@ export function setGlobalPreference(key, value) {
   writeStore(); notify(key);
   return true;
 }
+/** Forgets the global value of one preference: its default applies again. */
+export function resetGlobalPreference(key) {
+  if (!byKey.has(key) || !(key in store.values)) return;
+  const values = { ...store.values };
+  delete values[key];
+  store = { ...store, values };
+  writeStore(); notify(key);
+}
 /** Forgets every global value this version knows (keys of newer versions are kept). */
 export function resetGlobalPreferences() {
   const values = Object.fromEntries(Object.entries(store.values).filter(([key]) => !byKey.has(key)));
@@ -151,7 +169,7 @@ export function resetGlobalPreferences() {
 /** Sets this project's own value (one undo step); undefined removes the override. Returns false when invalid. */
 export function setProjectPreference(key, value) {
   const def = byKey.get(key);
-  if (!def || !documentReady()) return false;
+  if (!def || def.globalOnly || !documentReady()) return false;
   const next = { ...projectValues() };
   if (value === undefined) delete next[key];
   else {
