@@ -156,7 +156,7 @@ Select an image and click **Replace image…** in the selection bar, or drop an 
 - The new file is cropped from its centre to fill the same frame. Crop it again if you need another part.
 - Inset outlines stay where they are on the page, and their insets show the new image there.
 - Scale bars are recalibrated to the new file's pixel size. If the new file has no pixel size, you are told that the scale bar no longer matches.
-- In a [quick figure](#quick-figure-split-channel-montage), replacing one panel replaces its whole row: each panel shows its channel of the new file.
+- In a [quick figure](#quick-figure-split-channel-montage), replacing one panel replaces its whole row: each panel shows its channel of the new file, and each merge of some of the channels shows the same channels of the new file (those of the same names, otherwise the same numbers).
 - When channels of the new file have the same names as the old ones, a dialog offers to keep their settings (LUT, display range, gamma, invert, on/off) or to use the new file's own.
 
 Dropping several files at once, or dropping a file on the page outside any image, imports them as usual. Undo brings the old image back.
@@ -269,14 +269,17 @@ Panels of a Quick figure can go into a grid: in fill mode, cells of the same siz
 
 ### Quick figure (split-channel montage)
 
-**Quick figure** does the same in one step, from the image itself. Select one or more images and click **Quick figure** in the top bar. Each image becomes a row: one panel per channel, then the merge (the image itself), with column headers above the first row naming each channel in its colour.
+**Quick figure** does the same in one step, from the image itself. Select one or more images and click **Quick figure** in the top bar. Each image becomes a row: one panel per channel, then one panel per merge (the first merge is the image itself), with column headers above the first row.
 
-- **Channels**: which channels get a panel and appear in the merge (by default, the ones shown).
-- **Channel panels**: in colour, or in grey (the merge keeps the colours, and the headers name each colour).
-- **Merge**: last or first.
+- **Channels**: which channels get a panel of their own (by default, the ones shown).
+- **Merges**: each merge is a panel showing the channels ticked on its line; by default there is one merge, of all the channels. **Add merge** adds another (all channels ticked: untick the ones it leaves out), and **Remove** takes one away. For example, from a 4-channel image, keep the four channel panels and make two merges, C1 + C2 and C1 + C3 + C4. A merge needs at least two channels, and two merges cannot have the same channels. You can also remove every merge and keep only the channel panels. The name of each merge is shown as you tick.
+- **Channel panels**: in colour, or in grey (the merges keep the colours, and the headers name each colour).
+- **Merges** (the menu): after the channel panels, or before them.
 - **Gap (mm)**: the space between panels on the printed figure (1 mm by default).
 
-The row fits the page's width. The panels are views of the same image, stored once in the project, and stay linked: changing a channel's range, LUT, gamma or invert, or the brightness and contrast, on any panel changes it on all of them (a grey panel stays grey). Cropping one panel (or **Uncrop**) crops the whole row, which is laid out again with the same gap. Turning channels on or off stays per panel. The headers are ordinary text boxes. Copying and pasting panels of a quick figure makes a separate one: the copies stay linked to each other, not to the panels they were copied from. An image that is rotated, inside a group or cropped to a shape is not used; straighten or ungroup it first.
+**Headers.** A channel's header is its name, in its colour, when the name is 10 characters or fewer; a longer name (or none) gives **Ch1**, **Ch2**, **Ch3**… by the channel's number. A merge's header names its channels joined with " + ", each in its channel's colour (for example "DAPI + Ch2 + Actin"). The dialog's choices, merges included, are kept until the page is closed.
+
+The row fits the page's width. The panels are views of the same image, stored once in the project, and stay linked: changing a channel's range, LUT, gamma or invert, or the brightness and contrast, on any panel changes it on all of them (a grey panel stays grey). Cropping one panel (or **Uncrop**) crops the whole row, which is laid out again with the same gap. Turning channels on or off stays per panel. A merge stores which channels it shows, as its panel's own channel settings, so it keeps them when the project is saved and reopened. The headers are ordinary text boxes. Copying and pasting panels of a quick figure makes a separate one: the copies stay linked to each other, not to the panels they were copied from. An image that is rotated, inside a group or cropped to a shape is not used; straighten or ungroup it first.
 
 ### Panel letters
 

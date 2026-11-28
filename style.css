@@ -111,6 +111,13 @@ button.active,.toggle-btn.active{background:var(--accent-dim);border-color:var(-
 .pdf-issues{margin:4px 0 8px 20px;padding:0;color:var(--text);}
 .export-resolution{display:flex;gap:6px;min-width:0;}
 .qf-channels label{display:inline-flex;align-items:center;gap:4px;margin:2px 12px 2px 0;}
+.export-pages.qf-merges{display:block;}
+.qf-merge-row{border-bottom:1px solid var(--border);padding:4px 0 6px;}
+.qf-merge-head{display:flex;align-items:center;gap:8px;}
+.qf-merge-title{font-weight:600;}
+.qf-merge-name{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;color:var(--text-dim);}
+.qf-merges .qf-merge-channels label{display:inline-flex;align-items:center;gap:4px;margin:2px 12px 2px 0;}
+.qf-merges .qf-merge-add{display:block;margin-top:6px;}
 .grid-buttons{flex-wrap:wrap;}
 .grid-buttons > button{flex:1 1 auto;}
 .qf-swatch{display:inline-block;width:10px;height:10px;border-radius:2px;border:1px solid var(--border);}

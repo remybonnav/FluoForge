@@ -3,10 +3,13 @@
  * Copyright (C) 2026 Remy Bonnavion
  */
 /* Split-channel montage ("Quick figure", P3-T1). Each selected image becomes a row of panels: one per
-   chosen channel plus a merge, with column headers above the first row (channel names in their LUT
-   colour). The image itself becomes the merge panel; each channel panel is a view of the same source,
-   built like an inset (its own registry entry, sharing the source's pixel arrays and sourceId), so the
-   project stores the source once.
+   chosen channel plus one per merge (PI-T12: each merge has its own channels, for example C1 + C2 and
+   C1 + C3 + C4), with column headers above the first row: a channel's name in its LUT colour (its
+   name when 10 characters or fewer, else Ch1, Ch2…), a merge's channels joined with " + ", each part
+   in its channel's colour. The image itself becomes the first merge panel (the first channel panel
+   when there is no merge); every other panel is a view of the same source, built like an inset (its
+   own registry entry, sharing the source's pixel arrays and sourceId), so the project stores the
+   source once. A merge's channels are the channels its panel shows (saved with the panel).
    The panels of a row are linked by `mfcMontageGroup`: range, LUT, gamma, invert, brightness and
    contrast edits reach every panel (js/image/comparison.js, js/image/channels.js), except that a grey
    channel panel keeps its grey LUT; cropping or uncropping one panel crops all of them and lays the row
@@ -27,12 +30,19 @@ import { attachTextListeners } from '../tools/text.js';
 import { refreshLayersPanel } from '../ui/layers.js';
 import { selectedObjects } from '../ui/selection-bar.js';
 
-/** The options of the next montage: channels in grey, merge first, gap in mm, channel numbers (null: the shown ones). */
-export const montageOptions = { grey: false, mergeFirst: false, gapMm: 1, channels: null };
+/** The options of the next montage: channels in grey, merges first, gap in mm, channel numbers (null: the
+    shown ones), merges (lists of channel numbers; null: one merge of the dialog's default, all channels). */
+export const montageOptions = { grey: false, mergeFirst: false, gapMm: 1, channels: null, merges: null };
 
 const isImage = o => o && o.mfcType === 'mfcImage' && registry[o.mfcId];
 export const mmToPx = mm => (Math.max(0, Number(mm) || 0) / 25.4) * docProps.dpi;
 const channelName = (ch, i) => String(ch.name || `Ch ${i + 1}`).trim() || `Ch ${i + 1}`;
+/** A channel's name in a header: its name when 10 characters or fewer, else Ch1, Ch2… */
+export const shortChannelName = (ch, i) => { const name = String((ch && ch.name) || '').trim(); return name && name.length <= 10 ? name : `Ch${i + 1}`; };
+/** A merge's name: its channels' short names joined with " + ". */
+export const mergeName = (channels, set) => set.map(i => shortChannelName(channels[i], i)).join(' + ');
+/** The channel numbers of `list` that `channels` has, once each, in order. */
+const channelSet = (list, channels) => [...new Set((list || []).map(Number).filter(i => Number.isInteger(i) && i >= 0 && i < channels.length))].sort((a, b) => a - b);
 
 /** A header's text size: the default text size, smaller when the name would not fit the panel's width. */
 function fitFontSize(text, width) {
@@ -42,10 +52,10 @@ function fitFontSize(text, width) {
   return size;
 }
 
-/** A channel panel: a view of the merge image's source showing channel `idx` only. */
-function channelPanel(img, idx, grey) {
-  const entry = registry[img.mfcId], raw = entry.rawImage;
-  const channels = raw.channels.map((c, i) => ({ ...c, enabled: i === idx, ...(grey && i === idx ? { color: 'grey' } : {}) }));
+/** A panel that is a view of the image's source showing the channels of `set` (one channel: `grey` makes it grey). */
+function channelPanel(img, set, grey, label) {
+  const entry = registry[img.mfcId], raw = entry.rawImage, single = set.length === 1;
+  const channels = raw.channels.map((c, i) => ({ ...c, enabled: set.includes(i), ...(grey && single && i === set[0] ? { color: 'grey' } : {}) }));
   const clonedRaw = { ...raw, channels };
   const id = 'img' + takeId();
   registry[id] = { rawImage: clonedRaw, sourceId: entry.sourceId, sourceBlob: entry.sourceBlob, workingScale: entry.workingScale };
@@ -55,7 +65,7 @@ function channelPanel(img, idx, grey) {
     scaleX: img.scaleX, scaleY: img.scaleY, left: img.left, top: img.top,
     cornerStyle: img.cornerStyle, transparentCorners: img.transparentCorners, cornerColor: img.cornerColor, borderColor: img.borderColor });
   Object.assign(panel, { mfcId: id, mfcType: 'mfcImage', mfcRawWidth: img.mfcRawWidth, mfcRawHeight: img.mfcRawHeight,
-    mfcFileName: `${img.mfcFileName || 'image'} (${channelName(raw.channels[idx], idx)})` });
+    mfcFileName: `${img.mfcFileName || 'image'} (${label})` });
   return panel;
 }
 
@@ -86,10 +96,22 @@ export function layoutRow(group, origin, w, h) {
 }
 export const groupParts = id => ({ panels: montageMembers(id), headers: canvas.getObjects().filter(o => o.type === 'textbox' && o.mfcMontageGroup === id) });
 
+/** A header's text box: `parts` are [text, colour or null (the text colour)]; one colour per part. */
+function headerBox(parts, w) {
+  const text = parts.map(p => p[0]).join(''), style = {};
+  let at = 0;
+  for (const [part, colour] of parts) { if (colour) for (let k = 0; k < part.length; k++) style[at + k] = { fill: colour }; at += part.length; }
+  const single = parts.length === 1 && parts[0][1];
+  return new fabric.Textbox(text, { fontFamily: getPreference('text.fontFamily'), fontSize: fitFontSize(text, w), width: w, textAlign: 'center',
+    fill: single || getPreference('text.color'), styles: single || !Object.keys(style).length ? {} : { 0: style } });
+}
+
 /**
  * Turns each image into a row of linked panels. Returns the montage ids made. One History step.
- * Options: grey (channel panels in grey), mergeFirst, gapMm, channels (channel numbers to include;
- * null: the shown channels of each image).
+ * Options: grey (channel panels in grey), mergeFirst (merges before the channels), gapMm, channels
+ * (channel numbers that get their own panel; null: the shown channels of each image), merges (a list
+ * of channel-number lists, one merge panel each; null: one merge of the channels). A merge of a
+ * channel an image lacks leaves that channel out; an empty or repeated merge is left out.
  */
 export function quickFigure(images = selectedObjects(isImage), options = montageOptions) {
   canvas.discardActiveObject(); // page coordinates for every image
@@ -102,10 +124,18 @@ export function quickFigure(images = selectedObjects(isImage), options = montage
   let rowTop = usable[0].top, x0 = usable[0].left;
   usable.forEach((img, row) => {
     const raw = registry[img.mfcId].rawImage;
-    const wanted = (options.channels || raw.channels.map((c, i) => (c.enabled ? i : -1))).filter(i => i >= 0 && i < raw.channels.length);
-    const include = [...new Set(wanted)].sort((a, b) => a - b);
-    if (!include.length) { problems.push(`${img.mfcFileName || 'An image'} has no channel to show.`); return; }
-    const id = 'mtg' + takeId(), columns = include.length + 1;
+    const include = channelSet(options.channels || raw.channels.map((c, i) => (c.enabled ? i : -1)), raw.channels);
+    const merges = [], seen = new Set();
+    for (const list of Array.isArray(options.merges) ? options.merges : [include]) {
+      const set = channelSet(list, raw.channels);
+      if (set.length && !seen.has(set.join())) { seen.add(set.join()); merges.push(set); }
+    }
+    if (!include.length && !merges.length) { problems.push(`${img.mfcFileName || 'An image'} has no channel to show.`); return; }
+    // The columns, in order: { set, merge }; the image itself is the first merge (or the first channel).
+    const singles = include.map(i => ({ set: [i], merge: false })), merged = merges.map(set => ({ set, merge: true }));
+    const columnsOf = options.mergeFirst ? [...merged, ...singles] : [...singles, ...merged];
+    const own = merged[0] || singles[0];
+    const id = 'mtg' + takeId(), columns = columnsOf.length;
     // Fit the row in the page's width, with the same margin on the right as on the left.
     const page = pageBounds(Math.max(0, pageIndexForBox(img.getBoundingRect(true, true))));
     const room = page.left + page.width - x0 - Math.max(0, x0 - page.left);
@@ -114,24 +144,30 @@ export function quickFigure(images = selectedObjects(isImage), options = montage
       const f = Math.max(0.02, (room - (columns - 1) * gap) / (columns * w));
       img.set({ scaleX: img.scaleX * f, scaleY: img.scaleY * f }); w *= f; h *= f;
     }
-    const order = options.mergeFirst ? [-1, ...include] : [...include, -1];
-    raw.channels.forEach((c, i) => { c.enabled = include.includes(i); });
-    Object.assign(img, { mfcMontageGroup: id, mfcMontageChannel: -1, mfcMontageColumn: order.indexOf(-1), mfcMontageGrey: !!options.grey, mfcMontageGap: gap });
+    const montage = column => ({ mfcMontageGroup: id, mfcMontageChannel: column.merge ? -1 : column.set[0], mfcMontageColumn: columnsOf.indexOf(column),
+      mfcMontageGrey: !!options.grey, mfcMontageGap: gap });
+    // Column headers above the first row (their colours read before any panel turns grey): a channel's
+    // name in its colour; a merge's channels joined with " + ", each in its colour.
+    const colour = i => legendColor(raw.channels[i], 'white');
+    const headerParts = columnsOf.map(column => (column.merge
+      ? column.set.flatMap((i, k) => [...(k ? [[' + ', null]] : []), [shortChannelName(raw.channels[i], i), colour(i)]])
+      : [[shortChannelName(raw.channels[column.set[0]], column.set[0]), colour(column.set[0])]]));
     let at = canvas.getObjects().indexOf(img);
-    for (const idx of include) {
-      const panel = channelPanel(img, idx, !!options.grey);
-      Object.assign(panel, { mfcMontageGroup: id, mfcMontageChannel: idx, mfcMontageColumn: order.indexOf(idx), mfcMontageGrey: !!options.grey, mfcMontageGap: gap });
+    for (const column of columnsOf) {
+      if (column === own) continue;
+      const label = column.merge ? 'merge ' + mergeName(raw.channels, column.set) : channelName(raw.channels[column.set[0]], column.set[0]);
+      const panel = channelPanel(img, column.set, !column.merge && !!options.grey, label); // merges keep their colours
+      Object.assign(panel, montage(column));
       canvas.insertAt(panel, ++at);
     }
-    // Column headers above the first row: channel names in their colour, and "Merge".
-    if (row === 0) for (const idx of order) {
-      const text = idx < 0 ? 'Merge' : channelName(raw.channels[idx], idx);
-      const header = new fabric.Textbox(text, { fontFamily: getPreference('text.fontFamily'), fontSize: fitFontSize(text, w), width: w, textAlign: 'center',
-        fill: idx < 0 ? getPreference('text.color') : legendColor(raw.channels[idx], 'white') });
-      Object.assign(header, { mfcId: 'txt' + takeId(), mfcType: 'text', mfcMontageGroup: id, mfcMontageChannel: idx, mfcMontageColumn: order.indexOf(idx) });
+    raw.channels.forEach((c, i) => { c.enabled = own.set.includes(i); if (!own.merge && options.grey && i === own.set[0]) c.color = 'grey'; });
+    Object.assign(img, montage(own));
+    if (row === 0) columnsOf.forEach((column, c) => {
+      const header = headerBox(headerParts[c], w);
+      Object.assign(header, { mfcId: 'txt' + takeId(), mfcType: 'text', mfcMontageGroup: id, mfcMontageChannel: column.merge ? -1 : column.set[0], mfcMontageColumn: c });
       attachTextListeners(header);
       canvas.add(header);
-    }
+    });
     const parts = groupParts(id);
     if (row === 0) {
       // Room for the headers above the first row, inside the page.
