@@ -4,6 +4,10 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.55 (2026-11-28)
+
+- **Templates that explain themselves (PI-T13).** The **From template** dialog says what a template is and keeps (the layout, styles and labels, with an empty frame for each image; no image data) and gives the three steps to make and reuse one: build a figure, **Save as template**, then **From template ▸ Open a template file…** and drop an image on each empty frame. Each template has a small preview of its page. A template file opened from the dialog is added to the list with its own preview, to check before **Create** opens it. **Save as template** now opens a dialog with the same explanation, a preview of the template and its **Name** (which also names the file). The manual has a new section, "Making and reusing a template", with an example.
+
 ## v0.1.54 (2026-11-28)
 
 - **Quick figure: more merges (PI-T12).** The merge is now a panel whose channels you choose (all of them by default), and **Add merge** makes more, each with its own channels: for example, from a 4-channel image, the four channels plus C1 + C2 and C1 + C3 + C4, in one step. Merges can also be removed, to keep only the channel panels. Headers follow a new rule: a channel is named by its name when it is 10 characters or fewer, otherwise Ch1, Ch2, Ch3…; a merge is named by its channels joined with " + " (for example "Ch1 + Ch2 + Ch3"), each part in its channel's colour, instead of "Merge". The merges are linked views of the one source, like the other panels: edits, crop and uncrop reach them, and **Replace image…** keeps each merge's channels (matched by name, else by number). The saved format is unchanged: a merge's channels are its panel's own channel settings.

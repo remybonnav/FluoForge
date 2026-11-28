@@ -468,7 +468,19 @@ body:not(.document-open) #side-panel>.panel{display:none;}
 .template-choice{display:flex;align-items:flex-start;gap:8px;padding:5px 0;cursor:pointer;}
 .template-choice > span{display:flex;flex-direction:column;gap:1px;}
 .template-choice .hint{margin:0;}
-.template-modal input:focus-visible,.template-modal button:focus-visible,.replace-modal button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.template-modal input:focus-visible,.template-modal button:focus-visible,.replace-modal button:focus-visible,.template-help summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+/* PI-T13: previews of templates and the steps to make and reuse one. The preview is a white page in every theme. */
+.modal.template-modal{width:min(560px,94vw);}
+.template-preview{flex:0 0 auto;border-radius:3px;box-shadow:0 0 0 1px var(--border);background:#ffffff;}
+.template-save-preview{display:flex;align-items:center;gap:12px;margin:8px 0;}
+.template-save-preview .hint{margin:0;}
+.template-help{border:1px solid var(--border);border-radius:6px;padding:6px 10px;margin:8px 0;color:var(--text);}
+.template-help summary{cursor:pointer;font-weight:600;}
+.template-steps-title{font-size:13px;margin:12px 0 4px;color:var(--text);}
+.template-steps{margin:6px 0 4px 20px;padding:0;color:var(--text);}
+.template-steps li{margin:3px 0;}
+.template-control{font-weight:600;}
+.template-modal .export-field input[type=text]{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px;min-width:0;}
 
 /* Rulers and guides (P3-T7): the rulers lie over the top and left edges of the canvas area. */
 #canvas-area{flex:1;position:relative;display:flex;min-width:0;min-height:0;}
