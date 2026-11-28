@@ -4,6 +4,10 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.53 (2026-11-28)
+
+- **A right-click menu for every object, customisable (PI-T9).** Right-clicking any object (or pressing the Menu key or Shift+F10) opens a menu with what applies to it: **Image info…** or **Plot info…**, **Modify points**, **Adjust crop**, **Copy** and **Paste display settings**, **Replace image…**, **Lock position**, **Bring forward**, **Send backward**, **Bring to front**, **Send to back**, **Group** or **Ungroup**, **Crop to shape**, and **Copy for other software…**. **Customise this menu…** opens the new **Preferences ▸ Context menu** section, where items can be removed and others added (Crop, Uncrop, Draw an inset, Link, Unlink, Lock, Duplicate, Delete, Zoom to selection, Remove shape crop). The choice is kept in this browser, for every project, with **Reset to default**. The menu is built on one list of actions, which the command palette and shortcut sheet will reuse. Fixed: the menu of a shape or text no longer closes when the selection bar refreshes.
+
 ## v0.1.52 (2026-11-27)
 
 - **Seeing which images are linked (PI-T10).** Selecting an image of a comparison group, a quick figure, a series montage, or an image with insets (or an inset) highlights its whole group: an amber dashed outline and a chain badge on each image, whose tooltip names the group. The Layers panel names every group (quick figures, series and insets too, not only comparison groups). **Link** and **Unlink** now say in their tooltips what they will do before you click: which images join or leave which group, whose settings they take, and which stay linked.
