@@ -4,6 +4,10 @@ Each release lists what changed for users first, then development changes. New n
 
 ## Unreleased
 
+## v0.1.52 (2026-11-27)
+
+- **Seeing which images are linked (PI-T10).** Selecting an image of a comparison group, a quick figure, a series montage, or an image with insets (or an inset) highlights its whole group: an amber dashed outline and a chain badge on each image, whose tooltip names the group. The Layers panel names every group (quick figures, series and insets too, not only comparison groups). **Link** and **Unlink** now say in their tooltips what they will do before you click: which images join or leave which group, whose settings they take, and which stay linked.
+
 ## v0.1.51 (2026-11-27)
 
 - **Image info and Plot info for every panel (PI-T8).** Right-click an image ▸ **Image info…** opens its Image info. A vector panel (SVG, PDF, EPS, EMF, WMF) now shows in the Inspector when clicked, in a new **Plot** section: its file, format and page, size on paper, whether it was converted, the message shown when it was imported and what was left out; **Plot info** (button or right-click) shows the same in a dialog. The import message is now saved with the panel (and with a PDF page imported as an image, whose Image info says where it came from), so it can be read again after reopening the project.
